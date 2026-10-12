@@ -1,6 +1,6 @@
 # NotallyXYZ server
 
-Zero-knowledge sync server for NotallyXYZ (Android fork of NotallyX, and the macOS app).
+Zero-knowledge sync server for NotallyXYZ (Android fork of NotallyX, macOS, Linux and Windows apps).
 
 - Stores only ciphertext. Notes, labels and attachments are encrypted on the device
   (AES-256-GCM, key from the sync key with HKDF). The server never gets the key.

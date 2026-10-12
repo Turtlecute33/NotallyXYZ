@@ -1,6 +1,6 @@
 # NotallyXYZ sync protocol, version 1
 
-This document is the contract between the server and all clients (Android, macOS).
+This document is the contract between the server and all clients (Android, macOS, Linux and Windows).
 The server stores only ciphertext. It never receives the sync key, the note content,
 label names or attachment names.
 

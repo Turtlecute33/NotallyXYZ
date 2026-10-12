@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NotallyXYZ
+Comment=Notes and lists with end-to-end encrypted sync
+Exec=notallyxyz
+Icon=notallyxyz
+Terminal=false
+Categories=Office;Utility;
+Keywords=notes;lists;todo;sync;
+StartupWMClass=notallyxyz

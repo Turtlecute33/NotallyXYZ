@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Builds the release files into dist/<version>/: signed Android APK, macOS disk image (universal) and
-# SHA256SUMS. The server image is built by GitHub Actions when the tag is pushed.
+# SHA256SUMS. GitHub Actions builds the server image and the Linux and Windows apps when the tag is
+# pushed, and adds the desktop files to SHA256SUMS of the release.
 #   ./release.zsh 1.0.0
 set -euo pipefail
 version=${1:?usage: ./release.zsh <version>}
