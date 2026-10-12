@@ -49,7 +49,7 @@ fun Long.createNoteUrl(type: Type): String {
 }
 
 fun String.getNoteIdFromUrl(): Long {
-    return substringAfter(NOTE_URL_PREFIX).substringBefore("/").toLong()
+    return substringAfter(NOTE_URL_PREFIX).substringBefore("/").toLongOrNull() ?: -1L
 }
 
 fun String.getNoteTypeFromUrl(): Type {

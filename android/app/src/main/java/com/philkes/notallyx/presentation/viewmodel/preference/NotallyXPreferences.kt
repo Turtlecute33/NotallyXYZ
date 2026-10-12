@@ -188,6 +188,12 @@ class NotallyXPreferences private constructor(private val context: ContextWrappe
         )
     }
 
+    val syncServerUrl = StringPreference(SYNC_SERVER_URL, preferences, "")
+    val syncLastSuccess = LongPreference(SYNC_LAST_SUCCESS, preferences, 0L)
+
+    /** Display form of the sync key, kept in the Keystore-backed encrypted preferences. */
+    val syncKey by lazy { StringPreference("syncKey", encryptedPreferences, "") }
+
     val autoSaveAfterIdleTime =
         IntPreference(
             "autoSaveAfterIdleTime",
@@ -312,6 +318,8 @@ class NotallyXPreferences private constructor(private val context: ContextWrappe
                 iv.key,
                 databaseEncryptionKey.key,
                 dataInPublicFolder.key,
+                SYNC_SERVER_URL,
+                SYNC_LAST_SUCCESS,
             )
 
     fun toJsonString(): String {
@@ -389,6 +397,8 @@ class NotallyXPreferences private constructor(private val context: ContextWrappe
     companion object {
         private const val TAG = "NotallyXPreferences"
         const val EMPTY_PATH = "emptyPath"
+        const val SYNC_SERVER_URL = "syncServerUrl"
+        const val SYNC_LAST_SUCCESS = "syncLastSuccess"
         const val START_VIEW_DEFAULT = ""
         const val START_VIEW_UNLABELED = "com.philkes.notallyx.startview.UNLABELED"
 

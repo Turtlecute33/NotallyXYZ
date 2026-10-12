@@ -26,7 +26,7 @@ android {
     compileSdk = libs.versions.compileSdk.get().toInt()
     ndkVersion = libs.versions.ndk.get()
     defaultConfig {
-        applicationId = "com.philkes.notallyx"
+        applicationId = "com.notallyxyz"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = project.findProperty("app.versionCode").toString().toInt()
@@ -76,12 +76,15 @@ android {
         }
     }
 
+    val releaseStoreFile = providers.gradleProperty("RELEASE_STORE_FILE").orNull
     signingConfigs {
-        create("release") {
-            storeFile = file(providers.gradleProperty("RELEASE_STORE_FILE").get())
-            storePassword = providers.gradleProperty("RELEASE_STORE_PASSWORD").get()
-            keyAlias = providers.gradleProperty("RELEASE_KEY_ALIAS").get()
-            keyPassword = providers.gradleProperty("RELEASE_KEY_PASSWORD").get()
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = providers.gradleProperty("RELEASE_STORE_PASSWORD").get()
+                keyAlias = providers.gradleProperty("RELEASE_KEY_ALIAS").get()
+                keyPassword = providers.gradleProperty("RELEASE_KEY_PASSWORD").get()
+            }
         }
     }
 
@@ -89,7 +92,7 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-DEBUG"
-            resValue("string", "app_name", "NotallyX DEBUG")
+            resValue("string", "app_name", "NotallyXYZ DEBUG")
         }
         release {
             isCrunchPngs = false
@@ -99,13 +102,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release")
         }
         create("beta") {
             initWith(getByName("release"))
             applicationIdSuffix = ".beta"
             versionNameSuffix = "-BETA"
-            resValue("string", "app_name", "NotallyX BETA")
+            resValue("string", "app_name", "NotallyXYZ BETA")
         }
     }
 
@@ -142,7 +145,9 @@ android {
 androidComponents {
     onVariants { variant ->
         val versionName = project.findProperty("app.versionName").toString()
-        variant.outputs.forEach { output -> output.outputFileName.set("NotallyX-$versionName.apk") }
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("NotallyXYZ-$versionName.apk")
+        }
 
         val variantName = variant.name
         val variantCapitalized = variantName.replaceFirstChar { it.uppercase() }
@@ -299,7 +304,8 @@ tasks.register<Copy>("installLocalGitHooks") {
     // chmod +rwx ./.git/hooks/pre-commit*
 }
 
-tasks.preBuild.dependsOn(tasks.named("installLocalGitHooks"), tasks.exportTranslationsToExcel)
+// The fork lives in a monorepo: no git hooks in android/.git.
+tasks.preBuild.dependsOn(tasks.exportTranslationsToExcel)
 
 tasks.register("generateChangelogs") {
     doLast {
@@ -349,10 +355,7 @@ tasks.register("generateChangelogs") {
 
 afterEvaluate {
     tasks.named("bundleRelease").configure { dependsOn(tasks.named("testReleaseUnitTest")) }
-    tasks.named("assembleRelease").configure {
-        dependsOn(tasks.named("testReleaseUnitTest"))
-        finalizedBy(tasks.named("generateChangelogs"))
-    }
+    tasks.named("assembleRelease").configure { dependsOn(tasks.named("testReleaseUnitTest")) }
 }
 
 roborazzi {

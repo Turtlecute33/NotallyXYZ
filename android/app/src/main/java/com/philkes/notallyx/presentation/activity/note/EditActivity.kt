@@ -77,6 +77,7 @@ import com.philkes.notallyx.presentation.viewmodel.preference.editBodySize
 import com.philkes.notallyx.presentation.viewmodel.preference.editTitleSize
 import com.philkes.notallyx.presentation.viewmodel.preference.isAutoSortChecked
 import com.philkes.notallyx.presentation.widget.WidgetProvider
+import com.philkes.notallyx.sync.SyncManager
 import com.philkes.notallyx.utils.FileError
 import com.philkes.notallyx.utils.changeStatusAndNavigationBarColor
 import com.philkes.notallyx.utils.changehistory.ChangeHistory
@@ -118,6 +119,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         get() = notallyModel.viewMode.value == NoteViewMode.EDIT
 
     private val autoSaveHandler = Handler(Looper.getMainLooper())
+    private var syncRegisteredId = 0L
     private val autoSaveRunnable = Runnable {
         lifecycleScope.launch(Dispatchers.Main) {
             updateModel()
@@ -229,6 +231,11 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
             }
         }
 
+        if (syncRegisteredId != notallyModel.id) {
+            SyncManager.get(this).noteClosed(syncRegisteredId)
+            SyncManager.get(this).noteOpened(notallyModel.id)
+            syncRegisteredId = notallyModel.id
+        }
         initBottomMenu()
         resetToolbars()
         if (initListeners) setupListeners()
@@ -326,6 +333,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
 
     override fun onDestroy() {
         autoSaveHandler.removeCallbacks(autoSaveRunnable)
+        SyncManager.get(this).noteClosed(syncRegisteredId)
         super.onDestroy()
     }
 

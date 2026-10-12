@@ -10,7 +10,7 @@
     <string name="all">All</string>
     <string name="always_show_search_bar">Always show search bar expanded</string>
     <string name="always_show_search_bar_hint">By enabling this, the search bar will always be shown in the layout instead of using a search icon in the top bar</string>
-    <string name="app_name" translatable="false">NotallyX</string>
+    <string name="app_name" translatable="false">NotallyXYZ</string>
     <string name="appearance">Appearance</string>
     <string name="archive">Archive</string>
     <string name="archived">Archived</string>
@@ -27,14 +27,14 @@
     <string name="audio_recordings">Audio Recordings</string>
     <string name="auto_backup">Auto Backups</string>
     <string name="auto_backup_error_message">An error occurred during auto backup:\n\'%1$s\'\nPlease check your settings or report a bug</string>
-    <string name="auto_backup_failed">NotallyX Auto Backup failed</string>
+    <string name="auto_backup_failed">NotallyXYZ Auto Backup failed</string>
     <string name="auto_backup_last">Last Backup</string>
     <string name="auto_backup_on_save">Backup on exit Note automatically</string>
     <string name="auto_backup_on_save_hint">By enabling this, a backup (\"NotallyX_AutoBackup.zip\") is automatically created in the configured \"Backups Folder\" whenever a note is exited.\nBe aware this might affect performance</string>
     <string name="auto_backup_skipped_files">Skipped %1$d missing attached files/images</string>
     <string name="auto_backups_folder">Backups Folder</string>
     <string name="auto_backups_folder_hint">Folder in which all auto backups will be stored in.\nIf you want to use Cloud-Storage/WebDAV for your backups, please read the docs (click \"%1$s\")</string>
-    <string name="auto_backups_folder_rechoose">You need to re-choose your Backups Folder so that NotallyX has permission to write to it.\nYou can also press cancel to skip importing Backups Folder value</string>
+    <string name="auto_backups_folder_rechoose">You need to re-choose your Backups Folder so that NotallyXYZ has permission to write to it.\nYou can also press cancel to skip importing Backups Folder value</string>
     <string name="auto_backups_folder_set">Set up a Backups Folder above first</string>
     <string name="auto_remove_deleted_notes">Auto remove deleted Notes permanently after</string>
     <string name="auto_remove_deleted_notes_hint">By enabling this, Notes that were deleted will be permanently removed after X days</string>
@@ -115,7 +115,7 @@
     <string name="daily">Daily</string>
     <string name="dark">Dark</string>
     <string name="data_in_public">Store data in public folder</string>
-    <string name="data_in_public_message">By enabling this, the app’s internal database and attached files will be moved into the app’s public folder (Android/media/com.philkes.notallyx). In combination with file synchronization apps this can be used to synchronize NotallyX data between multiple devices.</string>
+    <string name="data_in_public_message">By enabling this, the app’s internal database and attached files will be moved into the app’s public folder (Android/media/com.notallyxyz). In combination with file synchronization apps this can be used to synchronize NotallyXYZ data between multiple devices.</string>
     <string name="database">Database</string>
     <string name="database_dump_created">Raw database dump created in \'%1$s\'</string>
     <string name="date">Date</string>
@@ -321,10 +321,10 @@
     <string name="plain_text_files">Markdown/Plain Text Files</string>
     <string name="plain_text_files_help">In order to import your Notes from markdown/plain text files (single file or folder), click Import. Every file is imported as a separate note, the file’s name becomes the note’s title. If the text contents start with list syntax (e.g. Markdown ’- [x]’, NotallyX syntax ’[✓]’, or ’*’, ’-’) it will be converted to a List note.</string>
     <string name="play">Play</string>
-    <string name="please_grant_notally_alarm">Please grant NotallyX to send reminders</string>
-    <string name="please_grant_notally_audio">Please grant NotallyX the permission to record audio. Recordings never leave your device</string>
-    <string name="please_grant_notally_notification">Please grant NotallyX the permission to send notifications</string>
-    <string name="please_grant_notally_notification_auto_backup">If an auto backup fails you can receive a notification, if you grant NotallyX permission to send notifications</string>
+    <string name="please_grant_notally_alarm">Please grant NotallyXYZ to send reminders</string>
+    <string name="please_grant_notally_audio">Please grant NotallyXYZ the permission to record audio. Recordings leave your device only end-to-end encrypted, when sync is on</string>
+    <string name="please_grant_notally_notification">Please grant NotallyXYZ the permission to send notifications</string>
+    <string name="please_grant_notally_notification_auto_backup">If an auto backup fails you can receive a notification, if you grant NotallyXYZ permission to send notifications</string>
     <string name="previous">Previous</string>
     <string name="quillpad" translatable="false">Quillpad</string>
     <string name="quillpad_help">In order to import your Notes from Quillpad you must export your Quillpad Notes as a .ZIP Backup file. To do that, open Quillpad, go to Settings &gt; Backup &gt; Create a backup, and save the .ZIP on your phone. \n\nIf you already have a Quillpad Backup .ZIP file, click Import and choose it.</string>
@@ -336,7 +336,7 @@
     <string name="redo">Redo</string>
     <string name="reimport_database">Reimport DB</string>
     <string name="reimport_database_failed">Reimporting Database failed</string>
-    <string name="reimport_database_message">You can now try to reimport the raw database. This deletes the current corrupted database (a backup will be stored in \'Android/media/com.philkes.notallyx/logs\') and then tries to import the raw database by skipping corrupted notes if possible</string>
+    <string name="reimport_database_message">You can now try to reimport the raw database. This deletes the current corrupted database (a backup will be stored in \'Android/media/com.notallyxyz/logs\') and then tries to import the raw database by skipping corrupted notes if possible</string>
     <string name="reminder_no_repetition">No repetition</string>
     <string name="reminders">Reminders</string>
     <string name="remove_link">Remove Link</string>
@@ -360,7 +360,7 @@
     <string name="save_recording">Save recording\?</string>
     <string name="save_to_device">Save to device</string>
     <string name="saved_to_device">Saved to device</string>
-    <string name="saved_to_notally">Saved to NotallyX</string>
+    <string name="saved_to_notally">Saved to NotallyXYZ</string>
     <string name="search">Search</string>
     <string name="security">Security</string>
     <string name="select_all">Select All</string>
@@ -405,8 +405,8 @@
     <string name="time_format_note_view">Time format Note View</string>
     <string name="time_format_overview">Time format Overview</string>
     <string name="title">Title</string>
-    <string name="to_pin_note_status_bar">To pin a note to the status bar, allow NotallyX to send notifications. Tap Settings &gt; Permissions and allow Notifications</string>
-    <string name="to_record_audio">To record audio, allow NotallyX access to your microphone. Tap Settings &gt; Permissions and turn Microphone on</string>
+    <string name="to_pin_note_status_bar">To pin a note to the status bar, allow NotallyXYZ to send notifications. Tap Settings &gt; Permissions and allow Notifications</string>
+    <string name="to_record_audio">To record audio, allow NotallyXYZ access to your microphone. Tap Settings &gt; Permissions and turn Microphone on</string>
     <string name="unarchive">Unarchive</string>
     <plurals name="unarchived_selected_notes">
         <item quantity="one">Unarchived %1$d note</item>
@@ -434,4 +434,36 @@
     <string name="yearly">Yearly</string>
     <string name="years">Years</string>
     <string name="your_notes_associated">Your notes attached to this label will not be deleted</string>
+    <string name="sync">Sync</string>
+    <string name="sync_running">Syncing…</string>
+    <string name="sync_last">Last sync: %1$s</string>
+    <string name="sync_never">Not synced yet</string>
+    <string name="sync_just_now">Last sync: just now</string>
+    <string name="sync_failed">Sync failed: %1$s</string>
+    <string name="sync_setup_create">Create new account</string>
+    <string name="sync_setup_connect">Connect with sync key</string>
+    <string name="sync_setup_hint">Notes are encrypted on this device before they go to your server. The server cannot read them.</string>
+    <string name="sync_server_url">Server URL (https://…)</string>
+    <string name="sync_invite">Invite token of the server</string>
+    <string name="sync_key">Sync key</string>
+    <string name="sync_connect">Connect</string>
+    <string name="sync_key_title">Your sync key</string>
+    <string name="sync_key_message">Keep this key in a password manager. You need it to connect other devices. Nobody can recover it: if you lose it and all devices, the synced copy is lost.</string>
+    <string name="sync_key_copied">Sync key copied</string>
+    <string name="sync_now">Sync now</string>
+    <string name="sync_show_key">Show sync key</string>
+    <string name="sync_disconnect">Disconnect</string>
+    <string name="sync_disconnect_message">Stop sync on this device? The notes on this device and on the server stay.</string>
+    <string name="sync_delete_server">Delete server data</string>
+    <string name="sync_delete_server_message">Delete your account and all synced notes from the server? The notes on this device stay. Other devices stop to sync.</string>
+    <string name="sync_error_invalid_url">Use an https:// address</string>
+    <string name="sync_error_invalid_key">This is not a valid sync key. Check for typing errors.</string>
+    <string name="sync_error_unauthorized">The server does not know this sync key</string>
+    <string name="sync_error_invalid_invite">Incorrect invite token</string>
+    <string name="sync_error_signup_disabled">This server does not accept new accounts</string>
+    <string name="sync_error_offline">Cannot reach the server</string>
+    <string name="sync_error_rate_limited">Too many attempts. Try again later.</string>
+    <string name="sync_error_quota">The server storage is full</string>
+    <string name="sync_error_locked">Unlock the app first</string>
+    <string name="sync_clear_data_warning">Sync is on: this also deletes the notes on the server and on your other devices. To remove them only here, first disconnect sync.</string>
 </resources>

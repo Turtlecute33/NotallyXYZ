@@ -1,0 +1,48 @@
+services:
+  server:
+    build: .
+    # Prebuilt image from GitHub Actions: NOTALLYXYZ_IMAGE=ghcr.io/turtlecute33/notallyxyz-server:1
+    image: ${NOTALLYXYZ_IMAGE:-notallyxyz-server:latest}
+    restart: unless-stopped
+    environment:
+      SIGNUP_TOKEN: ${SIGNUP_TOKEN:-}   # empty = signups disabled
+      MAX_BLOB_MB: 100                  # largest attachment
+      MAX_ACCOUNT_MB: 0                 # 0 = no quota
+      MAX_ACCOUNTS: 0                   # 0 = no limit
+      TRUST_PROXY: "true"               # read the client address from the reverse proxy
+    volumes:
+      - data:/data
+    ports:
+      # Reachable only from this host. Point your reverse proxy (Caddy, Traefik,
+      # Pangolin/Newt, nginx) at it. Never expose it without TLS.
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    pids_limit: 64
+
+  # Optional: automatic HTTPS with Caddy. Start with `docker compose --profile caddy up -d`.
+  caddy:
+    profiles: [caddy]
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    depends_on: [server]
+
+volumes:
+  data:
+  caddy_data:
+  caddy_config:

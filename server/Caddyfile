@@ -1,0 +1,15 @@
+{
+	admin off
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		-Server
+	}
+	log {
+		output discard
+	}
+	reverse_proxy server:8080
+}

@@ -1,3 +1,39 @@
+# NotallyXYZ
+
+Fork of [NotallyX](https://github.com/Crustack/NotallyX) with **end-to-end encrypted sync**
+to your own server. Everything else stays as in NotallyX.
+
+- Sync is off by default. Without it, the app makes no network connections.
+- Notes, labels and attachments are encrypted on the device (AES-256-GCM). The server stores
+  only ciphertext and never gets the key. No account name, no e-mail, no password: one random
+  sync key (shown once) connects your devices.
+- Server: [server](../server) (Docker). macOS app: [mac](../mac).
+  Protocol: [`server/PROTOCOL.md`](../server/PROTOCOL.md).
+- Package id `com.notallyxyz`: it installs next to the original NotallyX. To move your notes,
+  export a backup in NotallyX (Settings → Export backup) and import it in NotallyXYZ.
+
+### Sync in short
+
+Settings → Sync → *Create new account* (first device, needs the invite token of your server)
+or *Connect with sync key* (other devices). Changes sync a few seconds after you edit,
+immediately while the app is open, and every hour in the background.
+Concurrent edits merge field by field; if the same note text changed on two devices, both
+versions are kept (the other one as "… (conflict)").
+
+### Build
+
+```zsh
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17
+./gradlew assembleDebug                      # app/build/outputs/apk/debug
+./gradlew testDebugUnitTest --tests 'com.philkes.notallyx.sync.*'
+```
+
+The end-to-end sync tests need the server binary: `go build -o /tmp/nxyz-android-test-server .`
+in `server/`. Release builds need `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`,
+`RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD` in `~/.gradle/gradle.properties`.
+
+---
+
 <h2 align="center">
     <img src="fastlane/metadata/android/en-US/images/icon.png" alt="icon" width="90"/>
     <br />

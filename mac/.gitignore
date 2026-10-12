@@ -1,0 +1,4 @@
+.build/
+/NotallyXYZ.app
+/build/
+.DS_Store

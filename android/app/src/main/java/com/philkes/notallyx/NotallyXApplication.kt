@@ -26,6 +26,7 @@ import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreference
 import com.philkes.notallyx.presentation.viewmodel.preference.Theme
 import com.philkes.notallyx.presentation.viewmodel.preference.withPrevious
 import com.philkes.notallyx.presentation.widget.WidgetProvider
+import com.philkes.notallyx.sync.SyncManager
 import com.philkes.notallyx.utils.AutoRemoveDeletedNotesWorker
 import com.philkes.notallyx.utils.PidCrashDataCollector
 import com.philkes.notallyx.utils.PinnedNotificationManager
@@ -63,6 +64,7 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
     private val applicationScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private lateinit var preferences: NotallyXPreferences
     private var unlockReceiver: UnlockReceiver? = null
+    private var startedActivities = 0
 
     val locked = MutableStateFlow(true)
 
@@ -88,6 +90,7 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
         }
         if (isTestRunner()) return
         restorePinnedNotifications()
+        SyncManager.get(this).start()
 
         applicationScope.launch {
             preferences.theme.flow.withPrevious().collect { (oldTheme, theme) ->
@@ -309,13 +312,17 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
         activity.setEnabledSecureFlag(preferences.secureFlag.value)
     }
 
-    override fun onActivityStarted(activity: Activity) {}
+    override fun onActivityStarted(activity: Activity) {
+        if (++startedActivities == 1 && !isTestRunner()) SyncManager.get(this).setForeground(true)
+    }
 
     override fun onActivityResumed(activity: Activity) {}
 
     override fun onActivityPaused(activity: Activity) {}
 
-    override fun onActivityStopped(activity: Activity) {}
+    override fun onActivityStopped(activity: Activity) {
+        if (--startedActivities == 0 && !isTestRunner()) SyncManager.get(this).setForeground(false)
+    }
 
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
 

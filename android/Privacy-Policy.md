@@ -1,25 +1,21 @@
-## Privacy Policy
+## Privacy Policy (NotallyXYZ)
 
-This privacy policy applies to the NotallyX app (hereby referred to as "Application") for mobile devices that was created as an Open Source service. This service is intended for use "AS IS".
+NotallyXYZ is a fork of NotallyX with optional end-to-end encrypted sync. It is provided "AS IS".
 
 ### What information does the Application obtain and how is it used?
 
-The Application does not obtain any information when you download and use it. Registration is not required to use the Application.
+Without sync, the Application works fully offline and sends nothing.
+
+With sync turned on, the Application sends your notes, labels and attachments only to the
+server address that you enter. Before they leave the device, they are encrypted with a key that
+only your devices have. The server stores ciphertext and cannot read it. It sees when your
+devices connect, from which IP address, and the approximate size of the encrypted data.
 
 ### Does the Application collect precise real time location information of the device?
 
-This Application does not collect precise information about the location of your mobile device.
+No.
 
 ### Do third parties see and/or have access to information obtained by the Application?
 
-Since the Application does not collect any information, no data is shared with third parties.
-
-### Your Consent
-
-By using the Application, you are consenting to this Privacy Policy now and as amended by the developer.
-
-### Contact Us
-
-If you have any questions regarding privacy while using the Application, or have questions about the practices, please contact us via email at philkeyplaystore@gmail.com.
-
-This privacy policy is effective as of 2024-10-30
+No. There is no analytics, no advertising and no crash reporting service. The sync server is
+operated by you (or by the person who gave you the invite token).

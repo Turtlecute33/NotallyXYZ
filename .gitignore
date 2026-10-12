@@ -2,3 +2,4 @@
 .env
 *.jks
 *.keystore
+/dist/

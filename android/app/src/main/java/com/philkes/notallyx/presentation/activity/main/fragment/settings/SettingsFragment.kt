@@ -63,6 +63,7 @@ import com.philkes.notallyx.presentation.viewmodel.preference.PeriodicBackup.Com
 import com.philkes.notallyx.presentation.viewmodel.preference.PeriodicBackup.Companion.BACKUP_PERIOD_DAYS_MIN
 import com.philkes.notallyx.presentation.viewmodel.preference.PeriodicBackupsPreference
 import com.philkes.notallyx.scheduleAutoRemoveOldDeletedNotes
+import com.philkes.notallyx.sync.SyncManager
 import com.philkes.notallyx.utils.MIME_TYPE_JSON
 import com.philkes.notallyx.utils.MIME_TYPE_ZIP
 import com.philkes.notallyx.utils.backup.exportPreferences
@@ -110,6 +111,7 @@ class SettingsFragment : Fragment() {
         model.preferences.apply {
             setupAppearance(binding)
             setupContentDensity(binding)
+            this@SettingsFragment.setupSync(binding.Sync, this)
             setupBackup(binding)
             setupAutoBackups(binding)
             setupSecurity(binding)
@@ -943,8 +945,14 @@ class SettingsFragment : Fragment() {
             }
 
             ClearData.setOnClickListener {
+                val message =
+                    if (SyncManager.get(requireContext()).isEnabled) {
+                        getString(R.string.clear_data_message) +
+                            "\n\n" +
+                            getString(R.string.sync_clear_data_warning)
+                    } else getString(R.string.clear_data_message)
                 MaterialAlertDialogBuilder(requireContext())
-                    .setMessage(R.string.clear_data_message)
+                    .setMessage(message)
                     .setPositiveButton(R.string.delete_all) { _, _ -> model.deleteAll() }
                     .setCancelButton()
                     .show()

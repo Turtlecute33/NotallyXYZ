@@ -122,6 +122,21 @@
             style="@style/PreferenceHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:text="@string/sync" />
+
+        <include
+            android:id="@+id/Sync"
+            layout="@layout/preference" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?android:attr/listDivider" />
+
+        <TextView
+            style="@style/PreferenceHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:text="@string/backup" />
 
         <TextView

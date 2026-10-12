@@ -23,6 +23,7 @@ import com.philkes.notallyx.data.model.NoteViewMode
 import com.philkes.notallyx.data.model.toColorString
 import com.philkes.notallyx.presentation.viewmodel.preference.BiometricLock
 import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.sync.SyncStore
 import com.philkes.notallyx.utils.getExternalMediaDirectory
 import com.philkes.notallyx.utils.log
 import com.philkes.notallyx.utils.security.getInitializedCipherForDecryption
@@ -218,6 +219,7 @@ abstract class NotallyDatabase : RoomDatabase() {
                     Migration10,
                     Migration11,
                 )
+                .addCallback(SyncStore.callback)
 
         @VisibleForTesting
         internal fun Builder<NotallyDatabase>.setupEncryption(
