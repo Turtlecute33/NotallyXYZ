@@ -1,0 +1,76 @@
+---
+title: 💾 Backups
+type: category
+description: How to securely backup your data
+sidebar_position: 6
+---
+
+# Backups
+
+NotallyX provides features to securely back up and restore your notes, labels, and attachments.
+
+## Auto-Backup
+
+NotallyX can automatically back up your notes to prevent data loss:
+
+1. Open Settings in NotallyX.
+2. Navigate to **Auto Backups**.
+3. Tap **Backups Folder** and select **Choose folder** to specify where backups will be stored.
+4. Once your backup folder is set, you can configure:
+    - **Backup on exit Note automatically**: Triggers an automatic backup whenever a note is modified and closed.
+    - **Periodic Backups**: Automatically creates backups at regular day intervals.
+    - **Maximum Backups to Keep**: Automatically cleans up older backups beyond your specified limit.
+
+## Manual Backup
+
+You can also create backups manually at any time:
+
+1. Open Settings in NotallyX.
+2. Navigate to **Backup**.
+3. Tap **Export backup**.
+4. Choose a file name and location to save the backup file.
+5. Tap **Save**.
+
+## Backup Password Encryption
+
+For added security, you can password-encrypt your backup files:
+
+1. Go to Settings > **Security**.
+2. Tap **Backup password** and set an encryption password.
+3. Future exported backups will be encrypted with AES using your password.
+4. When restoring from an encrypted backup file, you will be prompted to enter this password.
+
+## Restoring from Backup
+
+To restore your notes and attachments from a backup file:
+
+1. Open Settings in NotallyX.
+2. Navigate to **Backup**.
+3. Tap **Import backup**.
+4. Select the backup file from your storage.
+5. If the backup is password-protected, enter the correct password when prompted.
+6. Tap **Import Backup**.
+
+*Note: Importing a backup merges restored notes and labels with your existing data without deleting current notes.*
+
+## Using Cloud Storage / WebDAV
+
+### SAF WebDAV Mounts
+If you want to store your backups on a cloud storage or WebDAV server, you can use a third-party app to mount your WebDAV server into Android's Storage Access Framework (SAF).
+
+Popular tools for mounting WebDAV include [DAVx⁵](https://f-droid.org/en/packages/at.bitfire.davdroid/) or [RS File Explorer](https://play.google.com/store/search?q=rs+file+explorer&c=apps&hl=en).
+
+For example, using **DAVx⁵**:
+1. Open DAVx⁵ -> Menu -> **WebDAV mounts** -> **+**.
+2. Enter the **URL**, **Display Name**, **Username**, and **Password** of your WebDAV server -> tap **Add mount**.
+3. In NotallyX Settings > **Auto Backups** > **Backups Folder**, select your WebDAV mount in the Android file picker:
+
+<img src={require('/img/webdav.png').default} width="32%" alt="WebDAV in File Chooser" />
+
+### Folder Synchronization
+Alternatively, you can use synchronization apps like [FolderSync](https://play.google.com/store/apps/details?id=dk.tacit.android.foldersync.lite&hl=en) or Syncthing to sync a local folder on your device with your cloud storage or other devices, and set NotallyX's backup folder to that synced location.
+
+## Related Features
+
+- [Settings](../settings.mdx): Explore all app settings
+- [Security and Privacy](../security-privacy.mdx): Learn about biometric lock and privacy features
