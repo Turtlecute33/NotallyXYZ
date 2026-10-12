@@ -1,0 +1,69 @@
+package com.philkes.notallyx.test
+
+import android.content.Context
+import android.hardware.biometrics.BiometricManager
+import androidx.fragment.app.FragmentActivity
+import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.utils.security.BiometricAuthenticator
+import com.philkes.notallyx.utils.security.getCipher
+import com.philkes.notallyx.utils.security.getOrCreateSecretKey
+import javax.crypto.Cipher
+import javax.crypto.SecretKey
+import javax.crypto.spec.IvParameterSpec
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+
+class FakeBiometricAuthenticator : BiometricAuthenticator, KoinComponent {
+    var iv: ByteArray? = null
+    private var encryptCounter = 0
+    private var decryptCounter = 0
+    private val secretKey: SecretKey
+    private val preferences: NotallyXPreferences by inject()
+
+    constructor() {
+        secretKey = getOrCreateSecretKey()
+    }
+
+    override fun authenticate(
+        activity: FragmentActivity,
+        cipherIv: ByteArray?,
+        isForDecrypt: Boolean,
+        onSuccess: (Cipher?) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        if (iv != null) {
+            if (isForDecrypt) {
+                if (preferences.biometricLockEncryptsDb.value && cipherIv != null) {
+                    val cipher = getCipher()
+                    decryptCounter++
+                    cipher.init(Cipher.DECRYPT_MODE, secretKey, IvParameterSpec(cipherIv))
+                    onSuccess(cipher)
+                } else {
+                    onSuccess(null)
+                }
+            } else {
+                val cipher = getCipher()
+                encryptCounter++
+                cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+                onSuccess(cipher)
+            }
+        } else {
+            onError("Authentication failed")
+        }
+    }
+
+    override fun canAuthenticateWithBiometrics(context: Context): Int =
+        BiometricManager.BIOMETRIC_SUCCESS
+
+    fun getEncryptionCipher(): Cipher {
+        return getCipher().apply { init(Cipher.ENCRYPT_MODE, secretKey) }
+    }
+
+    fun getEncryptionCounter(): Int {
+        return encryptCounter
+    }
+
+    fun getDecryptionCounter(): Int {
+        return decryptCounter
+    }
+}
