@@ -29,6 +29,10 @@ With Homebrew:
 brew install --cask turtlecute33/tap/notallyxyz   # updates come with `brew upgrade`
 ```
 
+If you installed the app from the DMG before, brew stops with "there is already an App at
+/Applications/NotallyXYZ.app". Run the install once with `--force`: brew replaces that copy and
+updates it from then on. Your notes stay (they are in `~/Library/Containers/com.notallyxyz.mac`).
+
 Or download the DMG from the GitHub release, open it and drag NotallyXYZ to Applications.
 Do not start the app from the DMG or from Downloads: macOS then runs a temporary copy
 (App Translocation) and the app does not show in Spotlight.
