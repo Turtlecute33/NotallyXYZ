@@ -136,17 +136,20 @@ struct AppearanceSettings: View {
                     ForEach(1...10, id: \.self) { Text("\($0)").tag($0) }
                 }
                 .disabled(!model.showPreview)
+                Picker("Card size", selection: $model.cardSize) {
+                    ForEach(CardSize.allCases) { Text($0.title).tag($0) }
+                }
                 Toggle("Show labels on cards", isOn: $model.showLabels)
                 Toggle("Show images on cards", isOn: $model.showImages)
                 Toggle("Show date on cards", isOn: $model.showDate)
             } header: {
                 Text("Notes overview")
             } footer: {
-                Text("Without a preview, a card shows the title, labels and images. A note without a title shows its first line.")
+                Text("Without a preview, a card shows the title, labels and images. A note without a title shows its first line. Card size sets the smallest height of all cards, with or without a preview.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-        .frame(minHeight: 480)  // all rows without scrolling
+        .frame(minHeight: 510)  // all rows without scrolling
     }
 }

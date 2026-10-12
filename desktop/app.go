@@ -46,6 +46,7 @@ type Settings struct {
 	ShowPreview     bool   `json:"showPreview"`
 	PreviewLines    int    `json:"previewLines"` // 1–10
 	PreviewItems    int    `json:"previewItems"` // 1–10
+	CardSize        string `json:"cardSize"`     // fit | small | medium | large
 	ShowLabels      bool   `json:"showLabels"`
 	ShowImages      bool   `json:"showImages"`
 	ShowDate        bool   `json:"showDate"`
@@ -56,7 +57,7 @@ type Settings struct {
 
 func defaultSettings() Settings {
 	return Settings{Theme: "system", TextSize: "default", Layout: "grid", ShowPreview: true, PreviewLines: 8,
-		PreviewItems: 4, ShowLabels: true, ShowImages: true, ShowDate: true, SortBy: "modified", AutoSortChecked: true}
+		PreviewItems: 4, CardSize: "fit", ShowLabels: true, ShowImages: true, ShowDate: true, SortBy: "modified", AutoSortChecked: true}
 }
 
 func (s *Settings) clean() {
@@ -72,6 +73,7 @@ func (s *Settings) clean() {
 	oneOf(&s.Theme, d.Theme, "system", "light", "dark")
 	oneOf(&s.TextSize, d.TextSize, "small", "default", "large", "extraLarge")
 	oneOf(&s.Layout, d.Layout, "grid", "list")
+	oneOf(&s.CardSize, d.CardSize, "fit", "small", "medium", "large")
 	oneOf(&s.SortBy, d.SortBy, "modified", "created", "title", "color")
 	s.PreviewLines = min(10, max(1, s.PreviewLines))
 	s.PreviewItems = min(10, max(1, s.PreviewItems))

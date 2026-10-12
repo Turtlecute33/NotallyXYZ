@@ -59,6 +59,12 @@ export function showSettings(main, app, onClose) {
           toggle(s.showPreview, (v) => set({ showPreview: v }))),
         row('Lines of text in preview', null, number(s.previewLines, 'previewLines', !s.showPreview), !s.showPreview),
         row('Items of lists in preview', null, number(s.previewItems, 'previewItems', !s.showPreview), !s.showPreview),
+        row('Card size', 'Smallest height of all cards, with or without a preview.', (() => {
+          const sel = h('select', { class: 'input', onchange: () => set({ cardSize: sel.value }) },
+            [['fit', 'Fit content'], ['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']].map(([v, t]) => h('option', { value: v }, t)));
+          sel.value = s.cardSize;
+          return sel;
+        })()),
         row('Show labels on cards', null, toggle(s.showLabels, (v) => set({ showLabels: v }))),
         row('Show images on cards', null, toggle(s.showImages, (v) => set({ showImages: v }))),
         row('Show date on cards', null, toggle(s.showDate, (v) => set({ showDate: v })))),

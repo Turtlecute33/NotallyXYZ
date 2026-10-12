@@ -65,6 +65,31 @@ enum TextSize: String, CaseIterable, Identifiable {
     static var current: TextSize { TextSize(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .normal }
 }
 
+/// Smallest height of a card in the overview, with or without preview.
+enum CardSize: String, CaseIterable, Identifiable {
+    case fit, small, medium, large
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .fit: return "Fit content"
+        case .small: return "Small"
+        case .medium: return "Medium"
+        case .large: return "Large"
+        }
+    }
+
+    /// Points at the default text size.
+    var minHeight: CGFloat {
+        switch self {
+        case .fit: return 0
+        case .small: return 90
+        case .medium: return 140
+        case .large: return 200
+        }
+    }
+}
+
 @MainActor @Observable
 final class AppModel {
     private(set) var store: NoteStore?
@@ -90,6 +115,7 @@ final class AppModel {
     var showPreview = true { didSet { defaults.set(showPreview, forKey: "appearance.showPreview") } }
     var previewLines = 8 { didSet { defaults.set(previewLines, forKey: "appearance.previewLines") } }
     var previewItems = 4 { didSet { defaults.set(previewItems, forKey: "appearance.previewItems") } }
+    var cardSize: CardSize = .fit { didSet { defaults.set(cardSize.rawValue, forKey: "appearance.cardSize") } }
     var showLabels = true { didSet { defaults.set(showLabels, forKey: "appearance.showLabels") } }
     var showImages = true { didSet { defaults.set(showImages, forKey: "appearance.showImages") } }
     var showDate = true { didSet { defaults.set(showDate, forKey: "appearance.showDate") } }
@@ -117,15 +143,19 @@ final class AppModel {
         showPreview = defaults.bool(forKey: "appearance.showPreview")
         previewLines = min(10, max(1, defaults.integer(forKey: "appearance.previewLines")))
         previewItems = min(10, max(1, defaults.integer(forKey: "appearance.previewItems")))
+        cardSize = CardSize(rawValue: defaults.string(forKey: "appearance.cardSize") ?? "") ?? .fit
         showLabels = defaults.bool(forKey: "appearance.showLabels")
         showImages = defaults.bool(forKey: "appearance.showImages")
         showDate = defaults.bool(forKey: "appearance.showDate")
         #if DEBUG
-        // Screenshots and manual tests only; compiled out of release builds.
+        // Screenshots and manual tests only; compiled out of release builds. The demo account stays
+        // in memory and a temporary folder: it never touches the Keychain or the real local cache.
         let env = ProcessInfo.processInfo.environment
         if let server = env["NXYZ_DEMO_SERVER"].flatMap(APIClient.validate),
            let keys = env["NXYZ_DEMO_KEY"].flatMap({ try? SyncKeys.parse($0) }) {
-            try? finishSetup(server: server, keys: keys)
+            let demo = FileManager.default.temporaryDirectory.appendingPathComponent("NotallyXYZ-demo", isDirectory: true)
+            try? FileManager.default.removeItem(at: demo)
+            try? open(url: server, keys: keys, directory: demo)
             return
         }
         #endif
@@ -139,8 +169,8 @@ final class AppModel {
     /// All windows, Settings included. NSApp is nil before launch; the delegate applies it again then.
     func applyTheme() { NSApp?.appearance = theme.appearance }
 
-    private func open(url: URL, keys: SyncKeys) throws {
-        let store = try NoteStore(directory: Self.dataDirectory, keys: keys)
+    private func open(url: URL, keys: SyncKeys, directory: URL? = nil) throws {
+        let store = try NoteStore(directory: directory ?? Self.dataDirectory, keys: keys)
         let engine = SyncEngine(store: store, api: APIClient(baseURL: url, keys: keys))
         store.onLocalChange = { [weak engine] in engine?.schedule() }
         store.onNotesChanged = { [weak self] in self?.scheduleReminders() }

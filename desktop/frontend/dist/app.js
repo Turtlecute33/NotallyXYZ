@@ -29,6 +29,7 @@ function applyAppearance() {
   const root = document.documentElement;
   if (s.theme === 'system') delete root.dataset.theme; else root.dataset.theme = s.theme;
   root.dataset.size = s.textSize;
+  root.dataset.card = s.cardSize;
 }
 
 // Data

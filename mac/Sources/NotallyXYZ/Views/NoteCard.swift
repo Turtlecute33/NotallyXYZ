@@ -50,7 +50,7 @@ struct NoteCard: View {
             .padding(.top, image == nil ? 12 : 0)
             .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: model.cardSize.minHeight * scale, alignment: .topLeading)
         .fixedSize(horizontal: false, vertical: true)  // always the full height it needs
         .clipShape(.rect(cornerRadius: Theme.cardRadius, style: .continuous))
         .glassCard(note.color)
