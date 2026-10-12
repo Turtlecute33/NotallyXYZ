@@ -26,7 +26,7 @@ is private like the repository, so log in once with a token that has only `read:
 
 ```zsh
 docker login ghcr.io -u turtlecute33
-echo 'NOTALLYXYZ_IMAGE=ghcr.io/turtlecute33/notallyxyz-server:1' >> .env
+echo 'NOTALLYXYZ_IMAGE=ghcr.io/turtlecute33/notallyxyz-server:1.0' >> .env
 docker compose pull server
 docker compose up -d --no-build
 ```

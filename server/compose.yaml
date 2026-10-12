@@ -1,7 +1,7 @@
 services:
   server:
     build: .
-    # Prebuilt image from GitHub Actions: NOTALLYXYZ_IMAGE=ghcr.io/turtlecute33/notallyxyz-server:1
+    # Prebuilt image from GitHub Actions: NOTALLYXYZ_IMAGE=ghcr.io/turtlecute33/notallyxyz-server:1.0
     image: ${NOTALLYXYZ_IMAGE:-notallyxyz-server:latest}
     restart: unless-stopped
     environment:
