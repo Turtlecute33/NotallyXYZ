@@ -10,6 +10,14 @@ struct SettingsView: View {
     @State private var busy = false
 
     var body: some View {
+        TabView {
+            Tab("General", systemImage: "gearshape") { general }
+            Tab("Appearance", systemImage: "paintbrush") { AppearanceSettings() }
+        }
+    }
+
+    @ViewBuilder
+    private var general: some View {
         @Bindable var model = model
         Form {
             if let store = model.store, let engine = model.engine {
@@ -94,5 +102,51 @@ struct SettingsView: View {
                 message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
         }
+    }
+}
+
+/// Look of the overview and the editor. The Android, Linux and Windows apps have the same settings.
+struct AppearanceSettings: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+        Form {
+            Section {
+                Picker("Theme", selection: $model.theme) {
+                    ForEach(AppTheme.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Picker("Text size", selection: $model.textSize) {
+                    ForEach(TextSize.allCases) { Text($0.title).tag($0) }
+                }
+            }
+            Section {
+                Picker("Layout", selection: $model.gridView) {
+                    Text("Grid").tag(true)
+                    Text("List").tag(false)
+                }
+                .pickerStyle(.segmented)
+                Toggle("Show note preview", isOn: $model.showPreview)
+                Picker("Lines of text in preview", selection: $model.previewLines) {
+                    ForEach(1...10, id: \.self) { Text("\($0)").tag($0) }
+                }
+                .disabled(!model.showPreview)
+                Picker("Items of lists in preview", selection: $model.previewItems) {
+                    ForEach(1...10, id: \.self) { Text("\($0)").tag($0) }
+                }
+                .disabled(!model.showPreview)
+                Toggle("Show labels on cards", isOn: $model.showLabels)
+                Toggle("Show images on cards", isOn: $model.showImages)
+                Toggle("Show date on cards", isOn: $model.showDate)
+            } header: {
+                Text("Notes overview")
+            } footer: {
+                Text("Without a preview, a card shows the title, labels and images. A note without a title shows its first line.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .frame(minHeight: 480)  // all rows without scrolling
     }
 }

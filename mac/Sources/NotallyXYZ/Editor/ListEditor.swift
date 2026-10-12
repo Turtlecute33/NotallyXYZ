@@ -6,6 +6,7 @@ struct ListEditor: View {
     @Binding var items: [ListItem]
     let editable: Bool
     let autoSort: Bool
+    let fontSize: CGFloat
     let onChange: () -> Void
     @FocusState private var focus: UUID?
 
@@ -49,7 +50,7 @@ struct ListEditor: View {
                     .disabled(!editable)
                 TextField("", text: Binding(get: { items[safe: index]?.body ?? "" }, set: { setBody(index, $0) }), axis: .vertical)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 14))
+                    .font(.system(size: fontSize))
                     .foregroundStyle(item.checked ? .secondary : .primary)
                     .disabled(!editable)
                     .focused($focus, equals: item.id)

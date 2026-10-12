@@ -116,6 +116,8 @@ struct RichTextEditor: NSViewRepresentable {
     var body: String
     var spans: [Span]
     var editable: Bool
+    /// The text size setting; a new value reloads the text with new fonts.
+    var fontSize: CGFloat
     let controller: EditorController
     var onChange: (String, [Span]) -> Void
     var onOpenLink: (String) -> Void
@@ -152,7 +154,9 @@ struct RichTextEditor: NSViewRepresentable {
         view.isEditable = editable
         view.appearance = NSAppearance(named: context.environment.colorScheme == .dark ? .darkAqua : .aqua)
         controller.textView = view
-        if body != context.coordinator.lastBody || spans != context.coordinator.lastSpans {
+        if body != context.coordinator.lastBody || spans != context.coordinator.lastSpans
+            || fontSize != context.coordinator.lastFontSize {
+            view.font = SpanText.font(bold: false, italic: false, mono: false)
             context.coordinator.load(body, spans)
         }
     }
@@ -169,6 +173,7 @@ struct RichTextEditor: NSViewRepresentable {
         var parent: RichTextEditor
         var lastBody = ""
         var lastSpans: [Span] = []
+        var lastFontSize: CGFloat = 0
         weak var view: RichTextView?
 
         init(_ parent: RichTextEditor) { self.parent = parent }
@@ -176,6 +181,7 @@ struct RichTextEditor: NSViewRepresentable {
         func load(_ body: String, _ spans: [Span]) {
             lastBody = body
             lastSpans = spans
+            lastFontSize = parent.fontSize
             guard let view else { return }
             let selection = view.selectedRanges
             view.textStorage?.setAttributedString(SpanText.editable(body, spans))

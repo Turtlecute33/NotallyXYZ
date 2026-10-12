@@ -75,7 +75,8 @@ struct NoteEditor: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     header(note, editable: editable)
-                    RichTextEditor(body: note.body, spans: note.spans, editable: editable, controller: controller,
+                    RichTextEditor(body: note.body, spans: note.spans, editable: editable,
+                                   fontSize: 14 * model.textSize.scale, controller: controller,
                                    onChange: { body, spans in update(content: true) { $0.body = body; $0.spans = spans } },
                                    onOpenLink: openLink)
                         .frame(minHeight: 240, alignment: .top)
@@ -98,7 +99,8 @@ struct NoteEditor: View {
             List {
                 Section { header(note, editable: editable) }
                 ListEditor(items: Binding(get: { self.note?.items ?? [] }, set: { items in update(content: true) { $0.items = items } }),
-                           editable: editable, autoSort: model.autoSortChecked, onChange: {})
+                           editable: editable, autoSort: model.autoSortChecked,
+                           fontSize: 14 * model.textSize.scale, onChange: {})
                 Section { footer(note) }
             }
             .scrollContentBackground(.hidden)
@@ -112,7 +114,7 @@ struct NoteEditor: View {
         VStack(alignment: .leading, spacing: 6) {
             TextField("Title", text: binding(\.title, content: true), axis: .vertical)
                 .textFieldStyle(.plain)
-                .font(.system(size: 22, weight: .medium))
+                .font(.system(size: 22 * model.textSize.scale, weight: .medium))
                 .disabled(!editable)
             Text("Created \(Format.full(Format.date(note.timestamp)))  ·  Modified \(Format.ago(note.modifiedTimestamp))")
                 .font(.caption).foregroundStyle(.secondary)

@@ -13,6 +13,8 @@ The sync protocol is in [`PROTOCOL.md`](../server/PROTOCOL.md) of the server.
 - Images, files and audio playback; add images and files from disk
 - Reminders with repetition, as local notifications
 - Live sync while the app is active (long poll), conflict-free field merge with the Android app
+- Appearance settings: theme, text size, grid or list, note preview on or off, preview lines and
+  list items, labels, images and date on cards
 
 ## Requirements
 

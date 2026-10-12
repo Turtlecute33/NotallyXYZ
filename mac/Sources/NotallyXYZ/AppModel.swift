@@ -23,6 +23,48 @@ enum SortBy: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum AppTheme: String, CaseIterable, Identifiable {
+    case system, light, dark
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+
+    /// nil follows the system.
+    var appearance: NSAppearance? {
+        switch self {
+        case .system: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
+enum TextSize: String, CaseIterable, Identifiable {
+    case small, normal = "default", large, extraLarge
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .small: return "Small"
+        case .normal: return "Default"
+        case .large: return "Large"
+        case .extraLarge: return "Extra large"
+        }
+    }
+
+    var scale: CGFloat {
+        switch self {
+        case .small: return 0.9
+        case .normal: return 1
+        case .large: return 1.15
+        case .extraLarge: return 1.3
+        }
+    }
+
+    static let key = "appearance.textSize"
+    /// Read outside the main actor too (editor fonts).
+    static var current: TextSize { TextSize(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .normal }
+}
+
 @MainActor @Observable
 final class AppModel {
     private(set) var store: NoteStore?
@@ -42,6 +84,16 @@ final class AppModel {
     var gridView = true { didSet { defaults.set(gridView, forKey: "gridView") } }
     var autoSortChecked = true { didSet { defaults.set(autoSortChecked, forKey: "autoSortChecked") } }
 
+    // Appearance
+    var theme: AppTheme = .system { didSet { defaults.set(theme.rawValue, forKey: "appearance.theme"); applyTheme() } }
+    var textSize: TextSize = .normal { didSet { defaults.set(textSize.rawValue, forKey: TextSize.key) } }
+    var showPreview = true { didSet { defaults.set(showPreview, forKey: "appearance.showPreview") } }
+    var previewLines = 8 { didSet { defaults.set(previewLines, forKey: "appearance.previewLines") } }
+    var previewItems = 4 { didSet { defaults.set(previewItems, forKey: "appearance.previewItems") } }
+    var showLabels = true { didSet { defaults.set(showLabels, forKey: "appearance.showLabels") } }
+    var showImages = true { didSet { defaults.set(showImages, forKey: "appearance.showImages") } }
+    var showDate = true { didSet { defaults.set(showDate, forKey: "appearance.showDate") } }
+
     @ObservationIgnored private var reminderTask: Task<Void, Never>?
 
     static var dataDirectory: URL {
@@ -50,12 +102,24 @@ final class AppModel {
     }
 
     init() {
-        defaults.register(defaults: ["gridView": true, "autoSortChecked": true])
+        defaults.register(defaults: [
+            "gridView": true, "autoSortChecked": true, "appearance.showPreview": true, "appearance.previewLines": 8,
+            "appearance.previewItems": 4, "appearance.showLabels": true, "appearance.showImages": true,
+            "appearance.showDate": true,
+        ])
         serverURL = defaults.string(forKey: "serverURL") ?? ""
         sortBy = SortBy(rawValue: defaults.string(forKey: "sortBy") ?? "") ?? .modified
         sortAscending = defaults.bool(forKey: "sortAscending")
         gridView = defaults.bool(forKey: "gridView")
         autoSortChecked = defaults.bool(forKey: "autoSortChecked")
+        theme = AppTheme(rawValue: defaults.string(forKey: "appearance.theme") ?? "") ?? .system
+        textSize = TextSize.current
+        showPreview = defaults.bool(forKey: "appearance.showPreview")
+        previewLines = min(10, max(1, defaults.integer(forKey: "appearance.previewLines")))
+        previewItems = min(10, max(1, defaults.integer(forKey: "appearance.previewItems")))
+        showLabels = defaults.bool(forKey: "appearance.showLabels")
+        showImages = defaults.bool(forKey: "appearance.showImages")
+        showDate = defaults.bool(forKey: "appearance.showDate")
         #if DEBUG
         // Screenshots and manual tests only; compiled out of release builds.
         let env = ProcessInfo.processInfo.environment
@@ -71,6 +135,9 @@ final class AppModel {
     }
 
     var isConnected: Bool { store != nil }
+
+    /// All windows, Settings included. NSApp is nil before launch; the delegate applies it again then.
+    func applyTheme() { NSApp?.appearance = theme.appearance }
 
     private func open(url: URL, keys: SyncKeys) throws {
         let store = try NoteStore(directory: Self.dataDirectory, keys: keys)

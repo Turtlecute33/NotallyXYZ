@@ -11,7 +11,8 @@ extension NSAttributedString.Key {
 /// Converts between the synced `spans` model and attributed strings.
 /// Span offsets are UTF-16 indices, the same as Java strings and NSString.
 enum SpanText {
-    static let fontSize: CGFloat = 14
+    /// Editor text size: 14 pt scaled by the text size setting.
+    static var fontSize: CGFloat { 14 * TextSize.current.scale }
 
     /// Read-only preview for cards.
     static func attributed(_ body: String, _ spans: [Span]) -> AttributedString {

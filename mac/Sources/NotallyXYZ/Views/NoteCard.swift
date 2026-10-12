@@ -8,12 +8,15 @@ struct NoteCard: View {
     let search: String
     @Environment(AppModel.self) private var model
 
-    static let maxLines = 8
-    static let maxItems = 4
+    private var scale: CGFloat { model.textSize.scale }
+    /// Without a preview, an untitled note still shows its first line.
+    private var maxLines: Int { model.showPreview ? model.previewLines : note.title.isEmpty ? 1 : 0 }
+    private var maxItems: Int { model.showPreview ? model.previewItems : note.title.isEmpty ? 1 : 0 }
+    private var image: FileAttachment? { model.showImages ? note.images.first : nil }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if let image = note.images.first {
+            if let image {
                 // A 4:3 box sized by the card width; the image is cropped into it.
                 Thumbnail(localName: image.localName, maxPixels: 640)
                     .aspectRatio(4 / 3, contentMode: .fit)
@@ -30,9 +33,9 @@ struct NoteCard: View {
             }
             VStack(alignment: .leading, spacing: 6) {
                 if !note.title.isEmpty {
-                    Text(note.title).font(.system(size: 15, weight: .medium)).lineLimit(2)
+                    Text(note.title).font(.system(size: 15 * scale, weight: .medium)).lineLimit(2)
                 }
-                meta
+                if model.showDate || !note.reminders.isEmpty || !note.audios.isEmpty { meta }
                 if let file = note.files.first {
                     Label(note.files.count > 1 ? "\(file.originalName) +\(note.files.count - 1)" : file.originalName,
                           systemImage: "doc")
@@ -41,10 +44,10 @@ struct NoteCard: View {
                         .overlay(Capsule().stroke(.secondary.opacity(0.5)))
                 }
                 content
-                if !note.labels.isEmpty { LabelChips(labels: note.labels) }
+                if model.showLabels && !note.labels.isEmpty { LabelChips(labels: note.labels) }
             }
             .padding(.horizontal, 14)
-            .padding(.top, note.images.isEmpty ? 12 : 0)
+            .padding(.top, image == nil ? 12 : 0)
             .padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -68,7 +71,7 @@ struct NoteCard: View {
             }
             if !note.audios.isEmpty { Image(systemName: "waveform").font(.caption2).foregroundStyle(.secondary) }
         }
-        let dateText = Text(date).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+        let dateText = model.showDate ? Text(date).font(.caption).foregroundStyle(.secondary).lineLimit(1) : nil
         return ViewThatFits(in: .horizontal) {
             HStack(spacing: 8) { dateText; marks }
             VStack(alignment: .leading, spacing: 4) { dateText; marks }
@@ -79,28 +82,30 @@ struct NoteCard: View {
     private var content: some View {
         switch note.type {
         case .note:
-            if !note.body.isEmpty {
+            if !note.body.isEmpty && maxLines > 0 {
                 Text(SpanText.attributed(note.body, note.spans))
-                    .font(.system(size: 13))
+                    .font(.system(size: 13 * scale))
                     .lineSpacing(2)
-                    .lineLimit(Self.maxLines)
+                    .lineLimit(maxLines)
             }
         case .list:
             // A parent shows as checked when all its children are, like the Android card.
             let items = ListOps.normalized(note.items, autoSort: false)
-            VStack(alignment: .leading, spacing: 3) {
-                ForEach(items.prefix(Self.maxItems)) { item in
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Image(systemName: item.checked ? "checkmark.square.fill" : "square")
-                            .font(.system(size: 12))
-                        Text(item.body).font(.system(size: 13)).lineLimit(1)
-                            .foregroundStyle(item.checked ? .secondary : .primary)
+            if maxItems > 0 && !items.isEmpty {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(items.prefix(maxItems)) { item in
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Image(systemName: item.checked ? "checkmark.square.fill" : "square")
+                                .font(.system(size: 12 * scale))
+                            Text(item.body).font(.system(size: 13 * scale)).lineLimit(1)
+                                .foregroundStyle(item.checked ? .secondary : .primary)
+                        }
+                        .padding(.leading, item.isChild ? 18 : 0)
                     }
-                    .padding(.leading, item.isChild ? 18 : 0)
-                }
-                if items.count > Self.maxItems {
-                    Label("\(items.count - Self.maxItems)", systemImage: "plus")
-                        .font(.caption).foregroundStyle(.secondary)
+                    if items.count > maxItems {
+                        Label("\(items.count - maxItems)", systemImage: "plus")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
         }

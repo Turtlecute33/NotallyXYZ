@@ -76,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         SelfTest.runIfRequested()
         TempFiles.cleanUp()
         UNUserNotificationCenter.current().delegate = self
+        AppModel.shared.applyTheme()
         #if DEBUG
         DemoSnapshot.runIfRequested()
         #endif
