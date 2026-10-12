@@ -19,6 +19,15 @@ The sync protocol is in [`PROTOCOL.md`](../server/PROTOCOL.md) of the server.
 - macOS 26 or later
 - Command Line Tools (Xcode is not needed)
 
+## Install
+
+Download the DMG from the GitHub release, open it and drag NotallyXYZ to Applications.
+Do not start the app from the DMG or from Downloads: macOS then runs a temporary copy
+(App Translocation) and the app does not show in Spotlight.
+
+The app has an ad-hoc signature, not an Apple Developer ID. On the first start macOS blocks it:
+click Done, then System Settings → Privacy & Security → Open Anyway. This is needed only once.
+
 ## Build and run
 
 ```sh
@@ -26,7 +35,8 @@ The sync protocol is in [`PROTOCOL.md`](../server/PROTOCOL.md) of the server.
 open NotallyXYZ.app
 ```
 
-`UNIVERSAL=1 ./build-app.sh` adds Intel. The script builds against the macOS 26.5 SDK of the
+`UNIVERSAL=1 ./build-app.sh` adds Intel. `./make-dmg.zsh <file.dmg>` packs the app into a
+disk image with a link to Applications. The script builds against the macOS 26.5 SDK of the
 Command Line Tools: the macOS 27 SDK declares SwiftUI's `@State` as a macro whose plugin
 ships only with Xcode.
 

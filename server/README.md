@@ -21,17 +21,16 @@ cp .env.example .env
 # Set SIGNUP_TOKEN to a long random value, for example: openssl rand -base64 32
 ```
 
-Prebuilt image (built by GitHub Actions for amd64 and arm64 on every `v*` tag). The package
-is private like the repository, so log in once with a token that has only `read:packages`:
+Prebuilt image (built by GitHub Actions for amd64 and arm64 on every `v*` tag):
 
 ```zsh
-docker login ghcr.io -u turtlecute33
 echo 'NOTALLYXYZ_IMAGE=ghcr.io/turtlecute33/notallyxyz-server:1.0' >> .env
 docker compose pull server
 docker compose up -d --no-build
 ```
 
-Or build on the host from the source: `docker compose up -d --build`.
+If the image package is private, first run `docker login ghcr.io` with a token that has only
+`read:packages`. Or build on the host from the source: `docker compose up -d --build`.
 
 The server listens on `127.0.0.1:8080` of the host. Put it behind HTTPS:
 

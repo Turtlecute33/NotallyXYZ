@@ -14,7 +14,7 @@ addresses, and no telemetry.
 
 ## Releases
 
-- Android APK and macOS app: attached to each GitHub release (`./release.zsh <version>`
+- Android APK and macOS disk image: attached to each GitHub release (`./release.zsh <version>`
   builds them; the Android signing key stays on the build Mac).
 - Server image: `ghcr.io/turtlecute33/notallyxyz-server`, built by
   [GitHub Actions](.github/workflows/server-image.yml) when a `v*` tag is pushed.
