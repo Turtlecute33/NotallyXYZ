@@ -83,8 +83,13 @@ docker compose start server
 Number and size class of records and attachments (sizes are padded), when they change,
 and the client IP address of each request (not stored). It cannot read or change note
 content: every record is authenticated with its id and kind, so the server also cannot
-swap records without detection. It can delete data or withhold updates; keep a local
-backup of your notes on one device (the Android app has automatic backups).
+swap records without detection. Deletions are sealed too: a forged deletion is not applied
+on the devices, and they write their copy to the server again. The same applies to anyone
+who gets the bearer token, for example a TLS-terminating proxy.
+
+The server can still delete data on the server, withhold updates, or send an older
+authentic version of a record again (rollback). Keep a local backup of your notes on one
+device (the Android app has automatic backups).
 
 ## Development
 

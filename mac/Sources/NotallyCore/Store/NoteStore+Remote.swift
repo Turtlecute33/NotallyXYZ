@@ -24,13 +24,19 @@ extension NoteStore {
                 let row = try local.record(kind: change.kind, id: change.id)
                 // Already known: our own push coming back, or an older version.
                 if let row, row.seq >= change.seq { continue }
-                // The editor would overwrite it: keep it aside until the editor closes.
-                if change.kind == "note" && openEditors.contains(change.id) {
-                    try local.putPending(.init(id: change.id, seq: change.seq, sealed: change.deleted ? nil : change.data))
+                // Only data that opens counts. The `deleted` flag of the server is not authenticated.
+                guard let data = change.data,
+                      let plain = try? Seal.open(data, key: keys.encKey, ad: Seal.ad(change.kind, change.id)) else {
+                    try repair(kind: change.kind, id: change.id, seq: change.seq, row: row)
                     continue
                 }
-                conflicts += try apply(kind: change.kind, id: change.id, seq: change.seq,
-                                       sealed: change.deleted ? nil : change.data, row: row,
+                let sealed = Payload.isTombstone(plain) ? nil : data
+                // The editor would overwrite it: keep it aside until the editor closes.
+                if change.kind == "note" && openEditors.contains(change.id) {
+                    try local.putPending(.init(id: change.id, seq: change.seq, sealed: sealed))
+                    continue
+                }
+                conflicts += try apply(kind: change.kind, id: change.id, seq: change.seq, sealed: sealed, row: row,
                                        unsynced: &unsynced, ops: &ops)
             }
             try local.setCursor(cursor)
@@ -52,7 +58,15 @@ extension NoteStore {
         if conflicts > 0 { onLocalChange?() }
     }
 
-    /// One remote version (sealed == nil means deleted). Returns 1 if a conflict copy was made.
+    /// A change that does not open (forged deletion, tampered or damaged record) is never applied.
+    /// The local copy stays and is pushed again on top of that change, which repairs the server copy.
+    private func repair(kind: String, id: String, seq: Int64, row: LocalStore.Record?) throws {
+        guard let row, row.dirty > 0 || !row.deleted else { return }
+        try local.setServerVersion(kind: kind, id: id, seq: seq, base: row.base)
+        if row.dirty == 0 { try local.markDirty(kind: kind, id: id) }
+    }
+
+    /// One authentic remote version (sealed == nil means deleted). Returns 1 if a conflict copy was made.
     private func apply(kind: String, id: String, seq: Int64, sealed: Data?, row: LocalStore.Record?,
                        unsynced: inout Set<String>, ops: inout [MemoryOp]) throws -> Int {
         let dirty = (row?.dirty ?? 0) > 0

@@ -117,6 +117,15 @@ public enum Payload {
         return (try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys])) ?? Data()
     }
 
+    /// A deletion is sealed like every record, so that the server cannot fake it (PROTOCOL.md §5).
+    static let tombstone = Data(#"{"deleted":true,"v":1}"#.utf8)
+
+    static func isTombstone(_ data: Data) -> Bool {
+        guard let dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let flag = dict["deleted"] as? NSNumber else { return false }
+        return CFGetTypeID(flag) == CFBooleanGetTypeID() && flag.boolValue
+    }
+
     public static func decodeLabel(id: String, _ data: Data) -> Label? {
         guard let dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let value = dict.string("value") else { return nil }

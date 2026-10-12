@@ -69,7 +69,7 @@ func TestSealRoundTrip(t *testing.T) {
 
 // TestVectors checks testvectors.json, which the Kotlin and Swift tests also use.
 func TestVectors(t *testing.T) {
-	raw, err := os.ReadFile("../../testvectors.json")
+	raw, err := os.ReadFile("../testvectors.json")
 	if err != nil {
 		t.Fatal(err)
 	}

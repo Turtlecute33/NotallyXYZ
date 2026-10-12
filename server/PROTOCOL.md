@@ -75,7 +75,7 @@ bytes (the last piece is the remainder and must be 17 to 65552 bytes), open each
 with the nonce for its position (the last one with flag `0x01`), read the length and
 check that it fits in `T - 8` and that all padding bytes are zero. A failure at any
 step rejects the whole message. The AAD binds the ciphertext to its kind and id, so the
-server cannot swap records.
+server cannot swap records. Deletions are sealed too (§5), so the server cannot fake them.
 
 `testvectors.json` holds fixed inputs and outputs for all of the above. Every client
 must pass these vectors in its unit tests.
@@ -123,6 +123,17 @@ Field names and value formats are the same as the NotallyX Room entity `BaseNote
 ```json
 {"v": 1, "value": "Work", "order": 3}
 ```
+
+### tombstone
+
+The deletion of a note or a label. It is sealed with the AD of the deleted record (same
+kind and id), so only a device with the sync key can make it.
+
+```json
+{"v": 1, "deleted": true}
+```
+
+Note and label payloads never have a `deleted` key.
 
 ### blob
 
@@ -185,9 +196,11 @@ POST /v1/changes
 `base` is the `seq` of the version that the client last saw (0 for a new record).
 The server accepts a change only if `base` equals the current `seq` of the record
 (or the record does not exist and `base` is 0). Otherwise it returns `conflict` with
-the current `seq`, and the client must pull, merge and try again. A deletion
-(`deleted: true`, no `data`) leaves a tombstone, so that other devices learn of it.
-All changes of one request are written in one transaction.
+the current `seq`, and the client must pull, merge and try again. Every change has `data`;
+the server rejects a change without it (`400`). A deletion has `deleted: true` and the
+sealed tombstone (§5) as `data`. The server keeps it and returns it with `deleted: true`,
+so that other devices learn of the deletion. All changes of one request are written in
+one transaction.
 
 ### Blobs
 
@@ -209,6 +222,12 @@ request body at most 32 MiB.
 1. **Pull**: read changes from the stored cursor until `more` is false. For each change:
    - `seq` not greater than the `seq` stored for the record → skip (own push or a
      known version);
+   - `data` missing or does not open (forged deletion, tampered or damaged record) →
+     do not apply it. If this device has a copy of the record, keep the copy and push it
+     again with `base` = `seq` of this change: this repairs the server copy. Else skip it.
+     The `deleted` flag is not authenticated: a change is a deletion only if its data
+     opens and the payload has `"deleted": true`. `deleted: false` without `data` is
+     not a deletion;
    - note open in the editor → keep the remote version aside and merge it when the
      editor closes; do not push that note while a remote version waits;
    - unknown id → insert, unless an unsynced local note has the same title, type and
@@ -222,9 +241,12 @@ request body at most 32 MiB.
      `images`, `files`, `audios` → union; other fields → local. Nothing is discarded.
    - tombstone → delete locally, unless a local change is pending (the local version
      is then written again on push).
-2. **Push**: send pending local changes with `base` = last seen `seq`. Upload missing
-   blobs first. On `conflict`, pull and try again.
+2. **Push**: send pending local changes with `base` = last seen `seq`. A deletion sends
+   a sealed tombstone. Upload missing blobs first. On `conflict`, pull and try again.
 3. Store the cursor only after the changes of a page are applied.
+
+Clients of version 1.0.0 sent deletions without `data`. The server rejects these now, and
+current clients do not apply tombstones without `data` that a 1.0.0 client stored.
 
 JSON notes: a missing key means `null` (the Android client omits `null` values).
 Attachment names become file names: reject empty names, names longer than 255

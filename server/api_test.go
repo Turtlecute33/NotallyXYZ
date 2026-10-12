@@ -159,7 +159,8 @@ func TestChanges(t *testing.T) {
 	if r := res[0].(map[string]any); r["conflict"] != true || r["seq"].(float64) != 1 {
 		t.Fatalf("conflict: %v", res)
 	}
-	res = push(map[string]any{"kind": "note", "id": idA, "base": 1, "deleted": true})
+	// A tombstone carries sealed data; the server keeps it and returns it.
+	res = push(map[string]any{"kind": "note", "id": idA, "base": 1, "deleted": true, "data": []byte("sealed tombstone")})
 	if res[0].(map[string]any)["seq"].(float64) != 3 {
 		t.Fatalf("delete: %v", res)
 	}
@@ -170,6 +171,13 @@ func TestChanges(t *testing.T) {
 	}
 	if got, _ := base64.StdEncoding.DecodeString(ch[0]["data"].(string)); string(got) != "ciphertext" {
 		t.Fatal("data mismatch")
+	}
+	if got, _ := base64.StdEncoding.DecodeString(ch[1]["data"].(string)); string(got) != "sealed tombstone" {
+		t.Fatalf("tombstone data: %v", ch[1])
+	}
+	_, info := do(t, srv, "GET", "/v1/account", tok, nil)
+	if info["bytes"].(float64) != float64(len("ciphertext")+len("sealed tombstone")) {
+		t.Fatalf("bytes with tombstone: %v", info)
 	}
 	_, body = do(t, srv, "GET", "/v1/changes?since=2&limit=1", tok, nil)
 	if ch := changesOf(body); len(ch) != 1 || body["more"] != false {
@@ -184,7 +192,7 @@ func TestChanges(t *testing.T) {
 		{"kind": "note", "id": "XYZ", "base": 0, "data": data},
 		{"kind": "evil", "id": idA, "base": 0, "data": data},
 		{"kind": "note", "id": idA, "base": 0},
-		{"kind": "note", "id": idA, "base": 0, "deleted": true, "data": data},
+		{"kind": "note", "id": idA, "base": 3, "deleted": true}, // tombstone without sealed data
 	} {
 		if code, _ := do(t, srv, "POST", "/v1/changes", tok, map[string]any{"changes": []any{bad}}); code != 400 {
 			t.Fatalf("bad %v: %d", bad, code)

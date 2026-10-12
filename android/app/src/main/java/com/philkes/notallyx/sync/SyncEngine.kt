@@ -39,6 +39,7 @@ class SyncEngine(
     private val dao = database.getBaseNoteDao()
     private val labelDao = database.getLabelDao()
 
+    /** A remote change whose data opened. [json] is null for an authentic deletion. */
     private class Incoming(val change: SyncApi.RemoteChange, val json: JSONObject?)
 
     private class Pending(
@@ -108,7 +109,11 @@ class SyncEngine(
         var appliedNotes = false
         do {
             val page = api.changes(cursor)
-            val incoming = page.changes.mapNotNull(::decrypt)
+            val incoming = ArrayList<Incoming>()
+            val rejected = ArrayList<SyncApi.RemoteChange>()
+            page.changes.forEach { change ->
+                decrypt(change)?.let(incoming::add) ?: rejected.add(change)
+            }
             incoming.forEach {
                 if (it.change.kind == KIND_NOTE && it.json != null) download(it.json)
             }
@@ -123,6 +128,7 @@ class SyncEngine(
                             KIND_LABEL -> applyLabel(item)
                         }
                     }
+                    rejected.forEach(::repair)
                     store.setMeta(META_CURSOR, page.seq.toString())
                 }
             }
@@ -168,19 +174,39 @@ class SyncEngine(
         effects.run()
     }
 
+    /**
+     * Opens the data of a change. A deletion counts only if its sealed payload says so: the
+     * `deleted` flag of the server is not authenticated. Returns null if the data is missing or
+     * does not open (forged deletion, wrong key, tampered data).
+     */
     private fun decrypt(change: SyncApi.RemoteChange): Incoming? {
-        if (change.deleted || change.data == null) return Incoming(change, null)
+        val data = change.data ?: return null
         return try {
             val ad = SyncCrypto.ad(change.kind, change.id)
-            Incoming(
-                change,
-                JSONObject(SyncCrypto.open(keys.encKey, ad, change.data).decodeToString()),
-            )
+            val json = JSONObject(SyncCrypto.open(keys.encKey, ad, data).decodeToString())
+            Incoming(change, if (NotePayload.isTombstone(json)) null else json)
         } catch (e: Exception) {
-            // Wrong key or tampered data: never apply it, never overwrite local data with it.
             Log.w(TAG, "Skipping undecryptable ${change.kind} record", e)
             null
         }
+    }
+
+    /**
+     * A change that does not open is never applied. If this device has the record, it keeps its
+     * copy and writes it to the server again on top of that change, which repairs the server copy.
+     */
+    private fun repair(change: SyncApi.RemoteChange) {
+        val record = store.recordByRemote(change.kind, change.id) ?: return
+        if (change.seq <= record.seq) return
+        val key = record.localKey ?: return
+        // hash = null: push must send the copy even though it did not change here.
+        store.putRecord(record.copy(seq = change.seq, hash = null))
+        val exists =
+            when (change.kind) {
+                KIND_NOTE -> key.toLongOrNull()?.let { dao.get(it) } != null
+                else -> store.getLabel(key) != null
+            }
+        if (exists) store.enqueue(change.kind, key)
     }
 
     private fun remoteIdOf(localId: Long) =
@@ -506,7 +532,7 @@ class SyncEngine(
                         conflict = true
                         return@forEach
                     }
-                    if (item.change.data == null) {
+                    if (item.change.deleted) {
                         store.deleteRecord(item.record.kind, item.record.remoteId)
                     } else {
                         store.putRecord(item.record.copy(seq = result.seq, hash = item.hash))
@@ -533,7 +559,14 @@ class SyncEngine(
                 store.removeOutbox(entry)
                 return null
             }
-            val change = SyncApi.OutChange(KIND_NOTE, record.remoteId, record.seq, null)
+            val change =
+                SyncApi.OutChange(
+                    KIND_NOTE,
+                    record.remoteId,
+                    record.seq,
+                    tombstone(KIND_NOTE, record.remoteId),
+                    deleted = true,
+                )
             return Pending(entry, change, record, null)
         }
         val json = canonical(note)
@@ -570,7 +603,15 @@ class SyncEngine(
                 store.removeOutbox(entry)
                 return null
             }
-            return Pending(entry, SyncApi.OutChange(KIND_LABEL, id, record.seq, null), record, null)
+            val change =
+                SyncApi.OutChange(
+                    KIND_LABEL,
+                    id,
+                    record.seq,
+                    tombstone(KIND_LABEL, id),
+                    deleted = true,
+                )
+            return Pending(entry, change, record, null)
         }
         val json = NotePayload.labelJson(label.value, label.order)
         val hash = hash(json)
@@ -587,12 +628,19 @@ class SyncEngine(
         return Pending(entry, SyncApi.OutChange(KIND_LABEL, id, record.seq, sealed), record, hash)
     }
 
+    private fun tombstone(kind: String, id: String) =
+        SyncCrypto.seal(
+            keys.encKey,
+            SyncCrypto.ad(kind, id),
+            NotePayload.tombstoneJson().toString().toByteArray(),
+        )
+
     private fun batches(pending: List<Pending>): List<List<Pending>> {
         val out = ArrayList<List<Pending>>()
         var current = ArrayList<Pending>()
         var size = 0
         pending.forEach { item ->
-            val itemSize = (item.change.data?.size ?: 0) * 4 / 3 + 200
+            val itemSize = item.change.data.size * 4 / 3 + 200
             if (
                 current.isNotEmpty() && (current.size >= 100 || size + itemSize > MAX_BATCH_BYTES)
             ) {

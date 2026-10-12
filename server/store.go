@@ -24,7 +24,7 @@ var (
 var (
 	bucketAccounts = []byte("accounts") // SHA-256(authToken) -> account id (16 bytes)
 	bucketMeta     = []byte("meta")     // "seq", "bytes", "created"
-	bucketRecords  = []byte("rec")      // kind ":" id -> seq(8) flags(1) data
+	bucketRecords  = []byte("rec")      // kind ":" id -> seq(8) flags(1) data (tombstones too)
 	bucketLog      = []byte("log")      // seq(8) -> kind ":" id
 	bucketBlobs    = []byte("blob")     // id -> size(8) created(8)
 	keySeq         = []byte("seq")
@@ -218,7 +218,8 @@ func (s *Store) Changes(acct string, since uint64, limit int, maxBytes int) ([]C
 			}
 			kind, id := splitKey(v)
 			ch := Change{Kind: kind, ID: id, Seq: u64(k), Deleted: rec[8]&flagDeleted != 0}
-			if !ch.Deleted {
+			// Tombstones from 1.0.0 have no data; clients do not apply those.
+			if len(rec) > 9 {
 				ch.Data = append([]byte(nil), rec[9:]...)
 			}
 			total += len(ch.Data)
@@ -268,10 +269,11 @@ func (s *Store) Apply(acct string, changes []ChangeIn, maxAccountBytes int64) ([
 				}
 			}
 			seq++
+			// A tombstone keeps its sealed data: clients delete only what opens as a deletion.
 			var flags byte
 			data := ch.Data
 			if ch.Deleted {
-				flags, data = flagDeleted, nil
+				flags = flagDeleted
 			}
 			used += int64(len(data)) - curSize
 			val := make([]byte, 9+len(data))

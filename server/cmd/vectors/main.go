@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"notallyxyz-server/internal/seal"
+	"notallyxyz-server/seal"
 )
 
 func main() {

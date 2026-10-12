@@ -127,6 +127,11 @@ final class LocalStore {
                    [.int(seq), base.map { .blob($0) } ?? .null, .text(kind), .text(id)])
     }
 
+    /// Pushes the local copy again, e.g. to repair the server copy.
+    func markDirty(kind: String, id: String) throws {
+        try db.run("UPDATE records SET dirty=? WHERE kind=? AND id=?", [.int(nextDirty()), .text(kind), .text(id)])
+    }
+
     /// Ids of notes that were never pushed and have local changes.
     func unsyncedNoteIDs() throws -> Set<String> {
         var out = Set<String>()

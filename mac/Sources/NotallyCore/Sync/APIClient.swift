@@ -30,12 +30,13 @@ public struct ChangesPage: Decodable, Sendable {
     public let more: Bool
 }
 
+/// A deletion also carries `data`: the sealed tombstone (PROTOCOL.md §5).
 public struct OutgoingChange: Encodable, Sendable {
     public let kind: String
     public let id: String
     public let base: Int64
     public let deleted: Bool
-    public let data: Data?
+    public let data: Data
 }
 
 public struct PushResult: Decodable, Sendable {

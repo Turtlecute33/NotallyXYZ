@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"notallyxyz-server/internal/seal"
+	"notallyxyz-server/seal"
 )
 
 type change struct {
@@ -74,6 +74,12 @@ func main() {
 			plain, err := seal.Open(keys.EncKey, seal.AD(ch.Kind, ch.ID), ch.Data)
 			if err != nil {
 				skipped++
+				continue
+			}
+			var tombstone struct {
+				Deleted bool `json:"deleted"`
+			}
+			if json.Unmarshal(plain, &tombstone) == nil && tombstone.Deleted {
 				continue
 			}
 			switch ch.Kind {

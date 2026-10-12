@@ -14,13 +14,16 @@ import com.philkes.notallyx.data.model.SpanRepresentation
 import com.philkes.notallyx.data.model.Type
 import com.philkes.notallyx.data.model.createNoteUrl
 import com.philkes.notallyx.utils.getCurrentImagesDirectory
+import com.sun.net.httpserver.HttpServer
 import java.io.File
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.URL
 import java.nio.file.Files
 import kotlin.random.Random
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -47,8 +50,9 @@ class SyncEngineTest {
     private lateinit var url: String
     private lateinit var keys: SyncCrypto.Keys
     private val devices = ArrayList<Device>()
+    private val proxies = ArrayList<HttpServer>()
 
-    inner class Device(val open: MutableSet<Long> = HashSet()) {
+    inner class Device(val open: MutableSet<Long> = HashSet(), serverUrl: String = url) {
         val db: NotallyDatabase =
             Room.inMemoryDatabaseBuilder(app, NotallyDatabase::class.java)
                 .addCallback(SyncStore.callback)
@@ -56,7 +60,7 @@ class SyncEngineTest {
                 .build()
         val dao = db.getBaseNoteDao()
         val labels = db.getLabelDao()
-        val engine = SyncEngine(app, db, SyncApi(url, keys.bearer), keys, open)
+        val engine = SyncEngine(app, db, SyncApi(serverUrl, keys.bearer), keys, open)
 
         fun sync() = runBlocking { assertTrue("state not consistent", engine.run()) }
 
@@ -67,7 +71,50 @@ class SyncEngineTest {
         fun insert(note: BaseNote) = runBlocking { dao.insert(note) }
     }
 
-    private fun device() = Device().also { devices.add(it) }
+    private fun device(serverUrl: String = url) =
+        Device(serverUrl = serverUrl).also { devices.add(it) }
+
+    private fun Device.remoteId(title: String) =
+        SyncStore(db).recordByLocal("note", note(title).id.toString())!!.remoteId
+
+    /**
+     * A malicious server: passes requests to the real server and lets [rewrite] change the changes
+     * of each pull response.
+     */
+    private fun proxy(rewrite: (JSONObject) -> Unit): String {
+        val proxy = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        proxy.createContext("/") { exchange ->
+            val conn = URL(url + exchange.requestURI).openConnection() as HttpURLConnection
+            conn.requestMethod = exchange.requestMethod
+            for (header in listOf("Authorization", "Content-Type")) {
+                exchange.requestHeaders.getFirst(header)?.let {
+                    conn.setRequestProperty(header, it)
+                }
+            }
+            val request = exchange.requestBody.readBytes()
+            if (request.isNotEmpty()) {
+                conn.doOutput = true
+                conn.outputStream.use { it.write(request) }
+            }
+            val code = conn.responseCode
+            var body =
+                (if (code < 400) conn.inputStream else conn.errorStream)?.use { it.readBytes() }
+                    ?: ByteArray(0)
+            if (exchange.requestURI.path == "/v1/changes" && exchange.requestMethod == "GET") {
+                body = JSONObject(body.decodeToString()).also(rewrite).toString().toByteArray()
+            }
+            exchange.sendResponseHeaders(code, if (body.isEmpty()) -1 else body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        proxy.start()
+        proxies.add(proxy)
+        return "http://127.0.0.1:${proxy.address.port}"
+    }
+
+    private fun JSONObject.forEachChange(block: (JSONObject) -> Unit) {
+        val changes = getJSONArray("changes")
+        for (i in 0 until changes.length()) block(changes.getJSONObject(i))
+    }
 
     private fun note(
         title: String,
@@ -136,6 +183,7 @@ class SyncEngineTest {
     fun tearDown() {
         if (!::server.isInitialized) return
         devices.forEach { it.db.close() }
+        proxies.forEach { it.stop(0) }
         server.destroy()
         server.waitFor()
         dataDir.deleteRecursively()
@@ -233,9 +281,14 @@ class SyncEngineTest {
         a.sync()
         val b = device()
         b.sync()
+        runBlocking { a.labels.insert(Label("Old", 1)) }
+        a.sync()
+        b.sync()
+        assertEquals(listOf("Old"), runBlocking { b.labels.getArrayOfAll() }.toList())
         runBlocking {
             a.dao.delete(a.note("Gone").id)
             a.dao.delete(a.note("Kept").id)
+            a.labels.delete("Old")
             b.dao.insert(b.note("Kept").copy(body = "edited"))
         }
         a.sync()
@@ -244,7 +297,57 @@ class SyncEngineTest {
         for (device in listOf(a, b)) {
             assertEquals(listOf("Kept"), device.notes().map { it.title })
             assertEquals("edited", device.note("Kept").body)
+            assertEquals(0, runBlocking { device.labels.getArrayOfAll() }.size)
         }
+    }
+
+    @Test
+    fun deletionsThatDoNotOpenAreNotAppliedAndTheServerIsRepaired() {
+        val a = device()
+        a.insert(note("Note", "keep me"))
+        runBlocking { a.labels.insert(Label("Work", 1)) }
+        a.sync()
+        // Someone with the bearer token writes deletions whose data does not open.
+        val api = SyncApi(url, keys.bearer)
+        val seqs = api.changes(0).changes.associate { it.id to it.seq }
+        val noteId = a.remoteId("Note")
+        val labelId = SyncCrypto.labelId(keys.idKey, "Work")
+        api.push(
+            listOf(
+                SyncApi.OutChange("note", noteId, seqs.getValue(noteId), ByteArray(400), true),
+                SyncApi.OutChange("label", labelId, seqs.getValue(labelId), ByteArray(400), true),
+            )
+        )
+        a.sync()
+        assertEquals("keep me", a.note("Note").body)
+        assertEquals(listOf("Work"), runBlocking { a.labels.getArrayOfAll() }.toList())
+        // a wrote both records again, so a new device gets them.
+        val b = device()
+        b.sync()
+        assertEquals("keep me", b.note("Note").body)
+        assertEquals(listOf("Work"), runBlocking { b.labels.getArrayOfAll() }.toList())
+    }
+
+    @Test
+    fun theDeletedFlagWithoutSealedDataIsNotTrusted() {
+        val a = device()
+        a.insert(note("Deleted", "one"))
+        a.insert(note("Changed", "two"))
+        a.sync()
+        // The server removes the sealed data, so that only its deleted flag remains.
+        var strip = false
+        val b = device(proxy { page -> if (strip) page.forEachChange { it.remove("data") } })
+        b.sync()
+        runBlocking {
+            a.dao.delete(a.note("Deleted").id)
+            a.dao.insert(a.note("Changed").copy(body = "three"))
+        }
+        a.sync()
+        strip = true
+        b.sync()
+        assertEquals(listOf("Changed", "Deleted"), b.notes().map { it.title })
+        assertEquals("two", b.note("Changed").body)
+        assertEquals("one", b.note("Deleted").body)
     }
 
     @Test

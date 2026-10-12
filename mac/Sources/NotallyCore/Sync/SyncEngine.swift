@@ -82,8 +82,9 @@ public final class SyncEngine {
             let sent = batch
             batch = []
             bytes = 0
-            let results = try await api.push(sent.map {
-                OutgoingChange(kind: $0.kind, id: $0.id, base: $0.seq, deleted: $0.deleted, data: $0.deleted ? nil : $0.sealed)
+            let results = try await api.push(try sent.map {
+                OutgoingChange(kind: $0.kind, id: $0.id, base: $0.seq, deleted: $0.deleted,
+                               data: $0.deleted ? try store.sealTombstone(kind: $0.kind, id: $0.id) : $0.sealed ?? Data())
             })
             for result in results {
                 guard let record = sent.first(where: { $0.kind == result.kind && $0.id == result.id }) else { continue }

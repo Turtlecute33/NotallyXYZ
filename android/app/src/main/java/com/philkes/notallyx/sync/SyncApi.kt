@@ -27,11 +27,13 @@ class SyncApi(serverUrl: String, private val bearer: String) {
 
     class Page(val changes: List<RemoteChange>, val seq: Long, val more: Boolean)
 
+    /** A deletion also carries [data]: the sealed tombstone (PROTOCOL.md, section 5). */
     class OutChange(
         val kind: String,
         val id: String,
         val base: Long,
-        val data: ByteArray?, // null = deletion
+        val data: ByteArray,
+        val deleted: Boolean = false,
     )
 
     class Result(val kind: String, val id: String, val seq: Long, val conflict: Boolean)
@@ -74,12 +76,13 @@ class SyncApi(serverUrl: String, private val bearer: String) {
     fun push(changes: List<OutChange>): List<Result> {
         val array = JSONArray()
         changes.forEach { c ->
-            val o = JSONObject().put("kind", c.kind).put("id", c.id).put("base", c.base)
-            if (c.data == null) {
-                o.put("deleted", true)
-            } else {
-                o.put("data", Base64.encodeToString(c.data, Base64.NO_WRAP))
-            }
+            val o =
+                JSONObject()
+                    .put("kind", c.kind)
+                    .put("id", c.id)
+                    .put("base", c.base)
+                    .put("data", Base64.encodeToString(c.data, Base64.NO_WRAP))
+            if (c.deleted) o.put("deleted", true)
             array.put(o)
         }
         val results = request("POST", "/changes", JSONObject().put("changes", array))

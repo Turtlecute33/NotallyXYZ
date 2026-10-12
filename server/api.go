@@ -316,7 +316,7 @@ func (a *api) postChanges(w http.ResponseWriter, r *http.Request) {
 	for _, ch := range body.Changes {
 		key := ch.Kind + ":" + ch.ID
 		if !validKind(ch.Kind) || !validID(ch.ID) || seen[key] ||
-			ch.Deleted != (len(ch.Data) == 0) || len(ch.Data) > maxRecordBytes {
+			len(ch.Data) == 0 || len(ch.Data) > maxRecordBytes {
 			writeError(w, http.StatusBadRequest, "bad_request")
 			return
 		}

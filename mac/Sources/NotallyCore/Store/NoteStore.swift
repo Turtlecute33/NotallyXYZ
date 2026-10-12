@@ -50,6 +50,10 @@ public final class NoteStore {
         try Seal.seal(Payload.encode(label), key: keys.encKey, ad: Seal.ad("label", label.id))
     }
 
+    func sealTombstone(kind: String, id: String) throws -> Data {
+        try Seal.seal(Payload.tombstone, key: keys.encKey, ad: Seal.ad(kind, id))
+    }
+
     // MARK: Queries
 
     /// Labels in the NotallyX drawer order: `order` descending, then name.

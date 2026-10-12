@@ -31,6 +31,69 @@ extension SyncTests {
         }
     }
 
+    @Test func deletionThatDoesNotOpenIsRepaired() async throws {
+        try await withAccount { keys in
+            let a = try client(keys)
+            defer { try? FileManager.default.removeItem(at: a.dir) }
+            a.store.createLabel("Work")
+            var note = a.store.create(.note)
+            note.title = "Keep me"
+            a.store.save(note)
+            try await sync(a)
+
+            // Someone with the bearer token writes deletions whose data does not open.
+            let api = APIClient(baseURL: TestServer.url, keys: keys)
+            let seqs = Dictionary(uniqueKeysWithValues: try await api.changes(since: 0).changes.map { ($0.id, $0.seq) })
+            let labelID = keys.labelID("Work")
+            let garbage = Data(repeating: 1, count: 400)
+            _ = try await api.push([
+                OutgoingChange(kind: "note", id: note.id, base: seqs[note.id]!, deleted: true, data: garbage),
+                OutgoingChange(kind: "label", id: labelID, base: seqs[labelID]!, deleted: true, data: garbage),
+            ])
+            try await sync(a)
+            #expect(a.store.notes[note.id]?.title == "Keep me")
+            #expect(a.store.sortedLabels.map(\.value) == ["Work"])
+
+            // A pushed both records again: a new device gets them.
+            let c = try client(keys)
+            defer { try? FileManager.default.removeItem(at: c.dir) }
+            try await sync(c)
+            #expect(c.store.notes[note.id]?.title == "Keep me")
+            #expect(c.store.sortedLabels.map(\.value) == ["Work"])
+        }
+    }
+
+    @Test func deletedFlagWithoutSealedDataIsNotTrusted() async throws {
+        try await withAccount { keys in
+            let a = try client(keys)
+            defer { try? FileManager.default.removeItem(at: a.dir) }
+            var note = a.store.create(.note)
+            note.title = "Keep me"
+            a.store.save(note)
+            var gone = a.store.create(.note)
+            gone.title = "Gone"
+            a.store.save(gone)
+            try await sync(a)
+            let cursor = a.store.local.cursor
+
+            // A malicious server sends only flags, no sealed data.
+            try a.store.applyRemote([RemoteChange(kind: "note", id: note.id, seq: 1000, deleted: true, data: nil)],
+                                    cursor: cursor)
+            try a.store.applyRemote([RemoteChange(kind: "note", id: note.id, seq: 1001, deleted: false, data: nil)],
+                                    cursor: cursor)
+            #expect(a.store.notes[note.id]?.title == "Keep me")
+            let row = try a.store.local.record(kind: "note", id: note.id)
+            #expect(row?.seq == 1001 && (row?.dirty ?? 0) > 0)  // pushed again on top of the forged change
+
+            // An authentic tombstone deletes, whatever the flag says.
+            let tombstone = try a.store.sealTombstone(kind: "note", id: gone.id)
+            try a.store.applyRemote([RemoteChange(kind: "note", id: gone.id, seq: 1002, deleted: false, data: tombstone)],
+                                    cursor: cursor)
+            #expect(a.store.notes[gone.id] == nil)
+            #expect(a.store.notes[note.id] != nil)
+        }
+    }
+
     @Test func openEditorDefersRemoteChanges() async throws {
         try await withAccount { keys in
             let a = try client(keys), b = try client(keys)

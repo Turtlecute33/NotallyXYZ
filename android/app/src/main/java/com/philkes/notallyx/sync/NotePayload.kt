@@ -250,4 +250,9 @@ object NotePayload {
 
     fun labelJson(value: String, order: Int): JSONObject =
         JSONObject().put("v", 1).put("value", value).put("order", order)
+
+    /** Sealed like every record, so that the server cannot fake a deletion. */
+    fun tombstoneJson(): JSONObject = JSONObject().put("v", 1).put("deleted", true)
+
+    fun isTombstone(json: JSONObject) = json.opt("deleted") == true
 }
