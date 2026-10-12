@@ -16,7 +16,11 @@ addresses, and no telemetry.
 ## Releases
 
 - Android APK and macOS disk image: attached to each GitHub release (`./release.zsh <version>`
-  builds them; the Android signing key stays on the build Mac).
+  builds them; the Android signing key and the macOS signing identity stay on the build Mac, in
+  `~/.config/notallyxyz/`: back up both).
+- macOS with Homebrew: `brew install --cask turtlecute33/tap/notallyxyz`, then `brew upgrade`.
+  After the release is published, `./update-tap.zsh <version>` points the cask in
+  [homebrew-tap](https://github.com/Turtlecute33/homebrew-tap) to the new disk image.
 - Linux (`.deb`, `.tar.gz`, x86_64 and aarch64) and Windows (portable `.exe`): built by
   [GitHub Actions](.github/workflows/desktop.yml) when a `v*` tag is pushed, attached to the same
   release with build provenance (`gh attestation verify <file> -R Turtlecute33/NotallyXYZ`).

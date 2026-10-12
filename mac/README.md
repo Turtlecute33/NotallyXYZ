@@ -23,21 +23,30 @@ The sync protocol is in [`PROTOCOL.md`](../server/PROTOCOL.md) of the server.
 
 ## Install
 
-Download the DMG from the GitHub release, open it and drag NotallyXYZ to Applications.
+With Homebrew:
+
+```sh
+brew install --cask turtlecute33/tap/notallyxyz   # updates come with `brew upgrade`
+```
+
+Or download the DMG from the GitHub release, open it and drag NotallyXYZ to Applications.
 Do not start the app from the DMG or from Downloads: macOS then runs a temporary copy
 (App Translocation) and the app does not show in Spotlight.
 
-The app has an ad-hoc signature, not an Apple Developer ID. On the first start macOS blocks it:
-click Done, then System Settings → Privacy & Security → Open Anyway. This is needed only once.
+The app is signed with a self-signed certificate, not an Apple Developer ID, and not notarized.
+On the first start macOS blocks it: click Done, then System Settings → Privacy & Security → Open
+Anyway. All releases from 1.1.1 on have the same signing identity, so this approval (Homebrew
+carries it over on upgrade) and the Keychain access to the sync key stay valid after an update.
 
 ## Build and run
 
 ```sh
-./build-app.sh          # NotallyXYZ.app, release, ad-hoc signed, App Sandbox
+./build-app.sh          # NotallyXYZ.app, release, App Sandbox
 open NotallyXYZ.app
 ```
 
-`UNIVERSAL=1 ./build-app.sh` adds Intel. `./make-dmg.zsh <file.dmg>` packs the app into a
+`UNIVERSAL=1 ./build-app.sh` adds Intel. The script signs with the identity of
+`tools/make-signing-identity.zsh` (run it once on the build Mac) if it exists, else ad-hoc. `./make-dmg.zsh <file.dmg>` packs the app into a
 disk image with a link to Applications. The script builds against the macOS 26.5 SDK of the
 Command Line Tools: the macOS 27 SDK declares SwiftUI's `@State` as a macro whose plugin
 ships only with Xcode.

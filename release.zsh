@@ -15,7 +15,7 @@ cp $root/android/app/build/outputs/apk/release/NotallyXYZ-*.apk $out/NotallyXYZ-
 git -C $root checkout -- android/app/obfuscation 2>/dev/null || true
 
 print "== macOS"
-(cd $root/mac && UNIVERSAL=1 ./build-app.sh)
+(cd $root/mac && UNIVERSAL=1 SIGNED=1 ./build-app.sh)
 $root/mac/make-dmg.zsh $out/NotallyXYZ-macos-$version.dmg
 
 (cd $out && shasum -a 256 * > SHA256SUMS && cat SHA256SUMS)

@@ -1,8 +1,10 @@
 #!/bin/zsh
-# Builds NotallyXYZ.app (release, ad-hoc signed, hardened runtime, App Sandbox).
+# Builds NotallyXYZ.app (release, hardened runtime, App Sandbox).
 #   ./build-app.sh              arm64
 #   UNIVERSAL=1 ./build-app.sh  arm64 + x86_64
 #   CONFIG=debug ./build-app.sh debug build (enables the NXYZ_DEMO_* screenshot hook)
+# Signs with the stable self-signed identity of tools/make-signing-identity.zsh if it exists,
+# else ad-hoc. SIGNED=1 requires the identity (release builds).
 set -euo pipefail
 cd "${0:A:h}"
 
@@ -45,7 +47,17 @@ done
 iconutil -c icns $iconset -o $APP/Contents/Resources/AppIcon.icns
 rm -rf ${iconset:h}
 
-codesign --force --sign - --options runtime --timestamp=none \
+# The same identity in every release keeps Gatekeeper approval and Keychain access after updates.
+signing=$HOME/.config/notallyxyz/macos-signing.keychain-db
+sign=(--sign -)
+if [[ -f $signing ]]; then
+  security unlock-keychain -p "$(security find-generic-password -s notallyxyz-macos-signing -a keychain -w)" $signing
+  sign=(--sign NotallyXYZ --keychain $signing)
+elif [[ "${SIGNED:-0}" == 1 ]]; then
+  print -u2 "No signing identity: run tools/make-signing-identity.zsh (once) or restore $signing"
+  exit 1
+fi
+codesign --force $sign --options runtime --timestamp=none \
   --entitlements NotallyXYZ.entitlements $APP
 codesign --verify --strict $APP
 print "Built $APP ($(du -sh $APP | cut -f1), binary $(du -h $APP/Contents/MacOS/NotallyXYZ | cut -f1))"
