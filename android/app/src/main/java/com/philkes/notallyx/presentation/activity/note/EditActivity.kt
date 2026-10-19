@@ -1,5 +1,6 @@
 package com.philkes.notallyx.presentation.activity.note
 
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
@@ -9,6 +10,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
+import android.text.InputType
 import android.text.Spanned
 import android.text.style.URLSpan
 import android.util.Log
@@ -18,7 +20,9 @@ import android.view.View.GONE
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams
 import android.view.ViewGroup.VISIBLE
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import androidx.annotation.ColorInt
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -82,6 +86,7 @@ import com.philkes.notallyx.utils.FileError
 import com.philkes.notallyx.utils.changeStatusAndNavigationBarColor
 import com.philkes.notallyx.utils.changehistory.ChangeHistory
 import com.philkes.notallyx.utils.findWebUrls
+import com.philkes.notallyx.utils.getLatestText
 import com.philkes.notallyx.utils.getUriForFile
 import com.philkes.notallyx.utils.isInLandscapeMode
 import com.philkes.notallyx.utils.log
@@ -109,6 +114,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
     internal lateinit var changeHistory: ChangeHistory
     protected var undo: View? = null
     protected var redo: View? = null
+    private var pasteAndNewLine: View? = null
     protected var jumpToTop: View? = null
     protected var jumpToBottom: View? = null
 
@@ -329,6 +335,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
             }
             setCanEdit(mode == NoteViewMode.EDIT)
         }
+        pasteAndNewLine?.isVisible = mode == NoteViewMode.EDIT
     }
 
     override fun onDestroy() {
@@ -601,6 +608,16 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
                         }
                     }
                     .apply { isEnabled = changeHistory.canRedo.value }
+            pasteAndNewLine =
+                addIconButton(
+                        R.string.paste_and_new_line,
+                        R.drawable.content_paste,
+                        colorInt,
+                        marginStart = 2,
+                    ) {
+                        pasteAndNewLine()
+                    }
+                    .apply { isVisible = canEdit }
             jumpToBottom =
                 addIconButton(
                     R.string.jump_to_bottom,
@@ -625,6 +642,32 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         }
         updateBottomActions(preferences.editNoteActivityBottomAction.value)
         setBottomAppBarColor(colorInt)
+    }
+
+    /**
+     * Pastes the clipboard as plain text into the focused field, then starts a new line. Fields
+     * with a "next" IME action (title, list items) run that action instead, e.g. a new list item.
+     */
+    private fun pasteAndNewLine() {
+        val editText = currentFocus as? EditText ?: return
+        val clip =
+            ContextCompat.getSystemService(this, ClipboardManager::class.java)
+                ?.getLatestText()
+                ?.toString()
+        if (clip.isNullOrEmpty()) return
+        val hasNextAction =
+            editText.imeOptions and EditorInfo.IME_MASK_ACTION == EditorInfo.IME_ACTION_NEXT
+        val isMultiLine = editText.inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
+        val start = minOf(editText.selectionStart, editText.selectionEnd).coerceAtLeast(0)
+        val end = maxOf(editText.selectionStart, editText.selectionEnd).coerceAtLeast(0)
+        editText.text.replace(
+            start,
+            end,
+            if (isMultiLine && !hasNextAction) "$clip\n" else clip,
+        )
+        if (hasNextAction) {
+            editText.onEditorAction(EditorInfo.IME_ACTION_NEXT)
+        }
     }
 
     protected open fun openMoreOptionsBottomSheet() {
