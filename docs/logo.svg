@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72" width="128" height="128">
+  <title>NotallyXYZ</title>
+  <defs>
+    <clipPath id="icon"><rect x="18" y="18" width="72" height="72" rx="20"/></clipPath>
+    <linearGradient id="shadow" gradientUnits="userSpaceOnUse" x1="98" y1="98" x2="54" y2="54">
+      <stop offset="0" stop-color="#000" stop-opacity=".05"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".15"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#icon)">
+    <rect x="18" y="18" width="72" height="72" fill="#7184D0"/>
+    <g transform="translate(.54 .54) scale(.99)">
+      <path fill="url(#shadow)" d="M76,120.01L120,76L76,32L32,76Z"/>
+      <path fill="#FFF" d="M32,32H76V76H32Z"/>
+      <path fill="none" stroke="#E4E4E4" stroke-width="2" d="M37,38H44V44.01H37Z"/>
+      <path fill="#E4E4E4" d="M48,40H72V43.01H48Z"/>
+      <path fill="#E4E4E4" d="M36,48.01H72V51.01H36Z"/>
+      <path fill="#E4E4E4" d="M36,56H72V59H36Z"/>
+    </g>
+  </g>
+</svg>
