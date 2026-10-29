@@ -43,7 +43,8 @@ All ids are 32 lower-case hex characters (16 bytes).
 | `blob`  | `HMAC-SHA256(idKey, "blob:" + localName)[0:16]`      |
 
 Strings are UTF-8 without normalization. Deterministic ids make two devices that create
-the same label, or reference the same attachment, converge on one record.
+the same label, or reference the same attachment, converge on one record. Readers do not
+apply a label whose id is not the HMAC of its `value`.
 
 ## 4. Sealed format
 
@@ -117,6 +118,9 @@ Field names and value formats are the same as the NotallyX Room entity `BaseNote
   `repetition`). Readers treat a missing key and `null` the same.
 - A client that does not understand a field must keep it unchanged when it writes
   the note again.
+- `body` has at most 393,216 UTF-16 code units, the limit of the Android app. Android
+  cuts a longer body. The other clients do not save a body that is longer than the limit
+  and longer than before.
 
 ### label
 
@@ -249,5 +253,6 @@ Clients of version 1.0.0 sent deletions without `data`. The server rejects these
 current clients do not apply tombstones without `data` that a 1.0.0 client stored.
 
 JSON notes: a missing key means `null` (the Android client omits `null` values).
-Attachment names become file names: reject empty names, names longer than 255
-characters, names that start with `.` and names with `/`, `\` or control characters.
+Attachment names become file names: reject empty names, names longer than 255 UTF-8
+bytes, names that start with `.` and names with `/`, `\` or control characters
+(Unicode category Cc).

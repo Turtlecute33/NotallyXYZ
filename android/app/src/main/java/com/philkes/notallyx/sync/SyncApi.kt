@@ -1,6 +1,7 @@
 package com.philkes.notallyx.sync
 
 import android.util.Base64
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -172,7 +173,7 @@ class SyncApi(serverUrl: String, private val bearer: String) {
             }
             check(connection)
             if (connection.responseCode == HttpURLConnection.HTTP_NO_CONTENT) return JSONObject()
-            val text = connection.inputStream.use { it.readBytes().decodeToString() }
+            val text = connection.inputStream.use { it.readLimited(32 shl 20).decodeToString() }
             return if (text.isBlank()) JSONObject() else JSONObject(text)
         } finally {
             connection.disconnect()
@@ -185,12 +186,24 @@ class SyncApi(serverUrl: String, private val bearer: String) {
         val error =
             try {
                 connection.errorStream
-                    ?.use { JSONObject(it.readBytes().decodeToString()) }
+                    ?.use { JSONObject(it.readLimited(4096).decodeToString()) }
                     ?.optString("error")
             } catch (_: Exception) {
                 null
             }
         throw HttpException(code, error)
+    }
+
+    /** A response larger than [max] bytes is an error, so that it cannot use all memory. */
+    private fun InputStream.readLimited(max: Int): ByteArray {
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val n = read(buffer)
+            if (n < 0) return out.toByteArray()
+            if (out.size() + n > max) throw IOException("Response too large")
+            out.write(buffer, 0, n)
+        }
     }
 
     companion object {

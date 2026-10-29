@@ -23,7 +23,7 @@ fun Context.scheduleReminder(noteId: Long, reminder: Reminder, forceRepetition: 
     val now = Date()
     if (forceRepetition || reminder.dateTime.before(now)) {
         reminder.repetition?.let {
-            val nextRepetition = reminder.nextRepetition(now)!!
+            val nextRepetition = reminder.nextRepetition(now) ?: return
             Log.d(
                 TAG,
                 "scheduleReminder: noteId: $noteId reminderId: ${reminder.id} nextRepetition: ${nextRepetition.format()}",

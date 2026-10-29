@@ -263,7 +263,11 @@ func (e *Engine) uploadPendingBlobs(ctx context.Context) error {
 				if !errors.As(err, &h) || h.Status != 413 {
 					return err
 				}
-				// Larger than the server allows: stays on this device only.
+				// Larger than the server allows: stays on this device only. While a note uses it,
+				// it stays pending and the next push tries again. When no note uses it, prune removes it.
+				if e.store.ReferencedBlobIDs()[id] {
+					continue
+				}
 			}
 		}
 		e.store.mu.Lock()

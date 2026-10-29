@@ -12,7 +12,7 @@ FROM scratch
 COPY --from=build /out/notallyxyz-server /notallyxyz-server
 COPY --from=build --chown=65532:65532 /out/data /data
 USER 65532:65532
-ENV DATA_DIR=/data LISTEN_ADDR=:8080 GOMEMLIMIT=96MiB
+ENV DATA_DIR=/data LISTEN_ADDR=:8080 GOMEMLIMIT=192MiB
 EXPOSE 8080
 VOLUME ["/data"]
 HEALTHCHECK --interval=60s --timeout=5s --retries=3 CMD ["/notallyxyz-server", "-healthcheck"]

@@ -25,8 +25,11 @@ extension NoteStore {
                 // Already known: our own push coming back, or an older version.
                 if let row, row.seq >= change.seq { continue }
                 // Only data that opens counts. The `deleted` flag of the server is not authenticated.
+                // The id of a label must match its value.
                 guard let data = change.data,
-                      let plain = try? Seal.open(data, key: keys.encKey, ad: Seal.ad(change.kind, change.id)) else {
+                      let plain = try? Seal.open(data, key: keys.encKey, ad: Seal.ad(change.kind, change.id)),
+                      change.kind != "label" || Payload.isTombstone(plain)
+                          || Payload.decodeLabel(id: change.id, plain).map({ keys.labelID($0.value) }) == change.id else {
                     try repair(kind: change.kind, id: change.id, seq: change.seq, row: row)
                     continue
                 }
@@ -99,7 +102,10 @@ extension NoteStore {
             }
             return 0
         }
-        guard let remote = Payload.decodeNote(id: id, plain) else { return 0 }
+        guard let remote = Payload.decodeNote(id: id, plain) else {
+            try repair(kind: kind, id: id, seq: seq, row: row)
+            return 0
+        }
 
         // First pull: link an unsynced local note with the same text instead of duplicating it.
         var mine: Note? = dirty && row?.deleted == false ? notes[id] : nil

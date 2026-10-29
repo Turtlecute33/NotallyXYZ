@@ -74,5 +74,7 @@ import Testing
         #expect(APIClient.validate("http://notes.example.com") == nil)
         #expect(APIClient.validate("ftp://x") == nil)
         #expect(APIClient.validate("notes.example.com") == nil)
+        #expect(APIClient.validate("https://u:p@notes.example.com") == nil)
+        #expect(APIClient.validate("https://:p@notes.example.com") == nil)
     }
 }

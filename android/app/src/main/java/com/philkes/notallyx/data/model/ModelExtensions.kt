@@ -448,18 +448,18 @@ fun Reminder.lastNotification(before: Date = Date()): Date? {
     val calendar = dateTime.toCalendar()
     val field = repetition!!.unit.toCalendarField()
     val value = repetition!!.value
+    repetition!!.jumpCloseTo(calendar, dateTime, before)
 
     var last = calendar.time
     // Increment until we are at or after 'before'
-    while (true) {
+    repeat(100_000) {
         calendar.add(field, value)
         if (calendar.time.after(before) || calendar.time == before) {
-            break
+            return last
         }
         last = calendar.time
     }
-
-    return last
+    return null
 }
 
 fun Reminder.nextNotification(from: Date = Date()): Date? {
@@ -474,7 +474,7 @@ fun Reminder.nextNotification(from: Date = Date()): Date? {
     if (rep.unit == RepetitionTimeUnit.MONTHS && rep.occurrence != null && rep.dayOfWeek != null) {
         val next = dateTime.toCalendar()
         val fromCal = from.toCalendar()
-        while (true) {
+        repeat(2400) {
             val targetDate =
                 findOccurrenceInMonth(
                     next.get(Calendar.YEAR),
@@ -488,20 +488,30 @@ fun Reminder.nextNotification(from: Date = Date()): Date? {
             }
             next.add(Calendar.MONTH, rep.value)
         }
+        return null
     }
     val calendar = dateTime.toCalendar()
     val field = repetition!!.unit.toCalendarField()
     val value = repetition!!.value
+    rep.jumpCloseTo(calendar, dateTime, from)
 
     // If from is exactly at dateTime, we want the next one
-    while (true) {
+    repeat(100_000) {
         calendar.add(field, value)
         if (calendar.time.after(from)) {
-            break
+            return calendar.time
         }
     }
+    return null
+}
 
-    return calendar.time
+/** Minutes and hours have a fixed length: moves [calendar] from [start] to just before [target]. */
+private fun Repetition.jumpCloseTo(calendar: Calendar, start: Date, target: Date) {
+    if (unit != RepetitionTimeUnit.MINUTES && unit != RepetitionTimeUnit.HOURS) return
+    val step = toMillis()
+    if (step <= 0) return
+    val skip = (target.time - start.time) / step - 1
+    if (skip > 0) calendar.timeInMillis = start.time + skip * step
 }
 
 private fun findOccurrenceInMonth(

@@ -91,7 +91,7 @@ struct SyncStatusBar: View {
                 if engine.isSyncing {
                     ProgressView().controlSize(.mini)
                     Text("Syncing…")
-                } else if let error = engine.lastError {
+                } else if let error = model.store?.saveError ?? engine.lastError {
                     Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
                     Text(error).lineLimit(2).help(error)
                 } else if let date = engine.lastSync {

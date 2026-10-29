@@ -10,6 +10,7 @@ services:
       MAX_ACCOUNT_MB: 0                 # 0 = no quota
       MAX_ACCOUNTS: 0                   # 0 = no limit
       TRUST_PROXY: "true"               # read the client address from the reverse proxy
+      GOMEMLIMIT: 192MiB                # keep below mem_limit
     volumes:
       - data:/data
     ports:
@@ -19,7 +20,7 @@ services:
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
-    mem_limit: 128m
+    mem_limit: 256m
     pids_limit: 64
 
   # Optional: automatic HTTPS with Caddy. Start with `docker compose --profile caddy up -d`.

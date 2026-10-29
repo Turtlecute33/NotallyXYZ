@@ -427,6 +427,8 @@ class SyncEngine(
                     }
                 if (found && !temp.renameTo(target)) throw java.io.IOException("rename failed")
                 if (!found) Log.w(TAG, "Attachment not on server yet")
+            } catch (e: java.security.GeneralSecurityException) {
+                Log.w(TAG, "Attachment does not open, skipped", e)
             } finally {
                 temp.delete()
             }

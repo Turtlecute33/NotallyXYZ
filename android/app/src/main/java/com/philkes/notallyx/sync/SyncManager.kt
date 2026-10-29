@@ -166,7 +166,9 @@ class SyncManager private constructor(private val app: Application) {
                 val page =
                     SyncApi(preferences.syncServerUrl.value, keys.bearer)
                         .changes(cursor, 1, LIVE_WAIT_S)
-                if (page.changes.isNotEmpty() && foreground) sync()
+                if (page.changes.isNotEmpty() && foreground && !sync()) {
+                    throw IOException("sync failed")
+                }
                 backoff = 5_000L
             } catch (e: Exception) {
                 delay(backoff)

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf16"
 )
 
 // NoteStore holds the decrypted notes and labels in memory, backed by the sealed local cache.
@@ -133,15 +134,32 @@ func (s *NoteStore) Labels() []Label {
 func (s *NoteStore) sealNote(n Note) []byte   { return s.Keys.Seal("note", n.ID, EncodeNote(n)) }
 func (s *NoteStore) sealLabel(l Label) []byte { return s.Keys.Seal("label", l.ID, EncodeLabel(l)) }
 
+// maxBodyLength is the longest body that Android can store, in UTF-16 units (PROTOCOL.md §5).
+const maxBodyLength = 393_216
+
+func utf16Len(s string) int {
+	n := 0
+	for _, r := range s {
+		n += utf16.RuneLen(r)
+	}
+	return n
+}
+
 func (s *NoteStore) Save(n Note) error {
 	if !isValidID(n.ID) {
 		return fmt.Errorf("invalid note id")
 	}
 	n.normalize()
 	s.mu.Lock()
-	if old, ok := s.notes[n.ID]; ok && old.Equal(n) {
+	old, ok := s.notes[n.ID]
+	if ok && old.Equal(n) {
 		s.mu.Unlock()
 		return nil
+	}
+	// Only a body that grows past the limit is refused. Other changes of a longer note are saved.
+	if size := utf16Len(n.Body); size > maxBodyLength && (!ok || size > utf16Len(old.Body)) {
+		s.mu.Unlock()
+		return fmt.Errorf("The text is longer than %d characters.", maxBodyLength)
 	}
 	err := s.local.Update(func(tx *Tx) error {
 		if err := tx.PutLocal("note", n.ID, s.sealNote(n)); err != nil {

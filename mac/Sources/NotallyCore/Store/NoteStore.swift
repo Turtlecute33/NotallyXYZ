@@ -6,6 +6,8 @@ import Observation
 public final class NoteStore {
     public internal(set) var notes: [String: Note] = [:]
     public internal(set) var labels: [String: Label] = [:]
+    /// Why the last save failed; nil after a save that worked. Shown to the user.
+    public private(set) var saveError: String?
     /// Called after every local change (sync scheduling, reminders).
     @ObservationIgnored public var onLocalChange: (() -> Void)?
     /// Called after notes changed for any reason (reminders).
@@ -65,15 +67,26 @@ public final class NoteStore {
 
     // MARK: Note changes
 
+    /// The longest body that Android can store, in UTF-16 units (PROTOCOL.md §5).
+    static let maxBodyLength = 393_216
+
     public func save(_ note: Note) {
         guard notes[note.id] != note else { return }
+        // Only a body that grows past the limit is refused. Other changes of a longer note are saved.
+        let size = note.body.utf16.count
+        if size > Self.maxBodyLength && size > (notes[note.id]?.body.utf16.count ?? 0) {
+            saveError = "Could not save: the text is longer than \(Self.maxBodyLength) characters."
+            return
+        }
         do {
             try local.putLocal(kind: "note", id: note.id, sealed: try sealNote(note))
             notes[note.id] = note
             for name in note.labels where labels[keys.labelID(name)] == nil { createLabel(name) }
+            saveError = nil
             changed()
         } catch {
             NSLog("NotallyXYZ: save failed: \(error)")
+            saveError = "Could not save: \(error.localizedDescription)"
         }
     }
 
@@ -104,7 +117,7 @@ public final class NoteStore {
         copy.modifiedTimestamp = copy.timestamp
         copy.reminders = []
         save(copy)
-        return copy
+        return notes[copy.id]
     }
 
     private func changed() {

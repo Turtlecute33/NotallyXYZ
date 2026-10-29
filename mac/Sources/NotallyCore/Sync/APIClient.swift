@@ -68,14 +68,17 @@ public final class APIClient: Sendable {
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         config.timeoutIntervalForRequest = 90
         config.httpAdditionalHeaders = ["User-Agent": "NotallyXYZ"]
-        session = URLSession(configuration: config)
+        session = URLSession(configuration: config, delegate: NoRedirects(), delegateQueue: nil)
     }
+
+    deinit { session.finishTasksAndInvalidate() }
 
     /// Accepts https, or http only for loopback addresses (local testing).
     public static func validate(_ text: String) -> URL? {
         var s = text.trimmingCharacters(in: .whitespacesAndNewlines)
         while s.hasSuffix("/") { s.removeLast() }
-        guard let url = URL(string: s), let host = url.host, !host.isEmpty, url.query == nil else { return nil }
+        guard let url = URL(string: s), let host = url.host, !host.isEmpty, url.query == nil,
+              url.user == nil, url.password == nil else { return nil }
         switch url.scheme?.lowercased() {
         case "https": return url
         case "http": return ["localhost", "127.0.0.1", "::1"].contains(host) ? url : nil
@@ -165,6 +168,9 @@ public final class APIClient: Sendable {
         try check(response, data)
     }
 
+    /// Largest blob that this client keeps. It is fixed, because the server could report any limit.
+    static let maxBlobDownload = 1 << 30
+
     /// Downloads into `target` (written only on success).
     public func getBlob(id: String, to target: URL) async throws {
         var req = try request("GET", "v1/blobs/\(id)")
@@ -172,6 +178,8 @@ public final class APIClient: Sendable {
         let (temp, response) = try await session.download(for: req)
         defer { try? FileManager.default.removeItem(at: temp) }
         try check(response, Data())
+        let size = try temp.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        guard size <= Self.maxBlobDownload else { throw APIError.badResponse }
         try? FileManager.default.removeItem(at: target)
         try FileManager.default.moveItem(at: temp, to: target)
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: target.path)
@@ -184,5 +192,13 @@ public final class APIClient: Sendable {
 
     public func deleteBlob(id: String) async throws {
         try await send(try request("DELETE", "v1/blobs/\(id)"))
+    }
+}
+
+/// Redirects are not followed, like in the other clients: `check` gets the 3xx response.
+private final class NoRedirects: NSObject, URLSessionTaskDelegate, Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest) async -> URLRequest? {
+        nil
     }
 }

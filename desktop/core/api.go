@@ -232,6 +232,10 @@ func (a *API) PutBlob(ctx context.Context, id, file string) error {
 	return check(resp)
 }
 
+// maxBlobDownload is the largest blob that this client keeps. It is fixed, because the server
+// could report any limit.
+const maxBlobDownload = 1 << 30
+
 // GetBlob downloads into target (written only on success).
 func (a *API) GetBlob(ctx context.Context, id, target string) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
@@ -253,7 +257,11 @@ func (a *API) GetBlob(ctx context.Context, id, target string) error {
 		return err
 	}
 	defer os.Remove(tmp.Name())
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
+	n, err := io.Copy(tmp, io.LimitReader(resp.Body, maxBlobDownload+1))
+	if err == nil && n > maxBlobDownload {
+		err = errors.New("blob too large")
+	}
+	if err != nil {
 		tmp.Close()
 		return err
 	}

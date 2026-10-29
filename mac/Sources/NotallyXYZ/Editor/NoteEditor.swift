@@ -11,6 +11,7 @@ struct NoteEditor: View {
     @Environment(\.openWindow) private var openWindow
     @State private var note: Note?
     @State private var lastSaved: Note?
+    @State private var saveError: String?
     @State private var saveTask: Task<Void, Never>?
     @State private var controller = EditorController()
     @State private var showLabels = false
@@ -118,6 +119,10 @@ struct NoteEditor: View {
                 .disabled(!editable)
             Text("Created \(Format.full(Format.date(note.timestamp)))  ·  Modified \(Format.ago(note.modifiedTimestamp))")
                 .font(.caption).foregroundStyle(.secondary)
+            if let saveError {
+                Label(saveError, systemImage: "exclamationmark.triangle")
+                    .font(.caption).foregroundStyle(.orange)
+            }
             Divider().padding(.top, 4)
         }
         .listRowBackground(Color.clear)
@@ -217,7 +222,13 @@ struct NoteEditor: View {
         if n.type == .list { n.items = ListOps.normalized(n.items.filter { !$0.body.isEmpty }, autoSort: model.autoSortChecked) }
         guard n != lastSaved else { return }
         model.save(n)
-        lastSaved = n
+        // After a save that did not work, lastSaved stays, so the next flush tries again.
+        if model.note(id) == n {
+            lastSaved = n
+            saveError = nil
+        } else {
+            saveError = model.store?.saveError
+        }
     }
 
     private func setAll(_ n: inout Note, _ checked: Bool) {

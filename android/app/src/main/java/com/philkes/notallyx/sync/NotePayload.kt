@@ -132,9 +132,9 @@ object NotePayload {
     /** Attachment names become file names; reject anything that could leave the folder. */
     fun isSafeName(name: String) =
         name.isNotEmpty() &&
-            name.length <= 255 &&
+            name.toByteArray().size <= 255 &&
             !name.startsWith(".") &&
-            name.none { it == '/' || it == '\\' || it.code < 32 }
+            name.none { it == '/' || it == '\\' || it.isISOControl() }
 
     private fun toRemoteUrl(url: String, remoteIdOf: (Long) -> String?): String {
         val target = url.substringAfter(NOTE_URL).substringBefore("/")
