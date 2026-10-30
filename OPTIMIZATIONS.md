@@ -64,7 +64,7 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 | NOTALLY-AND-OPT-01 | Stop the two full backups at each process start | battery | S | low | applied |
 | NOTALLY-AND-OPT-02 | Ship only ARM native libraries in the release APK | minimalism | S | low | applied |
 | NOTALLY-AND-OPT-03 | Replace zstd-jni with java.util.zip in CompressUtility | minimalism | S | low | applied |
-| NOTALLY-AND-OPT-04 | Make the auto-remove-deleted-notes worker run and drop koin-androidx-workmanager | stability | S | low | approved |
+| NOTALLY-AND-OPT-04 | Make the auto-remove-deleted-notes worker run and drop koin-androidx-workmanager | stability | S | low | applied |
 | NOTALLY-AND-OPT-05 | Remove the debug content descriptions on checklist items | ui-ux | S | low | approved |
 | NOTALLY-AND-OPT-06 | Keep sync setup, Disconnect and Delete server data from stopping halfway or crashing | stability | S | low | approved |
 | NOTALLY-AND-OPT-07 | Paste and new line in a checklist: do not put an empty item between the pasted lines | ui-ux | S | low | approved |
@@ -117,7 +117,8 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 - **Safety**: This is upstream code, not from a security-review commit. The preference key autoRemoveDeletedNotesAfterDays, the unique work name AUTO_REMOVE_DELETED_NOTES and the worker class name stay the same, so work that is already enqueued continues. No DB change. The change removes a dependency and adds none.
 - **Verification**: The perf and stability lenses both found this, so the two findings are merged here. CheckModulesTest loads appModules and needs no change. Not run on a device. The logcat tag WM-WorkerFactory shows the failure today. To verify after the change: set the value to 1 day, move an old note to the bin, run the work, then check the bin.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about -8 (estimate).
-- **Status**: approved
+- **Verified**: cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:testDebugUnitTest passed (225 tests, 0 failures, 11 skipped; CheckModulesTest 1/1); JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleDebug passed; JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleRelease passed; :app:ktfmtCheckMain passed. Release mapping.txt keeps AutoRemoveDeletedNotesWorker.<init>(Context, WorkerParameters) and has no org.koin.androidx.workmanager class. The release classes.dex has no koin/androidx/workmanager string. The release APK is 7,623,879 B, the same as after OPT-03. No new unit test (work-testing is only an androidTest dependency). Not checked: no run-time check on a device, so the worker run and the bin cleanup with the setting at 1 day are not checked.
+- **Status**: applied
 
 #### NOTALLY-AND-OPT-05: Remove the debug content descriptions on checklist items
 - **What**: On each bind, ListItemVH sets contentDescription to untranslated debug labels: "Drag<n>", "Delete<n>", "EditText<n>" and "CheckBox<n>". These replace the localized @string/drag_handle and @string/delete labels from recycler_list_item.xml. TalkBack then reads "Delete3" or "Drag3" in English, and it reads "EditText3" for each item. The editor list and the checked list both use this view holder (ListItemAdapterBase.kt:62).

@@ -13,14 +13,12 @@ import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreference
 import java.util.Date
 import kotlin.collections.isNotEmpty
 
-class AutoRemoveDeletedNotesWorker(
-    private val context: Context,
-    params: WorkerParameters,
-    private val preferences: NotallyXPreferences,
-) : CoroutineWorker(context, params) {
+class AutoRemoveDeletedNotesWorker(context: Context, params: WorkerParameters) :
+    CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        return (context.applicationContext as ContextWrapper).removeOldDeletedNotes(preferences)
+        val app = applicationContext as ContextWrapper
+        return app.removeOldDeletedNotes(NotallyXPreferences.getInstance(app))
     }
 
     companion object {
