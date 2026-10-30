@@ -53,7 +53,7 @@ export function dialog(title, body, buttons, opts = {}) {
     scrim = h('div', { class: 'scrim', onmousedown: (e) => { if (e.target === scrim) close(null); } }, box);
     overlays().appendChild(scrim);
     document.addEventListener('keydown', onKey, true);
-    (box.querySelector('[autofocus]') || box.querySelector('input, textarea, select') || btns[btns.length - 1])?.focus();
+    (box.querySelector('[autofocus]') || box.querySelector('input, textarea, select') || btns[buttons.at(-1)?.danger ? 0 : btns.length - 1])?.focus();
     opts.onOpen?.(close);
   });
 }

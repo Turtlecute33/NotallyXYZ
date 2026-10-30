@@ -215,7 +215,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 | NOTALLY-DESK-OPT-05 | Stop reading the sync key from the key store on each GetState | speed | S | low | rejected (owner, 2026-10-30) |
 | NOTALLY-DESK-OPT-06 | Ignore Enter in setup while a submit runs | stability | S | low | applied |
 | NOTALLY-DESK-OPT-07 | Add the filled-in reminder when the user clicks Done | ui-ux | S | low | applied |
-| NOTALLY-DESK-OPT-08 | Focus Cancel, not the destructive button, in confirm dialogs | ui-ux | S | low | approved |
+| NOTALLY-DESK-OPT-08 | Focus Cancel, not the destructive button, in confirm dialogs | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-09 | Remove dead code in Go and in the frontend | minimalism | S | low | approved |
 | NOTALLY-DESK-OPT-10 | Back off in the live loop when a sync does not move the cursor | battery | S | medium | rejected (owner, 2026-10-30) |
 | NOTALLYXYZ-SHARED-3 | Desktop: show why the notes did not open before setup can delete unsynced changes | stability | S | low | approved |
@@ -315,7 +315,8 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 - **Safety**: Only the first focus changes. Every confirmation stays. Disconnect and DeleteServerData work the same after confirmation.
 - **Verification**: Common desktop rule: a destructive action is not the default. No JS tests: open each confirm dialog and check that Enter cancels and Tab reaches the action.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about 0 (estimate).
-- **Status**: approved
+- **Verified**: cd desktop && go vet ./... && go test ./... passed (go test -count=1). node --check frontend/dist/ui.js passed. No unit test (no JS tests in desktop). Not checked: no Wails build and no run-time check of the UI (open each confirm dialog; Cancel must have focus, Enter must cancel and Tab must reach the action).
+- **Status**: applied
 
 #### NOTALLY-DESK-OPT-09: Remove dead code in Go and in the frontend
 - **What**: Code with no caller. (1) The bound method App.HasAttachment and its only callee NoteStore.HasAttachment. Wails binds every exported App method, so the web view can call it, but no frontend file does. (2) blobCache.clear(), the LocalStore.Dir field that nothing reads, contains() (the same as slices.Contains, go 1.25), and the one-caller wrapper referencedBlobIDs(). (3) Frontend: 7 unused icons (check, eye, indent, outdent, undo, redo, key); 'window.nxyz = app', a global handle to the decrypted notes in memory with no reader; the unused L import in editor.js; the dialog options wide and onOpen with the .dialog.wide rule; the 4th 'danger' parameter of confirm() and the 3rd 'disabled' parameter of toggle(), which no caller passes.
