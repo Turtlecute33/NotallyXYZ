@@ -1,7 +1,7 @@
 # Optimizations
 
 Review of NotallyXYZ for Android, NotallyXYZ desktop (Linux, Windows), NotallyXYZ for macOS and the NotallyXYZ sync server on 2026-10-30, at commit 4982e52f on branch main.
-Status: review only. No change is applied yet. The owner selects the items to apply.
+Status: the approved items are applied on branch optimize. See Results.
 
 Rules for this list: the security-review changes (no 'Report:' commits; commit 0a92797c, sync safety: body and blob limits, attachment checks, reminder caps, is a security change and is intentional in all versions; every crypto and sync-safety mechanism, such as seal, key handling, size limits, invite token, rate limiter, input checks and TLS settings, is intentional) stay as they are. No change to storage formats, database schemas, preference keys or encryption. Most items are one commit. Some items name two commits (NOTALLY-AND-OPT-10, NOTALLY-DESK-OPT-04, NOTALLY-DESK-OPT-09, NOTALLY-MAC-OPT-03, NOTALLY-MAC-OPT-08 and NOTALLY-MAC-OPT-09). You can revert each commit alone.
 
@@ -225,7 +225,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 | NOTALLY-DESK-OPT-06 | Ignore Enter in setup while a submit runs | stability | S | low | applied |
 | NOTALLY-DESK-OPT-07 | Add the filled-in reminder when the user clicks Done | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-08 | Focus Cancel, not the destructive button, in confirm dialogs | ui-ux | S | low | applied |
-| NOTALLY-DESK-OPT-09 | Remove dead code in Go and in the frontend | minimalism | S | low | not applied: edits in desktop/frontend/dist were denied |
+| NOTALLY-DESK-OPT-09 | Remove dead code in Go and in the frontend | minimalism | S | low | applied |
 | NOTALLY-DESK-OPT-10 | Back off in the live loop when a sync does not move the cursor | battery | S | medium | rejected (owner, 2026-10-30) |
 | NOTALLYXYZ-SHARED-3 | Desktop: show why the notes did not open before setup can delete unsynced changes | stability | S | low | applied |
 | NOTALLYXYZ-SHARED-4 | Desktop: save the edit that waits for the autosave debounce when the app quits | stability | S | low | applied |
@@ -336,7 +336,8 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 - **Safety**: No change to Seal/Open, keys, bbolt buckets, record JSON, maxBodyLength, maxBlobDownload or the 413 branch from 0a92797c. LocalStore.Dir is an in-memory field only. The CSP, the attachment URL handling and the Go bridge stay the same.
 - **Verification**: Merged three lean items (HasAttachment, core helpers, frontend dead code). The liveStop part is taken out: OPT-10 edits StartLive, and that part saves no lines. Verify: go build, go vet, 'go test -race ./core/' (covers relabel via sync_test.go:132 and ReferencedBlobIDs via runOnce). No JS tests: open each confirm dialog and the settings toggles in a Linux build.
 - **Effort**: S. **Risk**: low. **Impact**: low. **Net lines**: about -35 (estimate).
-- **Status**: not applied: the permission system denied the edits in desktop/frontend/dist, so the item stopped. The tested Go commit b91802ec is not on the branch. See Results.
+- **Verified**: Applied by hand after the agent was blocked, with the owner's approval: the tested Go commit (cherry-picked) and one frontend commit. `go vet ./...`, `go test ./...` and `go test -race ./core/` pass in desktop/. `node --check` passes for each frontend file. A grep finds no use of the 7 icons, window.nxyz, the L import, the wide and onOpen options, or a 4th confirm() or 3rd toggle() argument. Not checked: the confirm dialogs and the settings toggles in a running Linux or Windows build (no Wails CLI here).
+- **Status**: applied
 
 #### NOTALLY-DESK-OPT-10: Back off in the live loop when a sync does not move the cursor
 - **What**: The live loop polls GET /v1/changes (limit 1, wait 25) from the stored cursor and calls e.Sync() when a change exists. If a sync already runs, Sync() only sets e.again and returns. The cursor is still old, so the server answers the next poll at once, and the loop sends one request for each round trip until the running sync pulls. This occurs at start while the first pull runs, after each push from this device (the poll returns the device's own change) for the tail of that sync, and for the full length of a long attachment transfer while another device edits. It also occurs when the pull fails before SetCursor (for example a bbolt write error).
@@ -665,7 +666,7 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 
 ## Results
 
-Checked on 2026-10-30 on branch optimize at 002fe4c9. All approved items are applied, except NOTALLY-DESK-OPT-09. No adb, emulator or device was used.
+Checked on 2026-10-30 on branch optimize at 002fe4c9. All approved items are applied. NOTALLY-DESK-OPT-09 was blocked for the agent and then applied by hand. No adb, emulator or device was used.
 
 ### Size
 
@@ -695,7 +696,7 @@ The two failures do not come from this branch:
 
 ### Items that were not applied
 
-- NOTALLY-DESK-OPT-09: the permission system denied the edits in desktop/frontend/dist. The Go part is tested as commit b91802ec ('Remove dead Go code from the desktop app'), but it is not on the branch. Only the reflog keeps it, so git gc can delete it later. To finish: allow edits in desktop/frontend/dist (icons.js, app.js, editor.js, ui.js, style.css), run git cherry-pick b91802ec, then do the frontend part. Until then, 'window.nxyz = app' (a global handle to the decrypted notes) stays.
+- none of the approved items. NOTALLY-DESK-OPT-09 was blocked for the agent and then applied by hand.
 - Rejected by the owner (2026-10-30): NOTALLY-AND-OPT-08, NOTALLY-DESK-OPT-05, NOTALLY-DESK-OPT-10, NOTALLY-MAC-OPT-09, NOTALLY-SRV-OPT-07, NOTALLYXYZ-SHARED-5 for Android and NOTALLYXYZ-SHARED-7 for desktop.
 - Optional parts that were not done: NOTALLY-MAC-OPT-01 puts the focus in the title also for a new text note, not in the body. NOTALLY-MAC-OPT-04 does not disable Delete Checked Items when no item is checked; Delete then does nothing.
 

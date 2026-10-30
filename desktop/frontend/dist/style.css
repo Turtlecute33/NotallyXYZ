@@ -219,7 +219,6 @@ svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; s
   justify-content: center; z-index: 50; padding: 24px; }
 .dialog { background: var(--surface); color: var(--text); border-radius: 22px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3);
   width: min(460px, 100%); max-height: 100%; overflow: auto; padding: 22px; user-select: text; }
-.dialog.wide { width: min(720px, 100%); }
 .dialog h2 { font-size: 18px; margin: 0 0 12px; }
 .dialog p { margin: 0 0 12px; }
 .dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; flex-wrap: wrap; }

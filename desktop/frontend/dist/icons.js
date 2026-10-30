@@ -27,7 +27,6 @@ const paths = {
   eraser: '<path d="M4 20h16"/><path d="M14 4l6 6-8 8H8l-4-4z"/><path d="M9 9l6 6"/>',
   image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
   attach: '<path d="M20 12l-8 8a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/>',
-  check: '<path d="M5 12l5 5 9-10"/>',
   box: '<rect x="4" y="4" width="16" height="16" rx="3"/>',
   boxChecked: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/>',
   grip: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
@@ -35,18 +34,12 @@ const paths = {
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/>',
   restore: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
-  eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   edit: '<path d="M4 20h4L20 8l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   download: '<path d="M12 4v12M6 10l6 6 6-6M4 20h16"/>',
   open: '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v6H4V6h6"/>',
   wave: '<path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/>',
   file: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>',
-  indent: '<path d="M4 6h16M11 12h9M4 18h16"/><path d="M4 9l3 3-3 3"/>',
-  outdent: '<path d="M4 6h16M11 12h9M4 18h16"/><path d="M7 9l-3 3 3 3"/>',
-  undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
-  redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/>',
-  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>',
 };
 
 const filled = new Set(['more', 'grip']);

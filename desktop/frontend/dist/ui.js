@@ -48,19 +48,18 @@ export function dialog(title, body, buttons, opts = {}) {
     const btns = buttons.map((b) =>
       h('button', { class: 'btn' + (b.primary ? ' primary' : '') + (b.danger ? ' danger' : ''),
         onclick: () => (b.keep ? b.value() : close(typeof b.value === 'function' ? b.value() : b.value)) }, b.label));
-    const box = h('div', { class: 'dialog' + (opts.wide ? ' wide' : ''), role: 'dialog', 'aria-modal': 'true' },
+    const box = h('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true' },
       title ? h('h2', { text: title }) : null, body, btns.length ? h('div', { class: 'buttons' }, btns) : null);
     scrim = h('div', { class: 'scrim', onmousedown: (e) => { if (e.target === scrim) close(null); } }, box);
     overlays().appendChild(scrim);
     document.addEventListener('keydown', onKey, true);
     (box.querySelector('[autofocus]') || box.querySelector('input, textarea, select') || btns[buttons.at(-1)?.danger ? 0 : btns.length - 1])?.focus();
-    opts.onOpen?.(close);
   });
 }
 
-export async function confirm(title, text, action, danger = true) {
+export async function confirm(title, text, action) {
   return (await dialog(title, text ? h('p', { text }) : null,
-    [{ label: 'Cancel', value: false }, { label: action, value: true, primary: !danger, danger }])) === true;
+    [{ label: 'Cancel', value: false }, { label: action, value: true, danger: true }])) === true;
 }
 
 export async function prompt(title, value = '', placeholder = '', action = 'OK') {
@@ -114,8 +113,8 @@ export function toast(text, action, ms = 5000) {
   setTimeout(() => t.remove(), ms);
 }
 
-export function toggle(checked, onChange, disabled = false) {
-  const input = h('input', { type: 'checkbox', checked, disabled, onchange: () => onChange(input.checked) });
+export function toggle(checked, onChange) {
+  const input = h('input', { type: 'checkbox', checked, onchange: () => onChange(input.checked) });
   return h('label', { class: 'switch' }, input, h('span'));
 }
 

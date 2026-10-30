@@ -20,7 +20,6 @@ const app = {
   editor: null,
   settingsOpen: false,
 };
-window.nxyz = app;
 
 // Theme and text size
 

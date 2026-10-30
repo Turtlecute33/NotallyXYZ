@@ -2,7 +2,7 @@
 // attachments and labels. Changes are saved after a short pause and when the editor closes.
 import { iconEl } from './icons.js';
 import { ListEditor } from './listeditor.js';
-import { B, I, M, S, L, RichText } from './richtext.js';
+import { B, I, M, S, RichText } from './richtext.js';
 import { PRESETS, ago, applyColor, confirm, dialog, fullDate, h, iconButton, menu, prompt, rgba, shortDate, toast, errText } from './ui.js';
 
 const api = () => window.go.main.App;
