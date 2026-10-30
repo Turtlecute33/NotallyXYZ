@@ -532,7 +532,7 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 | NOTALLY-SRV-OPT-03 | Wait for srv.Shutdown to return before main exits | stability | S | low | applied |
 | NOTALLY-SRV-OPT-04 | Remove leftover .upload-* temp files when the store opens | stability | S | low | applied |
 | NOTALLY-SRV-OPT-05 | Drop the unused 'created' return value of Store.PutBlob | minimalism | S | low | applied |
-| NOTALLY-SRV-OPT-06 | Remove the custom http.Server ErrorLog that doubles the 'http: ' prefix | minimalism | S | low | approved |
+| NOTALLY-SRV-OPT-06 | Remove the custom http.Server ErrorLog that doubles the 'http: ' prefix | minimalism | S | low | applied |
 | NOTALLY-SRV-OPT-07 | Drop the -healthcheck self-probe and the HTTP client it links | minimalism | S | medium | rejected (owner, 2026-10-30) |
 
 #### NOTALLY-SRV-OPT-01: Cap the POST /v1/account request body at 64 KiB
@@ -606,7 +606,8 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 - **Safety**: Destination (stderr) and message content stay the same. No access log or new field, so the IP-free logging stays. No change to protocol, storage, keys or limits.
 - **Verification**: Confirmed with the local Go 1.27.3 source (Dockerfile uses golang:1.27-alpine). The benefit is small because these messages appear only on rare error paths.
 - **Effort**: S. **Risk**: low. **Impact**: low. **Net lines**: about -1 (estimate).
-- **Status**: approved
+- **Verified**: cd server && go vet ./... && go test ./... passed; go test -race ./... passed; gofmt -l reports no file; go build passed. A small loopback check with a nil ErrorLog printed `2026/10/30 11:06:35 http: superfluous response.WriteHeader call ...` (one 'http: ', UTC timestamp first). No new test (main is not covered by the test suite). Not checked: the server log in Docker, and no run-time check with the Android, desktop or macOS clients.
+- **Status**: applied
 
 #### NOTALLY-SRV-OPT-07: Drop the -healthcheck self-probe and the HTTP client it links
 - **What**: The server binary contains an HTTP client only for the Docker HEALTHCHECK, which calls GET /v1/health on its own loopback port. In the shipped setup nothing acts on the health state: compose.yaml uses `restart: unless-stopped` (ignores health), and caddy uses the short `depends_on: [server]` (waits only for start). The /v1/health handler only writes "ok".

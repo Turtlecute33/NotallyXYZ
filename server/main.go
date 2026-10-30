@@ -91,7 +91,6 @@ func main() {
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       90 * time.Second,
 		MaxHeaderBytes:    16 << 10,
-		ErrorLog:          log.New(os.Stderr, "http: ", log.LstdFlags|log.LUTC),
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
