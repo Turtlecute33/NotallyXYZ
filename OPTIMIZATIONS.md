@@ -61,7 +61,7 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 
 | ID | Finding | Area | Effort | Risk | Status |
 |---|---|---|---|---|---|
-| NOTALLY-AND-OPT-01 | Stop the two full backups at each process start | battery | S | low | approved |
+| NOTALLY-AND-OPT-01 | Stop the two full backups at each process start | battery | S | low | applied |
 | NOTALLY-AND-OPT-02 | Ship only ARM native libraries in the release APK | minimalism | S | low | approved |
 | NOTALLY-AND-OPT-03 | Replace zstd-jni with java.util.zip in CompressUtility | minimalism | S | low | approved |
 | NOTALLY-AND-OPT-04 | Make the auto-remove-deleted-notes worker run and drop koin-androidx-workmanager | stability | S | low | approved |
@@ -81,7 +81,8 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 - **Safety**: This is upstream code (55e801b4), not from 0a92797c. The backup zip format, file names, password use, WorkManager unique name and all preference keys stay the same. Only the extra runs at process start go away.
 - **Verification**: The perf lens confirmed the whole chain in code: withPrevious, EMPTY_PATH, the defaults, both branches and the rotation order. Not run on a device. To verify: force-stop and start the app 3 times, then count the files in Android/media/com.notallyxyz/backups. Today the count goes up at each start (up to 3). After the fix it must not change. No unit test covers onCreate.
 - **Effort**: S. **Risk**: low. **Impact**: high. **Net lines**: about -9 (estimate).
-- **Status**: approved
+- **Verified**: cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:testDebugUnitTest passed; JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleDebug passed; ./gradlew :app:ktfmtCheckMain passed. No assembleRelease (no build or packaging change). No unit test (onCreate returns early in the test runner and the helpers are private). Not checked: no run-time check on a device (force-stop and start the app 3 times; the file count in the backups folder must not change; a fresh install and a folder change must still make a backup).
+- **Status**: applied
 
 #### NOTALLY-AND-OPT-02: Ship only ARM native libraries in the release APK
 - **What**: The universal release APK has libsqlcipher.so and libzstd-jni.so for x86 and x86_64 as well as for arm64-v8a and armeabi-v7a. The two x86 folders are 5,894,052 B of the 14,663,817 B APK (40%). Phones with Android 7 or later do not use 32-bit x86. Only Intel emulators and some Chromebooks use x86_64, and most of these can run ARM code through translation.

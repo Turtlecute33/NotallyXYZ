@@ -32,7 +32,6 @@ import com.philkes.notallyx.utils.PidCrashDataCollector
 import com.philkes.notallyx.utils.PinnedNotificationManager
 import com.philkes.notallyx.utils.backup.AUTO_BACKUP_WORK_NAME
 import com.philkes.notallyx.utils.backup.autoBackupOnSave
-import com.philkes.notallyx.utils.backup.autoBackupOnSaveFileExists
 import com.philkes.notallyx.utils.backup.cancelAutoBackup
 import com.philkes.notallyx.utils.backup.containsNonCancelled
 import com.philkes.notallyx.utils.backup.createBackup
@@ -120,12 +119,12 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
             preferences.backupsFolder.flow.withPrevious().collect {
                 (backupFolderBefore, backupFolder) ->
                 checkUpdatePeriodicBackup(
-                    backupFolderBefore ?: "",
+                    backupFolderBefore,
                     backupFolder,
                     preferences.periodicBackups.value.periodInDays.toLong(),
                     execute = true,
                 )
-                checkUpdateAutoBackupOnSave(backupFolderBefore ?: "", backupFolder)
+                checkUpdateAutoBackupOnSave(backupFolderBefore, backupFolder)
             }
         }
 
@@ -269,17 +268,7 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
     }
 
     private fun checkUpdateAutoBackupOnSave(backupFolderBefore: String?, backupFolder: String) {
-        if (preferences.backupOnSave.value) {
-            if (
-                backupFolderBefore == null &&
-                    backupFolder != EMPTY_PATH &&
-                    !autoBackupOnSaveFileExists(backupFolder)
-            ) {
-                runOnIODispatcher {
-                    autoBackupOnSave(backupFolder, preferences.backupPassword.value, null)
-                }
-            }
-        } else if (folderChanged(backupFolderBefore, backupFolder)) {
+        if (!preferences.backupOnSave.value && folderChanged(backupFolderBefore, backupFolder)) {
             runOnIODispatcher {
                 autoBackupOnSave(backupFolder, preferences.backupPassword.value, null)
             }
