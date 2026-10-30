@@ -123,24 +123,27 @@ class SyncManager private constructor(private val app: Application) {
             if (!isEnabled) return@withContext false
             val database = NotallyDatabase.getDatabase(context).value ?: return@withContext false
             mutex.withLock {
-                mutableState.value = State(running = true, error = mutableState.value.error)
-                try {
-                    val engine = engine(database)
-                    val consistent = engine.run()
-                    val lastGc = SyncStore(database).getMeta(META_GC)?.toLongOrNull() ?: 0L
-                    val now = System.currentTimeMillis()
-                    if (consistent && now - lastGc > GC_INTERVAL_MS) {
-                        engine.collectGarbage()
-                        SyncStore(database).setMeta(META_GC, now.toString())
+                // The server can have the push already. Record it also if the caller cancels.
+                withContext(NonCancellable) {
+                    mutableState.value = State(running = true, error = mutableState.value.error)
+                    try {
+                        val engine = engine(database)
+                        val consistent = engine.run()
+                        val lastGc = SyncStore(database).getMeta(META_GC)?.toLongOrNull() ?: 0L
+                        val now = System.currentTimeMillis()
+                        if (consistent && now - lastGc > GC_INTERVAL_MS) {
+                            engine.collectGarbage()
+                            SyncStore(database).setMeta(META_GC, now.toString())
+                        }
+                        preferences.syncLastSuccess.save(now)
+                        mutableState.value = State()
+                        true
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Sync failed", e)
+                        if (e !is IOException) context.log(TAG, msg = "Sync failed", throwable = e)
+                        mutableState.value = State(error = describe(e))
+                        false
                     }
-                    preferences.syncLastSuccess.save(now)
-                    mutableState.value = State()
-                    true
-                } catch (e: Exception) {
-                    Log.w(TAG, "Sync failed", e)
-                    if (e !is IOException) context.log(TAG, msg = "Sync failed", throwable = e)
-                    mutableState.value = State(error = describe(e))
-                    false
                 }
             }
         }
