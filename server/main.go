@@ -96,12 +96,14 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	done := make(chan struct{})
 	go func() {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		store.wakeAll()
 		_ = srv.Shutdown(shutdown)
+		close(done)
 	}()
 
 	if cfg.signupToken == "" {
@@ -111,6 +113,7 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
+	<-done
 }
 
 func runHealthcheck(listen string) int {

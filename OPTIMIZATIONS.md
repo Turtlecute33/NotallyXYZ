@@ -529,7 +529,7 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 |---|---|---|---|---|---|
 | NOTALLY-SRV-OPT-01 | Cap the POST /v1/account request body at 64 KiB | stability | S | low | applied |
 | NOTALLY-SRV-OPT-02 | Answer 404, not 500, when a blob row has no file | stability | S | low | applied |
-| NOTALLY-SRV-OPT-03 | Wait for srv.Shutdown to return before main exits | stability | S | low | approved |
+| NOTALLY-SRV-OPT-03 | Wait for srv.Shutdown to return before main exits | stability | S | low | applied |
 | NOTALLY-SRV-OPT-04 | Remove leftover .upload-* temp files when the store opens | stability | S | low | approved |
 | NOTALLY-SRV-OPT-05 | Drop the unused 'created' return value of Store.PutBlob | minimalism | S | low | approved |
 | NOTALLY-SRV-OPT-06 | Remove the custom http.Server ErrorLog that doubles the 'http: ' prefix | minimalism | S | low | approved |
@@ -570,7 +570,8 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 - **Safety**: Process lifecycle only. No change to TLS, headers, limits, limiter, storage format or keys. No dependency.
 - **Verification**: The long-poll benefit is small: a woken poll reconnects to a closed listener and backs off anyway. The real gain is for short requests in flight. The 10 s Shutdown timeout equals the Docker default stop timeout, so a long upload can still get SIGKILL; bbolt is safe with that.
 - **Effort**: S. **Risk**: low. **Impact**: low. **Net lines**: about +3 (estimate).
-- **Status**: approved
+- **Verified**: cd server && go vet ./... && go test ./... passed; go test -race ./... passed. Run-time check on loopback with a temp DATA_DIR: a POST /v1/account that was in flight at SIGTERM got its 403 reply and the process then exited 0; without the change the process exited at once and the client got no reply. An idle server still exits at once. No unit test (main is not covered by the test suite). Not checked: a stop in Docker, and no run-time check with the Android, desktop or macOS clients.
+- **Status**: applied
 
 #### NOTALLY-SRV-OPT-04: Remove leftover .upload-* temp files when the store opens
 - **What**: PutBlob writes each upload to blobs/<acct>/.upload-* and removes it only in a defer. The defer does not run when the process stops during io.Copy: SIGKILL, OOM kill, a drain longer than 10 s, or today any SIGTERM (see NOTALLY-SRV-OPT-03). No code finds these files later. Missing, ListBlobs and the MAX_ACCOUNT_MB byte counter read only bbolt, so clients, GC and the quota cannot see them. Only DeleteAccount (RemoveAll) removes them. Each orphan holds the bytes received before the stop, up to MAX_BLOB_MB (100 MiB by default).
