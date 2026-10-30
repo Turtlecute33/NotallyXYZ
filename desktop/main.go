@@ -36,6 +36,7 @@ func main() {
 		BackgroundColour:         &options.RGBA{R: 0xF4, G: 0xF5, B: 0xF8, A: 0xFF},
 		EnableDefaultContextMenu: true, // copy and paste in text fields
 		OnStartup:                app.startup,
+		OnBeforeClose:            app.beforeClose,
 		OnShutdown:               app.shutdown,
 		Bind:                     []any{app},
 		SingleInstanceLock: &options.SingleInstanceLock{

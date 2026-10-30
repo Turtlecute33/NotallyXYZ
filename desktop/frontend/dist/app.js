@@ -476,6 +476,8 @@ rt.EventsOn('changed', () => refresh());
 rt.EventsOn('status', (st) => { if (app.state) app.state.status = st; renderStatus(st); });
 rt.EventsOn('open', (id) => openNote(id));
 rt.EventsOn('reminder', (r) => toast('⏰ ' + r.title, { label: 'Open', run: () => openNote(r.id) }, 15000));
+// Go holds the first close of the window. Save the pending change, then quit.
+rt.EventsOn('quit', async () => { await app.editor?.save(); rt.Quit(); });
 window.addEventListener('focus', () => { if (app.state?.connected) api.SyncNow(); });
 // Relative dates and next reminders stay current.
 setInterval(() => { if (app.state?.connected && !app.editor) refresh(); }, 60e3);

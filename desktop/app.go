@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -34,6 +35,9 @@ type App struct {
 
 	// Why the notes on this computer did not open at startup. A new setup deletes them.
 	startupError string
+
+	// Set at the first close. Then the next close or Quit does not wait for the UI.
+	quitting atomic.Bool
 }
 
 // Config is device state that is not a preference.
@@ -130,6 +134,16 @@ func (a *App) shutdown(context.Context) {
 	if a.notify {
 		wruntime.CleanupNotifications(a.ctx)
 	}
+}
+
+// beforeClose holds the first close, because the editor keeps the last change for 600 ms.
+// The UI saves the open note and then calls Quit, which comes here again.
+func (a *App) beforeClose(ctx context.Context) (prevent bool) {
+	if a.quitting.Swap(true) {
+		return false
+	}
+	wruntime.EventsEmit(ctx, "quit")
+	return true
 }
 
 func (a *App) secondInstance(options.SecondInstanceData) {

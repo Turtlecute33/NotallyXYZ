@@ -219,7 +219,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 | NOTALLY-DESK-OPT-09 | Remove dead code in Go and in the frontend | minimalism | S | low | approved |
 | NOTALLY-DESK-OPT-10 | Back off in the live loop when a sync does not move the cursor | battery | S | medium | rejected (owner, 2026-10-30) |
 | NOTALLYXYZ-SHARED-3 | Desktop: show why the notes did not open before setup can delete unsynced changes | stability | S | low | applied |
-| NOTALLYXYZ-SHARED-4 | Desktop: save the edit that waits for the autosave debounce when the app quits | stability | S | low | approved |
+| NOTALLYXYZ-SHARED-4 | Desktop: save the edit that waits for the autosave debounce when the app quits | stability | S | low | applied |
 
 #### NOTALLY-DESK-OPT-01: Remove the leftover --card-min root value so 'Fit content' cards fit again
 - **What**: style.css:15 sets '--card-min: 230px' in :root. Commit 5a7bc455 added '.card { min-height: calc(var(--card-min, 0px) * var(--scale)) }' and overrides only for small, medium and large. The default card size 'fit' has no override, so the old 230px root value applies. Every card in the grid and in list view is at least 230px x scale tall. This is taller than 'Large' (200px). macOS uses a minimum height of 0 for 'fit'.
@@ -358,7 +358,8 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 - **Benefit**: Text typed just before the user closes the window is kept. A new note typed with no pause is not lost. The record stays dirty in the cache, so the next start pushes it.
 - **Effort**: S. **Risk**: low.
 - **Owner decision**: Owner approved this shared item for desktop. Apply the fix of NOTALLY-MAC-OPT-02 (git log --grep=NOTALLY-MAC-OPT-02 shows its commit) to the desktop app.
-- **Status**: approved
+- **Verified**: cd desktop && go vet ./... && go test ./... passed (go test -count=1 also); GOOS=windows GOARCH=amd64 go vet -tags desktop,production . passed; gofmt -l finds no file; node --check frontend/dist/app.js passed. main.go sets OnBeforeClose to App.beforeClose. The first close emits 'quit' and holds the close; app.js awaits app.editor?.save() (the existing SaveNote path) and calls runtime.Quit, which comes back to beforeClose and quits. A second close quits at once, also when the UI does not answer. In the Wails v2.16.0 source, the window close on Linux and Windows and runtime.Quit all go through OnBeforeClose. No unit test (beforeClose needs the Wails runtime; the desktop tests cover core only). Not checked: no Wails build and no run-time check of the app (type with no pause, close the window within 0.5 s, open again and look for the text, also for a new note).
+- **Status**: applied
 
 ### Areas in good shape
 - HTTP client: one transport for each account, TLS 1.2 or newer, no redirects, a timeout on each call. Bodies are closed and capped. Blobs stream to and from disk and are written atomically.
