@@ -208,7 +208,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 
 | ID | Finding | Area | Effort | Risk | Status |
 |---|---|---|---|---|---|
-| NOTALLY-DESK-OPT-01 | Remove the leftover --card-min root value so 'Fit content' cards fit again | ui-ux | S | low | approved |
+| NOTALLY-DESK-OPT-01 | Remove the leftover --card-min root value so 'Fit content' cards fit again | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-02 | Use undefined, not null, for checkedTimestamp when an item is unchecked | ui-ux | S | low | approved |
 | NOTALLY-DESK-OPT-03 | Emit 'changed' after startup opens the cache | stability | S | low | approved |
 | NOTALLY-DESK-OPT-04 | Keep the grid scroll position, and do not rebuild the grid behind an open editor | ui-ux | S | low | approved |
@@ -230,7 +230,8 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 - **Safety**: CSS only. The settings.json key 'cardSize' and its values do not change. No crypto, sync or 0a92797c line (that commit touched only desktop/core).
 - **Verification**: No JS tests. Verify in a Linux build: on 'Fit content', short notes are short; Small, Medium and Large still set the minimum height.
 - **Effort**: S. **Risk**: low. **Impact**: high. **Net lines**: about -1 (estimate).
-- **Status**: approved
+- **Verified**: cd desktop && go vet ./... && go test ./... passed (go test -count=1 also). grep card-min now finds only the small, medium and large rules and the .card min-height with its 0px fallback. No .js file changed, so no node --check. No unit test (CSS only, no JS tests). Not checked: no Wails build and no run-time check of the UI (on 'Fit content', short notes are short; Small, Medium and Large still set the minimum height).
+- **Status**: applied
 
 #### NOTALLY-DESK-OPT-02: Use undefined, not null, for checkedTimestamp when an item is unchecked
 - **What**: When the user unchecks a list item, listops.js sets checkedTimestamp to null. Go stores a nil *int64 with omitempty, so Notes() returns the item without the key. About 630 ms later (600 ms autosave + 30 ms refresh delay, from code), NoteEditor.external() compares the JSON of the store note with this.lastSaved. The only difference is '"checkedTimestamp":null' against a missing key, so the editor treats its own save as an external change. The check button no longer has focus, so external() calls build() and rebuilds the full editor. The new .editor-scroll starts at the top. If the user has clicked into another item, list.replace() still takes the caret away.

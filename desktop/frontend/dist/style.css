@@ -12,7 +12,6 @@
   --danger: #c4314b;
   --shadow: 0 1px 2px rgba(20, 22, 30, .06), 0 2px 8px rgba(20, 22, 30, .05);
   --radius: 16px;
-  --card-min: 230px;
   --gap: 12px;
   color-scheme: light;
 }
