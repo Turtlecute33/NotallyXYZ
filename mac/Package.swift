@@ -20,7 +20,6 @@ let package = Package(
         .testTarget(
             name: "NotallyCoreTests",
             dependencies: ["NotallyCore"],
-            resources: [.copy("testvectors.json")],
             swiftSettings: settings
         ),
     ]

@@ -15,7 +15,7 @@ struct Vectors: Decodable {
     let seal: [SealVector]
 
     static let shared: Vectors = {
-        let url = Bundle.module.url(forResource: "testvectors", withExtension: "json")!
+        let url = URL(filePath: "../../../server/testvectors.json", relativeTo: URL(filePath: #filePath))
         return try! JSONDecoder().decode(Vectors.self, from: Data(contentsOf: url))
     }()
 }

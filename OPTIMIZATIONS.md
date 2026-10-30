@@ -379,7 +379,7 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 | NOTALLY-MAC-OPT-03 | Stop the live poll and the sync debounce from fighting a running sync | stability | S | low | applied |
 | NOTALLY-MAC-OPT-04 | Confirm Delete Checked Items in lists | ui-ux | S | low | applied |
 | NOTALLY-MAC-OPT-05 | Count open editors per note so that a second window keeps remote edits held back | stability | S | low | applied |
-| NOTALLY-MAC-OPT-06 | Read the server testvectors.json in the mac tests and delete the 550 KB copy | minimalism | S | low | approved |
+| NOTALLY-MAC-OPT-06 | Read the server testvectors.json in the mac tests and delete the 550 KB copy | minimalism | S | low | applied |
 | NOTALLY-MAC-OPT-07 | Show why the notes did not open before the setup screen can wipe unsynced changes | stability | S | low | approved |
 | NOTALLY-MAC-OPT-08 | Remove dead code and the second copy of the parent-checked rule | minimalism | S | low | approved |
 | NOTALLY-MAC-OPT-09 | Read, decrypt and decode thumbnails off the main thread | speed | M | low | rejected (owner, 2026-10-30) |
@@ -457,7 +457,8 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 - **Verification**: Confirmed identical hashes and that the #filePath-relative path resolves from mac/Tests/NotallyCoreTests/ to <repo>/server/testvectors.json. Run ./test.sh and confirm that CryptoTests pass.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about -80 (estimate).
 - **Shared**: NOTALLYXYZ-SHARED-5, also in Android (not listed: android/app/src/test/resources/sync/testvectors.json, read at android/app/src/test/kotlin/com/philkes/notallyx/sync/SyncCryptoTest.kt:21).
-- **Status**: approved
+- **Verified**: (cd server && go build -o /tmp/nxyz-mac-test-server .) passed; cd mac && ./test.sh passed (26 tests in 6 suites, CryptoTests read server/testvectors.json); SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk swift build passed with no new warning. A plain swift build fails on the macOS 27 SDK (@State macro plugin not found) also without this change, as mac/README.md tells. No new unit test: the change is a test path. Not checked: the Android copy (NOTALLYXYZ-SHARED-5) is not part of this item.
+- **Status**: applied
 
 #### NOTALLY-MAC-OPT-07: Show why the notes did not open before the setup screen can wipe unsynced changes
 - **What**: AppModel.init uses `try?` on open() and does not tell a nil Keychain.load() (denied prompt, locked login keychain, missing item) from a first start. If the user denies or cancels the Keychain prompt, or the cache does not open, the app shows SetupView with the server already filled in. The natural next step is to paste the key and press Connect. finishSetup() then calls wipeLocalData(), which deletes the cache with all unpushed edits and attachments that were not uploaded. The owner rule says: do not hide Keychain or security errors.
