@@ -374,7 +374,7 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 
 | ID | Finding | Area | Effort | Risk | Status |
 |---|---|---|---|---|---|
-| NOTALLY-MAC-OPT-01 | Put keyboard focus in a new note | ui-ux | S | low | approved |
+| NOTALLY-MAC-OPT-01 | Put keyboard focus in a new note | ui-ux | S | low | applied |
 | NOTALLY-MAC-OPT-02 | Save the open note when the app quits | stability | S | low | approved |
 | NOTALLY-MAC-OPT-03 | Stop the live poll and the sync debounce from fighting a running sync | stability | S | low | approved |
 | NOTALLY-MAC-OPT-04 | Confirm Delete Checked Items in lists | ui-ux | S | low | approved |
@@ -394,7 +394,8 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 - **Safety**: View code only. The draft logic (AppModel.save, closeEditor, drafts), storage and preference keys do not change. git blame: NoteEditor.swift:39-43 and :116 from b15e3a2a, :118 from 3d6a38da, RichTextEditor.swift:127-150 from b15e3a2a. Nothing from 0a92797c. No dependency.
 - **Verification**: Not run on a device. Verify by hand: Cmd-N, type at once, and look for the text in the title (and in the body if you do the optional step). Do the same for Shift-Cmd-N.
 - **Effort**: S. **Risk**: low. **Impact**: high. **Net lines**: about +7 (estimate).
-- **Status**: approved
+- **Verified**: (cd server && go build -o /tmp/nxyz-mac-test-server .) passed; cd mac && ./test.sh passed (25 tests in 6 suites); SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk swift build passed with no new warning. A plain swift build fails on the macOS 27 SDK (@State macro plugin not found) also without this change, as mac/README.md tells. Only the smallest step is done: the title gets the focus for a new note and a new list; the optional body focus for text notes is not done. No unit test (view code, no SwiftUI tests). Not checked: no run-time check of the UI (Cmd-N or Shift-Cmd-N, then type).
+- **Status**: applied
 
 #### NOTALLY-MAC-OPT-02: Save the open note when the app quits
 - **What**: The editor saves only from a 700 ms debounce Task (update()) or in onDisappear. Each keystroke cancels and starts that Task again. Cmd-Q, log out and restart do not close the windows, so onDisappear does not run and the pending save does not run. The app loses all text typed since the last pause of 0.7 s or more. A new note typed with no pause and then quit stays only in AppModel.drafts, so the app loses all of it.

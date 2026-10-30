@@ -20,6 +20,7 @@ struct NoteEditor: View {
     @State private var importing: NoteStore.AttachmentKind?
     @State private var linkText = ""
     @State private var editingLink = false
+    @FocusState private var titleFocused: Bool
 
     var body: some View {
         Group {
@@ -117,6 +118,9 @@ struct NoteEditor: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 22 * model.textSize.scale, weight: .medium))
                 .disabled(!editable)
+                .focused($titleFocused)
+                // A new note starts with the cursor in the title, so the user can type at once.
+                .onAppear { if model.drafts[id] != nil { titleFocused = true } }
             Text("Created \(Format.full(Format.date(note.timestamp)))  ·  Modified \(Format.ago(note.modifiedTimestamp))")
                 .font(.caption).foregroundStyle(.secondary)
             if let saveError {
