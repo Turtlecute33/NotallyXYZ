@@ -93,6 +93,9 @@ func TestAccount(t *testing.T) {
 	if code, _ := do(t, srv, "POST", "/v1/account", tok, map[string]string{"invite": ""}); code != 200 {
 		t.Fatalf("exists: %d", code)
 	}
+	if code, body := do(t, srv, "POST", "/v1/account", newToken(), map[string]string{"invite": strings.Repeat("x", 100<<10)}); code != 413 || body["error"] != "too_large" {
+		t.Fatalf("large body: %d %v", code, body)
+	}
 	if code, body := do(t, srv, "POST", "/v1/account", newToken(), map[string]string{"invite": invite}); code != 403 || body["error"] != "accounts_limit" {
 		t.Fatalf("limit: %d %v", code, body)
 	}

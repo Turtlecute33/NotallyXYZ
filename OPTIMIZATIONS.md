@@ -527,7 +527,7 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 
 | ID | Finding | Area | Effort | Risk | Status |
 |---|---|---|---|---|---|
-| NOTALLY-SRV-OPT-01 | Cap the POST /v1/account request body at 64 KiB | stability | S | low | approved |
+| NOTALLY-SRV-OPT-01 | Cap the POST /v1/account request body at 64 KiB | stability | S | low | applied |
 | NOTALLY-SRV-OPT-02 | Answer 404, not 500, when a blob row has no file | stability | S | low | approved |
 | NOTALLY-SRV-OPT-03 | Wait for srv.Shutdown to return before main exits | stability | S | low | approved |
 | NOTALLY-SRV-OPT-04 | Remove leftover .upload-* temp files when the store opens | stability | S | low | approved |
@@ -545,7 +545,8 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 - **Verification**: Merged from perf and stability (same root cause and same fix). Impact high from stability is kept: it is a remote, unauthenticated OOM path. The 3-request threshold is an estimate from the Go buffer growth rules, not a measurement. Moving the signup check before the decode is not a smaller fix: it covers only signups-off and changes the 200 created:false reply for existing accounts. Net lines is about 1 code line plus about 5 test lines (estimate).
 - **Effort**: S. **Risk**: low. **Impact**: high. **Net lines**: about +6 (estimate).
 - **Owner decision**: Owner approved the new 64 KiB body limit in the createAccount security code.
-- **Status**: approved
+- **Verified**: cd server && go vet ./... && go test ./... passed; go test -race ./... and go test -race -count=30 -run TestAccount passed; the new 413 case fails without the change (403 invalid_invite). Not checked: memory use under load, and no run-time check with the Android, desktop or macOS clients.
+- **Status**: applied
 
 #### NOTALLY-SRV-OPT-02: Answer 404, not 500, when a blob row has no file
 - **What**: OpenBlob checks the bbolt row, then returns the os.Open error unchanged. If the file is missing, ENOENT goes to internalError and the client gets 500. Android pull() downloads attachments before it stores the cursor. SyncApi.getBlob treats only 404 as 'not on server yet'; any other status throws, and download() catches only GeneralSecurityException. The exception leaves pull() before META_CURSOR is saved, so every later sync fails on the same page. That Android device gets no remote changes until the note stops using the attachment. Desktop and macOS ignore blob errors. Triggers: power loss soon after PutBlob on btrfs (the rename is not covered by the bbolt fsync and the directory is not fsynced), or manual removal or partial restore of blob files.

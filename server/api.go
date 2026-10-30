@@ -195,6 +195,8 @@ func (a *api) createAccount(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Invite string `json:"invite"`
 	}
+	// The body has only the invite. This limit stops large bodies before the account check.
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 	if !decodeJSON(w, r, &body) {
 		return
 	}
