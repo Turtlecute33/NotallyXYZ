@@ -378,7 +378,7 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 | NOTALLY-MAC-OPT-02 | Save the open note when the app quits | stability | S | low | applied |
 | NOTALLY-MAC-OPT-03 | Stop the live poll and the sync debounce from fighting a running sync | stability | S | low | applied |
 | NOTALLY-MAC-OPT-04 | Confirm Delete Checked Items in lists | ui-ux | S | low | applied |
-| NOTALLY-MAC-OPT-05 | Count open editors per note so that a second window keeps remote edits held back | stability | S | low | approved |
+| NOTALLY-MAC-OPT-05 | Count open editors per note so that a second window keeps remote edits held back | stability | S | low | applied |
 | NOTALLY-MAC-OPT-06 | Read the server testvectors.json in the mac tests and delete the 550 KB copy | minimalism | S | low | approved |
 | NOTALLY-MAC-OPT-07 | Show why the notes did not open before the setup screen can wipe unsynced changes | stability | S | low | approved |
 | NOTALLY-MAC-OPT-08 | Remove dead code and the second copy of the parent-checked rule | minimalism | S | low | approved |
@@ -444,7 +444,8 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 - **Safety**: In-memory state only. The pending table, record format, isHeldBack and merge rules do not change. The lines at NoteStore+Remote.swift:36 and :39 (from 70e16452) stay as they are. Not 0a92797c code. No dependency.
 - **Verification**: The loss needs concurrent edits on two devices, so it is not frequent, but it leaves no trace. A count depends on paired onAppear/onDisappear calls; if SwiftUI sends an extra onAppear, the note stays held back until relaunch, and NoteStore.init applies pending rows then. Extend SyncRulesTests.swift:108-123: call editorOpened twice and editorClosed once, then expect the remote change to stay held back. Run ./test.sh.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about +2 (estimate).
-- **Status**: approved
+- **Verified**: (cd server && go build -o /tmp/nxyz-mac-test-server .) passed; cd mac && ./test.sh passed (26 tests in 6 suites); SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk swift build passed with no new warning. A plain swift build fails on the macOS 27 SDK (@State macro plugin not found) also without this change, as mac/README.md tells. SyncTests.openEditorDefersRemoteChanges now opens the note two times and closes it one time, then expects the remote change to stay held back; this check fails on the old Set and passes on the count. Not checked: no run-time check of the app (open a note, More > Open in New Window, go back in the main window, edit on a second device and look for the merge or the conflict copy).
+- **Status**: applied
 
 #### NOTALLY-MAC-OPT-06: Read the server testvectors.json in the mac tests and delete the 550 KB copy
 - **What**: mac/Tests/NotallyCoreTests/testvectors.json is a byte-for-byte copy of server/testvectors.json. It is a test resource only so that CryptoTests can load it through Bundle.module. The server test checks that its own file is current, but nothing checks the mac copy. If the server crypto changes and the vectors are made again, the mac tests still pass against the old copy, and the interop break is not found. Desktop already reads the server file. The repo README says all clients check against server/testvectors.json.

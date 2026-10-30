@@ -35,7 +35,7 @@ extension NoteStore {
                 }
                 let sealed = Payload.isTombstone(plain) ? nil : data
                 // The editor would overwrite it: keep it aside until the editor closes.
-                if change.kind == "note" && openEditors.contains(change.id) {
+                if change.kind == "note" && openEditors[change.id] != nil {
                     try local.putPending(.init(id: change.id, seq: change.seq, sealed: sealed))
                     continue
                 }
@@ -141,10 +141,12 @@ extension NoteStore {
     // MARK: Editors
 
     /// Remote changes of an open note wait until the editor closes.
-    public func editorOpened(_ id: String) { openEditors.insert(id) }
+    public func editorOpened(_ id: String) { openEditors[id, default: 0] += 1 }
 
     public func editorClosed(_ id: String) {
-        openEditors.remove(id)
+        // Another window still shows the note: keep the remote changes back.
+        if let count = openEditors[id], count > 1 { openEditors[id] = count - 1; return }
+        openEditors[id] = nil
         try? applyPending(id)
     }
 

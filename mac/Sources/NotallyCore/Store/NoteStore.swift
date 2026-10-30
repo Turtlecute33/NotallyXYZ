@@ -15,7 +15,8 @@ public final class NoteStore {
 
     public let keys: SyncKeys
     @ObservationIgnored let local: LocalStore
-    @ObservationIgnored var openEditors = Set<String>()
+    /// Open editors per note id. The same note can be open in more than one window.
+    @ObservationIgnored var openEditors: [String: Int] = [:]
 
     public init(directory: URL, keys: SyncKeys) throws {
         self.keys = keys

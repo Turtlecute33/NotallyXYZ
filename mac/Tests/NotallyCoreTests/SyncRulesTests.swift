@@ -106,6 +106,7 @@ extension SyncTests {
             try await sync(b)
 
             b.store.editorOpened(note.id)
+            b.store.editorOpened(note.id)  // the same note in a second window
             var fromA = a.store.notes[note.id]!
             fromA.color = "#FFCC80"
             a.store.save(fromA)
@@ -120,6 +121,8 @@ extension SyncTests {
             try await sync(a)
             #expect(a.store.notes[note.id]?.body == "v1")
 
+            b.store.editorClosed(note.id)  // the other window is still open
+            #expect(b.store.notes[note.id]?.color == NoteColor.defaultValue)  // still held back
             b.store.editorClosed(note.id)  // three-way merge: A's color + B's body
             #expect(b.store.notes[note.id]?.color == "#FFCC80")
             #expect(b.store.notes[note.id]?.body == "v2 from B")
