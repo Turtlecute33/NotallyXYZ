@@ -124,4 +124,19 @@ struct SyncTests {
         try await a.engine.api.deleteAccount()
         await #expect(throws: APIError.unauthorized) { _ = try await a.engine.api.accountInfo() }
     }
+
+    @Test func aLaterScheduleDoesNotCancelARunningSync() async throws {
+        let server = try TestServer()
+        defer { server.stop() }
+        try await server.waitUntilReady()
+        let a = try client(.generate())
+        defer { try? FileManager.default.removeItem(at: a.dir) }
+        #expect(try await a.engine.api.createAccount(invite: TestServer.invite))
+
+        a.engine.schedule(after: 0)
+        while !a.engine.isSyncing { await Task.yield() }
+        a.engine.schedule(after: 60)  // an edit while the sync runs
+        while a.engine.isSyncing { await Task.yield() }
+        #expect(a.engine.lastSync != nil && a.engine.lastError == nil)
+    }
 }

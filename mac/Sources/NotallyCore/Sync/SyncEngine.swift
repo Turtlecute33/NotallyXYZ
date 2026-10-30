@@ -23,13 +23,14 @@ public final class SyncEngine {
         self.api = api
     }
 
-    /// Debounced sync after local edits.
+    /// Debounced sync after local edits. A later call cancels only the wait, not a running sync.
     public func schedule(after seconds: Double = 2) {
         scheduled?.cancel()
         scheduled = Task { [weak self] in
             try? await Task.sleep(for: .seconds(seconds))
-            guard !Task.isCancelled else { return }
-            await self?.sync()
+            guard !Task.isCancelled, let self else { return }
+            self.scheduled = nil
+            await self.sync()
         }
     }
 
@@ -151,7 +152,8 @@ public final class SyncEngine {
                 do {
                     let page = try await self.api.changes(since: self.store.local.cursor, limit: 1, wait: 25)
                     delay = 5
-                    if !page.changes.isEmpty { await self.sync() }
+                    // A separate task, so that stopLive() stops the poll but not a running sync.
+                    if !page.changes.isEmpty { await Task { await self.sync() }.value }
                 } catch {
                     if Task.isCancelled { return }
                     try? await Task.sleep(for: .seconds(delay))
