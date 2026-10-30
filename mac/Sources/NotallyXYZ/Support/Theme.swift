@@ -77,12 +77,17 @@ enum Format {
     static let relative: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
         f.unitsStyle = .full
+        f.dateTimeStyle = .named
         return f
     }()
 
     static func date(_ ms: Int64) -> Date { Date(timeIntervalSince1970: Double(ms) / 1000) }
 
-    static func ago(_ ms: Int64) -> String { relative.localizedString(for: date(ms), relativeTo: Date()) }
+    static func ago(_ ms: Int64) -> String { ago(date(ms)) }
+
+    static func ago(_ date: Date) -> String {
+        abs(date.timeIntervalSinceNow) < 45 ? "just now" : relative.localizedString(for: date, relativeTo: Date())
+    }
 
     static func full(_ date: Date) -> String {
         date.formatted(date: .abbreviated, time: .shortened)

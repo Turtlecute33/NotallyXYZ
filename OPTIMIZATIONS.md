@@ -383,7 +383,7 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 | NOTALLY-MAC-OPT-07 | Show why the notes did not open before the setup screen can wipe unsynced changes | stability | S | low | applied |
 | NOTALLY-MAC-OPT-08 | Remove dead code and the second copy of the parent-checked rule | minimalism | S | low | applied |
 | NOTALLY-MAC-OPT-09 | Read, decrypt and decode thumbnails off the main thread | speed | M | low | rejected (owner, 2026-10-30) |
-| NOTALLY-MAC-OPT-10 | Show 'just now' in place of 'in 0 seconds' | ui-ux | S | low | approved |
+| NOTALLY-MAC-OPT-10 | Show 'just now' in place of 'in 0 seconds' | ui-ux | S | low | applied |
 
 #### NOTALLY-MAC-OPT-01: Put keyboard focus in a new note
 - **What**: New Note (Cmd-N), New List (Shift-Cmd-N) and the floating buttons push an editor with no focus request. The user must click the title or the body before typing. This is the most frequent create action. Desktop focuses the body of a new text note and the title of a new list.
@@ -507,7 +507,8 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 - **Safety**: Display strings only. Stored timestamps do not change. git blame: Theme.swift:76-85 and ContentView.swift:97-105 from b15e3a2a. The 0a92797c line ContentView.swift:94 (saveError) is not touched. No dependency.
 - **Verification**: Cosmetic, but visible on every keystroke in the editor header. Cards seldom show it. The SyncStatusBar threshold moves from 60 s to 45 s, with no real effect. Verify by hand: type in a note and read the header.
 - **Effort**: S. **Risk**: low. **Impact**: low. **Net lines**: about 0 (estimate).
-- **Status**: approved
+- **Verified**: (cd server && go build -o /tmp/nxyz-mac-test-server .) passed; cd mac && ./test.sh passed (26 tests in 6 suites); SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk swift build passed with no new warning. A plain swift build fails on the macOS 27 SDK (@State macro plugin not found) also without this change, as mac/README.md tells. A temporary Foundation script with the same formatter settings gave 'just now' for 0, -0.4 and -30 s, '50 seconds ago' for -50 s, 'yesterday' for -36 h and 'last week' for -8 d. No unit test (Format is in the app target, which has no tests). Not checked: no run-time check of the UI (type in a note and read the header; read the sync status bar).
+- **Status**: applied
 
 ### Areas in good shape
 - Network runs only while the app is active. The long poll stops on resign and on sleep. HTTP errors back off from 5 s to 300 s.

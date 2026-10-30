@@ -96,9 +96,7 @@ struct SyncStatusBar: View {
                     Text(error).lineLimit(2).help(error)
                 } else if let date = engine.lastSync {
                     Image(systemName: "lock.icloud")
-                    Text(Date().timeIntervalSince(date) < 60
-                        ? "Synced just now"
-                        : "Synced \(Format.relative.localizedString(for: date, relativeTo: Date()))")
+                    Text("Synced \(Format.ago(date))")
                 } else {
                     Image(systemName: "lock.icloud")
                     Text("Not synced yet")
