@@ -2,17 +2,11 @@
 
 import com.android.build.gradle.internal.tasks.factory.dependsOn
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.ncorti.ktfmt.gradle.tasks.KtfmtFormatTask
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
-import org.apache.commons.configuration2.PropertiesConfiguration
-import org.apache.commons.configuration2.io.FileHandler
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.firebase.testlab)
     alias(libs.plugins.ktfmt)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.translations.converter)
@@ -152,77 +146,6 @@ androidComponents {
         variant.outputs.forEach { output ->
             output.outputFileName.set("NotallyXYZ-$versionName.apk")
         }
-
-        val variantName = variant.name
-        val variantCapitalized = variantName.replaceFirstChar { it.uppercase() }
-        val buildTypeName = variant.buildType ?: variantName
-
-        if (buildTypeName == "release" || buildTypeName == "beta") {
-            fun copyMapping(suffix: String) {
-                val mappingFile =
-                    layout.buildDirectory
-                        .file("outputs/mapping/$buildTypeName/mapping.txt")
-                        .get()
-                        .asFile
-                if (mappingFile.exists()) {
-                    val target =
-                        File(project.projectDir, "obfuscation/mapping-$buildTypeName-$suffix.txt")
-                    target.parentFile.mkdirs()
-                    mappingFile.copyTo(target, overwrite = true)
-                    println("Copied mapping to: ${target.absolutePath}")
-                }
-            }
-
-            tasks
-                .matching { it.name == "assemble$variantCapitalized" }
-                .configureEach { doLast { copyMapping("apk") } }
-
-            tasks
-                .matching { it.name == "bundle$variantCapitalized" }
-                .configureEach { doLast { copyMapping("bundle") } }
-
-            if (buildTypeName == "release") {
-                tasks
-                    .matching { it.name == "bundle$variantCapitalized" }
-                    .configureEach {
-                        doLast {
-                            val nativeLibsDir =
-                                layout.buildDirectory
-                                    .file(
-                                        "intermediates/merged_native_libs/$buildTypeName/merge${variantCapitalized}NativeLibs/out/lib"
-                                    )
-                                    .get()
-                                    .asFile
-
-                            if (!nativeLibsDir.exists()) {
-                                println("No native debug symbols found in $nativeLibsDir")
-                                return@doLast
-                            }
-                            val outputZip =
-                                File(
-                                    project.projectDir,
-                                    "obfuscation/$buildTypeName-debug-symbols.zip",
-                                )
-                            outputZip.parentFile.mkdirs()
-                            ZipOutputStream(outputZip.outputStream()).use { zipOut ->
-                                nativeLibsDir.walkTopDown().forEach { file ->
-                                    if (file.isFile) {
-                                        val relativePath =
-                                            nativeLibsDir
-                                                .toPath()
-                                                .relativize(file.toPath())
-                                                .toString()
-                                        zipOut.putNextEntry(ZipEntry(relativePath))
-                                        file.inputStream().use { it.copyTo(zipOut) }
-                                        zipOut.closeEntry()
-                                    }
-                                }
-                            }
-                            println("Native debug symbols zipped to: ${outputZip.absolutePath}")
-                        }
-                    }
-            }
-        }
     }
 }
 
@@ -242,120 +165,7 @@ autoTranslate {
     }
 }
 
-firebaseTestLab {
-    val serviceAccountPath = System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if (!serviceAccountPath.isNullOrEmpty()) {
-        serviceAccountCredentials.set(file(serviceAccountPath))
-    }
-    managedDevices {
-        create("galaxyA06") {
-            device = "a06"
-            apiLevel = 35
-        }
-
-        create("pixel5") {
-            device = "redfin"
-            apiLevel = 30
-        }
-
-        create("pixel10ProXL") {
-            device = "mustang"
-            apiLevel = 36
-        }
-
-        create("mediumPhone") {
-            device = "MediumPhone.arm"
-            apiLevel = 28
-        }
-    }
-    testOptions {
-        fixture { grantedPermissions = "all" }
-
-        execution { maxTestReruns = 2 }
-    }
-}
-
-//
-// tasks.named<Task>("assembleDebugAndroidTest") {
-//    doLast {
-//        logger.lifecycle("Task ${name} finished assembling!")
-//    }
-// }
-
-// Access internal AGP tasks with their explicit type
-// tasks.named<PackageAndroidArtifact>("packageDebugAndroidTest") {
-//    doLast {
-//        // Strongly typed access to task properties
-//        val apkFolder = outputDirectory.get().asFile
-//        logger.lifecycle("Packaging APKs into: ${apkFolder.absolutePath}")
-//    }
-// }
-
-tasks.register<KtfmtFormatTask>("ktfmtPrecommit") {
-    source = project.fileTree(rootDir)
-    include("**/*.kt")
-}
-
-tasks.register<Copy>("installLocalGitHooks") {
-    val scriptsDir = File(rootProject.rootDir, ".scripts/")
-    val hooksDir = File(rootProject.rootDir, ".git/hooks")
-    from(scriptsDir) { include("pre-commit", "pre-commit.bat") }
-    into(hooksDir)
-    inputs.files(file("${scriptsDir}/pre-commit"), file("${scriptsDir}/pre-commit.bat"))
-    outputs.dir(hooksDir)
-    filePermissions { unix(509) }
-    // If this throws permission denied:
-    // chmod +rwx ./.git/hooks/pre-commit*
-}
-
-// The fork lives in a monorepo: no git hooks in android/.git.
 tasks.preBuild.dependsOn(tasks.exportTranslationsToExcel)
-
-tasks.register("generateChangelogs") {
-    doLast {
-        val githubToken = providers.gradleProperty("CHANGELOG_GITHUB_TOKEN").orNull
-
-        val command =
-            mutableListOf(
-                "bash",
-                rootProject.file("generate-changelogs.sh").absolutePath,
-                "v${project.findProperty("app.lastVersionName")}",
-                rootProject.file("CHANGELOG.md").absolutePath,
-            )
-        if (!githubToken.isNullOrEmpty()) {
-            command.add(githubToken)
-        } else {
-            println(
-                "CHANGELOG_GITHUB_TOKEN not found, which limits the allowed amount of Github API calls"
-            )
-        }
-
-        // Execute and stream directly to the terminal console
-        val process =
-            ProcessBuilder(command)
-                .directory(rootProject.rootDir)
-                .redirectOutput(ProcessBuilder.Redirect.INHERIT)
-                .redirectError(ProcessBuilder.Redirect.INHERIT)
-                .start()
-
-        val exitCode = process.waitFor()
-        if (exitCode != 0) {
-            throw GradleException("Changelog generation script failed with exit code $exitCode")
-        }
-
-        // Update gradle.properties
-        val config = PropertiesConfiguration()
-        val fileHandler =
-            FileHandler(config).apply {
-                file = rootProject.file("gradle.properties")
-                load()
-            }
-        val currentVersionName = config.getProperty("app.versionName")?.toString() ?: ""
-        config.setProperty("app.lastVersionName", currentVersionName)
-        fileHandler.save()
-        println("Updated app.lastVersionName to $currentVersionName")
-    }
-}
 
 afterEvaluate {
     tasks.named("bundleRelease").configure { dependsOn(tasks.named("testReleaseUnitTest")) }
