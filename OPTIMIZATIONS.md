@@ -63,7 +63,7 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 |---|---|---|---|---|---|
 | NOTALLY-AND-OPT-01 | Stop the two full backups at each process start | battery | S | low | applied |
 | NOTALLY-AND-OPT-02 | Ship only ARM native libraries in the release APK | minimalism | S | low | applied |
-| NOTALLY-AND-OPT-03 | Replace zstd-jni with java.util.zip in CompressUtility | minimalism | S | low | approved |
+| NOTALLY-AND-OPT-03 | Replace zstd-jni with java.util.zip in CompressUtility | minimalism | S | low | applied |
 | NOTALLY-AND-OPT-04 | Make the auto-remove-deleted-notes worker run and drop koin-androidx-workmanager | stability | S | low | approved |
 | NOTALLY-AND-OPT-05 | Remove the debug content descriptions on checklist items | ui-ux | S | low | approved |
 | NOTALLY-AND-OPT-06 | Keep sync setup, Disconnect and Delete server data from stopping halfway or crashing | stability | S | low | approved |
@@ -105,7 +105,8 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 - **Safety**: The compressed bytes exist only in RAM, so they are not a storage format. This is upstream editor code, not security-review code. No schema, preference key or crypto change.
 - **Verification**: CompressUtilityTest and EditTextCompressionTest cover the round trip and the invalid-data case. For notes over 10k chars, each keystroke runs 2 compressions and 1 decompression on the main thread (UiExtensions.kt:368, 377, 385). Deflate level 1 is a bit slower than zstd level 4 and compresses a bit less, so the undo history of long notes uses a bit more RAM (estimate, not measured). Before release, type in a note of about 100 KB on a slow phone and check the latency.
 - **Effort**: S. **Risk**: low. **Impact**: high. **Net lines**: about -3 (estimate).
-- **Status**: approved
+- **Verified**: cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:testDebugUnitTest passed (CompressUtilityTest 3/3, EditTextCompressionTest 2/2); JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleDebug passed; JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleRelease passed (it also runs testReleaseUnitTest); ktfmtCheck passed on the two changed Kotlin files. unzip -l: the release and debug APKs have only libsqlcipher.so, no libzstd-jni. The release APK is 7,623,879 B (was 8,710,217 B). No new unit test (the existing tests cover the round trip and the invalid-data case). The README APK size line is not changed here. Not checked: no run-time check on a device, and no typing latency check in a note of about 100 KB on a slow phone.
+- **Status**: applied
 
 #### NOTALLY-AND-OPT-04: Make the auto-remove-deleted-notes worker run and drop koin-androidx-workmanager
 - **What**: The setting 'Auto remove deleted notes after N days' never removes a note. androidx.startup's WorkManagerInitializer is in the merged manifest, so it starts WorkManager with the default WorkerFactory before Application.onCreate. Koin 4.2.2 workManagerFactory() returns at once when WorkManager.isInitialized() is true, so KoinWorkerFactory is never installed. The default factory looks only for a (Context, WorkerParameters) constructor. AutoRemoveDeletedNotesWorker has only a 3-argument constructor. So each run fails with 'Could not create Worker', and the user sees no error. No other code calls removeOldDeletedNotes.

@@ -40,7 +40,7 @@ class CompressUtilityTest {
 
         val compressed = CompressUtility.compressTextAndSpans(text, spans)
 
-        // Expect some bytes and that Zstd frame is decompressible
+        // Expect some bytes and that the Deflate stream is decompressible
         assertTrue(compressed.isNotEmpty())
 
         val (outText, outSpans) = CompressUtility.decompressTextAndSpans(compressed)

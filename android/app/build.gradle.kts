@@ -393,7 +393,6 @@ dependencies {
     implementation(libs.prettytime)
     implementation(libs.simple.xml) { exclude(group = "xpp3", module = "xpp3") }
     implementation(libs.bundles.commonmark)
-    implementation("com.github.luben:zstd-jni:${libs.versions.zstd.get()}@aar")
 
     // Koin
     implementation(platform(libs.koin.bom))
@@ -426,7 +425,6 @@ dependencies {
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.mockito.core)
     testImplementation(libs.robolectric)
-    testImplementation(libs.zstd.jni.test)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.test.espresso.contrib)
     testImplementation(libs.koin.test)

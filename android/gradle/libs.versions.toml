@@ -42,7 +42,6 @@ jsoup = "1.23.2"
 prettytime = "4.0.6.Final"
 simpleXml = "2.7.1"
 commonmark = "0.30.0"
-zstd = "1.5.7-6"
 commonsConfiguration = "2.15.1"
 
 # Test
@@ -121,8 +120,6 @@ mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", versio
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoCore" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
-
-zstd-jni-test = { group = "com.github.luben", name = "zstd-jni", version.ref = "zstd" }
 
 # Koin
 koin-bom = { group = "io.insert-koin", name = "koin-bom", version.ref = "koin" }
