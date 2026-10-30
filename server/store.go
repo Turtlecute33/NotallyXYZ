@@ -93,6 +93,11 @@ func openStore(dbPath, blobDir string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	// A stop during PutBlob can leave its temp file. Remove these files.
+	tmp, _ := filepath.Glob(filepath.Join(blobDir, "*", ".upload-*"))
+	for _, f := range tmp {
+		_ = os.Remove(f)
+	}
 	return &Store{db: db, blobDir: blobDir, waiters: map[string]chan struct{}{}}, nil
 }
 

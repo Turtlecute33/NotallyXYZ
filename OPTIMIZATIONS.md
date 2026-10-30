@@ -530,7 +530,7 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 | NOTALLY-SRV-OPT-01 | Cap the POST /v1/account request body at 64 KiB | stability | S | low | applied |
 | NOTALLY-SRV-OPT-02 | Answer 404, not 500, when a blob row has no file | stability | S | low | applied |
 | NOTALLY-SRV-OPT-03 | Wait for srv.Shutdown to return before main exits | stability | S | low | applied |
-| NOTALLY-SRV-OPT-04 | Remove leftover .upload-* temp files when the store opens | stability | S | low | approved |
+| NOTALLY-SRV-OPT-04 | Remove leftover .upload-* temp files when the store opens | stability | S | low | applied |
 | NOTALLY-SRV-OPT-05 | Drop the unused 'created' return value of Store.PutBlob | minimalism | S | low | approved |
 | NOTALLY-SRV-OPT-06 | Remove the custom http.Server ErrorLog that doubles the 'http: ' prefix | minimalism | S | low | approved |
 | NOTALLY-SRV-OPT-07 | Drop the -healthcheck self-probe and the HTTP client it links | minimalism | S | medium | rejected (owner, 2026-10-30) |
@@ -582,7 +582,8 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 - **Safety**: Stored blobs are named by validID (32 lower-case hex, api.go:152-163), so '.upload-*' cannot match a stored blob. The bbolt file is in DATA_DIR, not in blobs/*/. No change to storage format, buckets, quota bookkeeping or keys. No dependency.
 - **Verification**: Merged from perf and stability (same code, same fix). Each stop leaks at most one partial file per upload in progress, so 'grows without limit' was too strong. Rare on a personal server; impact stays low. NOTALLY-SRV-OPT-03 removes the SIGTERM case for short uploads, but SIGKILL and OOM still need this sweep. Net lines is about 3 code plus about 9 test (estimate).
 - **Effort**: S. **Risk**: low. **Impact**: low. **Net lines**: about +12 (estimate).
-- **Status**: approved
+- **Verified**: cd server && go vet ./... && go test ./... passed; go test -race ./... passed; the new TestUploadTempSweep case fails without the change. Not checked: a real stop during an upload (SIGKILL or OOM) in Docker, and no run-time check with the Android, desktop or macOS clients.
+- **Status**: applied
 
 #### NOTALLY-SRV-OPT-05: Drop the unused 'created' return value of Store.PutBlob
 - **What**: Store.PutBlob returns (bool, error) and keeps a `created` flag for it. The only caller, api.putBlob, discards the bool and answers 204 in both cases.

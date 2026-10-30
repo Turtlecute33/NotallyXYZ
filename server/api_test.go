@@ -302,3 +302,22 @@ func TestBlobFileMissing(t *testing.T) {
 		t.Fatalf("get blob with no file: %d", code)
 	}
 }
+
+func TestUploadTempSweep(t *testing.T) {
+	dir := t.TempDir()
+	tmp := filepath.Join(dir, "blobs", "acct", ".upload-x")
+	if err := os.MkdirAll(filepath.Dir(tmp), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tmp, []byte("part"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := openStore(filepath.Join(dir, "db"), filepath.Join(dir, "blobs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Close()
+	if _, err := os.Stat(tmp); !os.IsNotExist(err) {
+		t.Fatalf("temp file not removed: %v", err)
+	}
+}
