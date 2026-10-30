@@ -106,6 +106,9 @@ func (a *App) startup(ctx context.Context) {
 			if keys, err := core.ParseKeys(text); err == nil {
 				if err := a.open(u.String(), keys); err != nil {
 					wruntime.LogErrorf(ctx, "open cache: %v", err)
+				} else {
+					// The first GetState can run before open. Tell the UI to read the state again.
+					wruntime.EventsEmit(ctx, "changed")
 				}
 			}
 		}

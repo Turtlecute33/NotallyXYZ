@@ -210,7 +210,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 |---|---|---|---|---|---|
 | NOTALLY-DESK-OPT-01 | Remove the leftover --card-min root value so 'Fit content' cards fit again | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-02 | Use undefined, not null, for checkedTimestamp when an item is unchecked | ui-ux | S | low | applied |
-| NOTALLY-DESK-OPT-03 | Emit 'changed' after startup opens the cache | stability | S | low | approved |
+| NOTALLY-DESK-OPT-03 | Emit 'changed' after startup opens the cache | stability | S | low | applied |
 | NOTALLY-DESK-OPT-04 | Keep the grid scroll position, and do not rebuild the grid behind an open editor | ui-ux | S | low | approved |
 | NOTALLY-DESK-OPT-05 | Stop reading the sync key from the key store on each GetState | speed | S | low | rejected (owner, 2026-10-30) |
 | NOTALLY-DESK-OPT-06 | Ignore Enter in setup while a submit runs | stability | S | low | approved |
@@ -255,7 +255,8 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 - **Verification**: Merged with the perf item 'Let the first GetState wait until startup has opened the store', which blocks GetState on a ready channel. The event is kept because it is safer: a blocked GetState leaves the window blank for as long as a key-store prompt stays open, and that wait has no timeout. The data race on a.settings and a.config has no practical effect (startup writes them within about 1 ms of launch, estimate). Verify on Linux with a locked login keyring: answer the prompt late; the notes must show with no restart.
 - **Effort**: S. **Risk**: low. **Impact**: high. **Net lines**: about +2 (estimate).
 - **Shared**: NOTALLYXYZ-SHARED-3 (second trigger of the same path), also in NOTALLY-MAC-OPT-07 and in desktop startup error handling (not listed, see the shared table).
-- **Status**: approved
+- **Verified**: cd desktop && go vet ./... && go test ./... passed (go test -count=1 also); gofmt -l finds no file. No .js file changed, so no node --check. No unit test (the event needs the Wails runtime). Not checked: no Wails build and no run-time check on Linux with a locked login keyring (answer the prompt late; the notes must show with no restart).
+- **Status**: applied
 
 #### NOTALLY-DESK-OPT-04: Keep the grid scroll position, and do not rebuild the grid behind an open editor
 - **What**: renderNotes() empties #content and, in grid layout (the default), adds empty .masonry boxes. layoutMasonry() runs in requestAnimationFrame and reads box.clientWidth first. This forces a layout while #content is almost empty, so the engine clamps scrollTop to 0, and the old position does not come back. renderNotes() runs on each 'changed' event, also behind an open editor at each 600 ms typing pause (the editor is an opaque overlay), and every 60 s when no editor is open. Each run builds every card again and forces one layout for each card (offsetHeight in the loop). Result: closing a note always returns a scrolled grid to the top, an idle grid jumps to the top once a minute, and each save while typing pays for a full grid rebuild that the user cannot see.
