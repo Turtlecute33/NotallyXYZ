@@ -211,7 +211,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 | NOTALLY-DESK-OPT-01 | Remove the leftover --card-min root value so 'Fit content' cards fit again | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-02 | Use undefined, not null, for checkedTimestamp when an item is unchecked | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-03 | Emit 'changed' after startup opens the cache | stability | S | low | applied |
-| NOTALLY-DESK-OPT-04 | Keep the grid scroll position, and do not rebuild the grid behind an open editor | ui-ux | S | low | approved |
+| NOTALLY-DESK-OPT-04 | Keep the grid scroll position, and do not rebuild the grid behind an open editor | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-05 | Stop reading the sync key from the key store on each GetState | speed | S | low | rejected (owner, 2026-10-30) |
 | NOTALLY-DESK-OPT-06 | Ignore Enter in setup while a submit runs | stability | S | low | approved |
 | NOTALLY-DESK-OPT-07 | Add the filled-in reminder when the user clicks Done | ui-ux | S | low | approved |
@@ -267,7 +267,8 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 - **Safety**: Frontend view code only. No storage, settings key, sync or key handling change. On desktop, 0a92797c changed only desktop/core.
 - **Verification**: Merged two lens items on the same code path (refresh -> renderNotes): ui 'Keep the grid scroll position' and perf 'Do not rebuild the hidden note grid'. The scroll clamp follows standard engine behavior; not reproduced at runtime. Edge case for part 2: a note colour with alpha below 1 makes the editor see-through, and the grid behind it then stays as it was when the editor opened. No JS tests: verify in a Linux build with a long grid (scroll, open and close a note, wait 60 s).
 - **Effort**: S. **Risk**: low. **Impact**: high. **Net lines**: about +2 (estimate).
-- **Status**: approved
+- **Verified**: After each of the two commits: cd desktop && go vet ./... && go test ./... passed (go test -count=1 after the second), and node --check frontend/dist/app.js passed. No unit test (no JS tests in desktop). Not checked: no Wails build and no run-time check of the UI (in a Linux build with a long grid: scroll, open and close a note, wait 60 s; the grid must keep its position; a view change must start at the top).
+- **Status**: applied
 
 #### NOTALLY-DESK-OPT-05: Stop reading the sync key from the key store on each GetState
 - **What**: GetState calls loadKey() only to fill KeyInFile for the Settings page, and holds a.mu during the call. The UI calls GetState on each refresh: after each editor save (each 600 ms typing pause), after each sync that changes notes, when the editor closes, and every 60 s. On Linux, each keyring.Get makes 7 D-Bus calls, sends the secret over the session bus in a 'plain' session and makes a new copy of it in Go memory. If the key store is locked, Unlock shows a prompt and waits with no timeout. While a.mu is held, SaveNote, Notes, Labels and the /att/ image handler (all through current()) also wait.

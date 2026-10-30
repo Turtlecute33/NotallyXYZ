@@ -57,8 +57,9 @@ async function refresh() {
   if (app.state.connected !== wasConnected) return render();
   if (!app.state.connected) return;
   renderSidebar();
-  renderNotes();
+  // The editor covers the grid. editorClosed() calls refresh(), and that draws the grid.
   if (app.editor) app.editor.external(app.notes.find((n) => n.id === app.editor.note.id));
+  else renderNotes();
 }
 app.refresh = refresh;
 
