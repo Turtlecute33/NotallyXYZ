@@ -377,7 +377,7 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 | NOTALLY-MAC-OPT-01 | Put keyboard focus in a new note | ui-ux | S | low | applied |
 | NOTALLY-MAC-OPT-02 | Save the open note when the app quits | stability | S | low | applied |
 | NOTALLY-MAC-OPT-03 | Stop the live poll and the sync debounce from fighting a running sync | stability | S | low | applied |
-| NOTALLY-MAC-OPT-04 | Confirm Delete Checked Items in lists | ui-ux | S | low | approved |
+| NOTALLY-MAC-OPT-04 | Confirm Delete Checked Items in lists | ui-ux | S | low | applied |
 | NOTALLY-MAC-OPT-05 | Count open editors per note so that a second window keeps remote edits held back | stability | S | low | approved |
 | NOTALLY-MAC-OPT-06 | Read the server testvectors.json in the mac tests and delete the 550 KB copy | minimalism | S | low | approved |
 | NOTALLY-MAC-OPT-07 | Show why the notes did not open before the setup screen can wipe unsynced changes | stability | S | low | approved |
@@ -432,7 +432,8 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 - **Safety**: UI dialog only. ListOps.deleteChecked and the stored note format do not change. git blame: NoteEditor.swift:185 from b15e3a2a. No dependency.
 - **Verification**: Verify by hand: check two items, choose Delete Checked Items, press Cancel (items stay), then Delete (items go). Other bulk actions (Empty Bin, Delete Label) already ask.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about +6 (estimate).
-- **Status**: approved
+- **Verified**: (cd server && go build -o /tmp/nxyz-mac-test-server .) passed; cd mac && ./test.sh passed (26 tests in 6 suites); SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk swift build passed with no new warning. A plain swift build fails on the macOS 27 SDK (@State macro plugin not found) also without this change, as mac/README.md tells. The optional .disabled on the menu item is not done. No unit test (view code, no SwiftUI tests). Not checked: no run-time check of the UI (check two items, Delete Checked Items, Cancel keeps them, Delete removes them).
+- **Status**: applied
 
 #### NOTALLY-MAC-OPT-05: Count open editors per note so that a second window keeps remote edits held back
 - **What**: openEditors is a Set. The same note can be open in the main window and in an 'Open in New Window' window. When one of them closes, editorClosed removes the id while the other editor is still open. applyRemote then applies remote changes for that note directly. While the user types in the open editor (saveTask != nil), onChange ignores the new remote version. The next flush calls putLocal, which keeps the remote seq and base, so the push succeeds with no conflict. The edit from the other device is lost and no conflict copy is made.

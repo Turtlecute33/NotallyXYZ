@@ -20,6 +20,7 @@ struct NoteEditor: View {
     @State private var importing: NoteStore.AttachmentKind?
     @State private var linkText = ""
     @State private var editingLink = false
+    @State private var confirmDeleteChecked = false
     @FocusState private var titleFocused: Bool
 
     var body: some View {
@@ -66,6 +67,10 @@ struct NoteEditor: View {
             Button("Set") { controller.setLink(linkText.trimmingCharacters(in: .whitespaces)) }
             Button("Remove", role: .destructive) { controller.setLink(nil) }
             Button("Cancel", role: .cancel) {}
+        }
+        // There is no undo for list changes, so ask before the bulk delete.
+        .confirmationDialog("Delete checked items?", isPresented: $confirmDeleteChecked) {
+            Button("Delete", role: .destructive) { update(content: true) { ListOps.deleteChecked(&$0.items) } }
         }
     }
 
@@ -188,7 +193,7 @@ struct NoteEditor: View {
                         Divider()
                         Button("Check All") { update(content: true) { n in setAll(&n, true) } }
                         Button("Uncheck All") { update(content: true) { n in setAll(&n, false) } }
-                        Button("Delete Checked Items") { update(content: true) { ListOps.deleteChecked(&$0.items) } }
+                        Button("Delete Checked Items") { confirmDeleteChecked = true }
                     }
                     Divider()
                     if note.folder == .archived {
