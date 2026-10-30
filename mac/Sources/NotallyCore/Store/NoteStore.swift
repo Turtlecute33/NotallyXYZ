@@ -64,8 +64,6 @@ public final class NoteStore {
         labels.values.sorted { $0.order != $1.order ? $0.order > $1.order : $0.value < $1.value }
     }
 
-    public func note(_ id: String) -> Note? { notes[id] }
-
     // MARK: Note changes
 
     /// The longest body that Android can store, in UTF-16 units (PROTOCOL.md §5).

@@ -13,7 +13,6 @@ final class EditorController {
     func setLink(_ url: String?) { textView?.setLink(url) }
     func clearFormatting() { textView?.clearFormatting() }
     var selectedLink: String? { textView?.selectedLink }
-    var hasSelection: Bool { (textView?.selectedRange().length ?? 0) > 0 }
 }
 
 /// NSTextView that grows with its content and maps formatting to span flags.

@@ -20,13 +20,11 @@ final class LocalStore {
         var sealed: Data?
     }
 
-    let directory: URL
     let blobDir: URL
     private let db: SQLite
     private var dirtyCounter: Int64 = 0
 
     init(directory: URL) throws {
-        self.directory = directory
         blobDir = directory.appendingPathComponent("blobs", isDirectory: true)
         let fm = FileManager.default
         try fm.createDirectory(at: blobDir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])

@@ -109,7 +109,7 @@ struct NoteEditor: View {
                 Section { header(note, editable: editable) }
                 ListEditor(items: Binding(get: { self.note?.items ?? [] }, set: { items in update(content: true) { $0.items = items } }),
                            editable: editable, autoSort: model.autoSortChecked,
-                           fontSize: 14 * model.textSize.scale, onChange: {})
+                           fontSize: 14 * model.textSize.scale)
                 Section { footer(note) }
             }
             .scrollContentBackground(.hidden)

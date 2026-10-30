@@ -5,7 +5,6 @@ import SwiftUI
 struct NoteCard: View {
     let note: Note
     let sortBy: SortBy
-    let search: String
     @Environment(AppModel.self) private var model
 
     private var scale: CGFloat { model.textSize.scale }

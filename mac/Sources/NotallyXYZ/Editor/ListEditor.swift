@@ -7,7 +7,6 @@ struct ListEditor: View {
     let editable: Bool
     let autoSort: Bool
     let fontSize: CGFloat
-    let onChange: () -> Void
     @FocusState private var focus: UUID?
 
     private var firstChecked: Int {
@@ -94,9 +93,8 @@ struct ListEditor: View {
         }
     }
 
-    private func commit(normalize: Bool = true) {
-        if normalize { items = ListOps.normalized(items, autoSort: autoSort) }
-        onChange()
+    private func commit() {
+        items = ListOps.normalized(items, autoSort: autoSort)
     }
 
     private func setBody(_ index: Int, _ text: String) {
@@ -109,8 +107,6 @@ struct ListEditor: View {
             items.insert(contentsOf: extra, at: index + 1)
             commit()
             focus = items[safe: index + extra.count]?.id
-        } else {
-            commit(normalize: false)
         }
     }
 

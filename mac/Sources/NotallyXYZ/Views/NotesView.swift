@@ -102,7 +102,7 @@ struct NotesView: View {
     @ViewBuilder
     private func cards(_ notes: [Note]) -> some View {
         let content = ForEach(notes) { note in
-            NoteCard(note: note, sortBy: model.sortBy, search: model.search)
+            NoteCard(note: note, sortBy: model.sortBy)
                 .onTapGesture { model.path = [note.id] }
                 .contextMenu { NoteMenu(note: note) }
         }
