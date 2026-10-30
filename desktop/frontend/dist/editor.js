@@ -331,18 +331,24 @@ export class NoteEditor {
     unit.value = 'DAYS';
     const customRow = h('div', { class: 'check-row hidden' }, h('span', { text: 'Every' }), every, unit);
     repeat.addEventListener('change', () => customRow.classList.toggle('hidden', repeat.value !== 'custom'));
-    const add = h('button', { class: 'btn', onclick: () => {
+    // Done adds the form when the user changed it and did not click Add.
+    let pending = false;
+    for (const el of [when, repeat, every, unit]) el.addEventListener('input', () => { pending = true; });
+    const addNow = () => {
       const t = new Date(when.value).getTime();
       if (!t) return;
       const id = reminders.reduce((m, r) => Math.max(m, r.id), 0) + 1;
       const rep = repeat.value === 'custom' ? { value: Math.max(1, parseInt(every.value, 10) || 1), unit: unit.value }
         : repeat.value ? { value: 1, unit: repeat.value } : null;
       reminders.push(rep ? { id, dateTime: t, repetition: rep } : { id, dateTime: t });
+      pending = false;
       draw();
-    } }, 'Add reminder');
+    };
+    const add = h('button', { class: 'btn', onclick: addNow }, 'Add reminder');
     const body = h('div', {}, list, h('div', { class: 'field', style: 'margin-top:12px' }, h('label', { text: 'New reminder' }), when, repeat, customRow, add));
     const ok = await dialog('Reminders', body, [{ label: 'Cancel', value: false }, { label: 'Done', value: true, primary: true }]);
     if (!ok) return;
+    if (pending) addNow();
     this.update((x) => { x.reminders = reminders; });
     this.rebuildBar();
     if (!this.app.state.canNotify && reminders.length) toast('Reminders show while the app runs.');

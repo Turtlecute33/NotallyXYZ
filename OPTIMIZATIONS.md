@@ -214,7 +214,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 | NOTALLY-DESK-OPT-04 | Keep the grid scroll position, and do not rebuild the grid behind an open editor | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-05 | Stop reading the sync key from the key store on each GetState | speed | S | low | rejected (owner, 2026-10-30) |
 | NOTALLY-DESK-OPT-06 | Ignore Enter in setup while a submit runs | stability | S | low | applied |
-| NOTALLY-DESK-OPT-07 | Add the filled-in reminder when the user clicks Done | ui-ux | S | low | approved |
+| NOTALLY-DESK-OPT-07 | Add the filled-in reminder when the user clicks Done | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-08 | Focus Cancel, not the destructive button, in confirm dialogs | ui-ux | S | low | approved |
 | NOTALLY-DESK-OPT-09 | Remove dead code in Go and in the frontend | minimalism | S | low | approved |
 | NOTALLY-DESK-OPT-10 | Back off in the live loop when a sync does not move the cursor | battery | S | medium | rejected (owner, 2026-10-30) |
@@ -303,7 +303,8 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 - **Safety**: UI only. The reminder object {id, dateTime, repetition} and the Go reminder caps (core/reminders.go:20 and :53, from 466e12e2) do not change.
 - **Verification**: addNow() keeps the 'if (!t) return' guard, so a cleared date field adds nothing. No JS tests: verify in a build that 'change the time, then Done' adds one reminder and 'Done' with no change adds none.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about +4 (estimate).
-- **Status**: approved
+- **Verified**: cd desktop && go vet ./... && go test ./... passed (go test -count=1 also). node --check frontend/dist/editor.js passed. No unit test (no JS tests in desktop). Not checked: no Wails build and no run-time check of the UI (change the time, then Done must add one reminder; Done with no change must add none; Add, then Done must not add a second one).
+- **Status**: applied
 
 #### NOTALLY-DESK-OPT-08: Focus Cancel, not the destructive button, in confirm dialogs
 - **What**: dialog() focuses [autofocus], else the first input, else the last button. In confirm() the last button is the danger action. So in 'Empty the bin?', 'Delete forever?', 'Delete all data on the server?', 'Disconnect this device?', 'Remove attachment?', 'Delete checked items?' and 'Delete label', the destructive button has focus. Enter (or key repeat from the Enter that opened the dialog) does the irreversible action at once.
