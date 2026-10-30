@@ -21,7 +21,7 @@ function fixParentChecked(group) {
   if (all !== g[0].checked) {
     g[0].checked = all;
     const stamps = g.slice(1).map((i) => i.checkedTimestamp).filter((t) => t != null);
-    g[0].checkedTimestamp = all ? (stamps.length ? Math.max(...stamps) : now()) : null;
+    g[0].checkedTimestamp = all ? (stamps.length ? Math.max(...stamps) : now()) : undefined;
   }
   return g;
 }
@@ -47,7 +47,7 @@ export function parentIndex(items, index) {
 }
 
 export function setChecked(items, index, checked) {
-  const stamp = checked ? now() : null;
+  const stamp = checked ? now() : undefined;
   items[index] = { ...items[index], checked, checkedTimestamp: stamp };
   if (!items[index].isChild) {
     for (const c of childIndices(items, index)) items[c] = { ...items[c], checked, checkedTimestamp: stamp };
@@ -55,7 +55,7 @@ export function setChecked(items, index, checked) {
     const p = parentIndex(items, index);
     if (p != null) {
       const all = childIndices(items, p).every((c) => items[c].checked);
-      if (all !== items[p].checked) items[p] = { ...items[p], checked: all, checkedTimestamp: all ? now() : null };
+      if (all !== items[p].checked) items[p] = { ...items[p], checked: all, checkedTimestamp: all ? now() : undefined };
     }
   }
 }

@@ -209,7 +209,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 | ID | Finding | Area | Effort | Risk | Status |
 |---|---|---|---|---|---|
 | NOTALLY-DESK-OPT-01 | Remove the leftover --card-min root value so 'Fit content' cards fit again | ui-ux | S | low | applied |
-| NOTALLY-DESK-OPT-02 | Use undefined, not null, for checkedTimestamp when an item is unchecked | ui-ux | S | low | approved |
+| NOTALLY-DESK-OPT-02 | Use undefined, not null, for checkedTimestamp when an item is unchecked | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-03 | Emit 'changed' after startup opens the cache | stability | S | low | approved |
 | NOTALLY-DESK-OPT-04 | Keep the grid scroll position, and do not rebuild the grid behind an open editor | ui-ux | S | low | approved |
 | NOTALLY-DESK-OPT-05 | Stop reading the sync key from the key store on each GetState | speed | S | low | rejected (owner, 2026-10-30) |
@@ -242,7 +242,8 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 - **Safety**: Go decodes null and a missing key to the same nil pointer, and EncodeNote writes the item with omitempty. The stored and synced bytes do not change. No schema, preference key or key handling change. Lines from 466e12e2, not 0a92797c.
 - **Verification**: The ui lens traced the key order on every item path. After an uncheck, null against a missing key is the only difference. Not reproduced at runtime (read-only phase). No JS tests: verify in a build that a long list keeps its scroll 1 s after an uncheck.
 - **Effort**: S. **Risk**: low. **Impact**: high. **Net lines**: about 0 (estimate).
-- **Status**: approved
+- **Verified**: cd desktop && go vet ./... && go test ./... passed (go test -count=1 also). node --check frontend/dist/listops.js passed. A temporary node script (deleted) ran setChecked, normalized and setChild: after an uncheck, JSON.stringify leaves out checkedTimestamp; checked items keep their stamp. No unit test (no JS tests in desktop). Not checked: no Wails build and no run-time check of the UI (a long list keeps its scroll and the caret 1 s after an uncheck).
+- **Status**: applied
 
 #### NOTALLY-DESK-OPT-03: Emit 'changed' after startup opens the cache
 - **What**: Wails runs OnStartup in a goroutine while the page loads, and runs each binding call in its own goroutine. startup() reads the key (on Linux, keyring.Get can wait on an unlock prompt with no timeout), parses it and opens the cache. Only then does open() set a.store. If the first GetState from app.js runs before that, it returns connected=false and render() shows the setup screen. After that, only a 'changed' event calls refresh(). The focus handler and the 60 s timer need connected=true, and ApplyRemote emits 'changed' only when the first sync brings remote changes. So a connected user can stay on the setup screen while sync runs in the background. If the user then enters the key again, finishSetup deletes the cache, with any local changes that are not pushed yet.
