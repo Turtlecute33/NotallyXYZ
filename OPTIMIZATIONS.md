@@ -225,7 +225,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 | NOTALLY-DESK-OPT-06 | Ignore Enter in setup while a submit runs | stability | S | low | applied |
 | NOTALLY-DESK-OPT-07 | Add the filled-in reminder when the user clicks Done | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-08 | Focus Cancel, not the destructive button, in confirm dialogs | ui-ux | S | low | applied |
-| NOTALLY-DESK-OPT-09 | Remove dead code in Go and in the frontend | minimalism | S | low | approved |
+| NOTALLY-DESK-OPT-09 | Remove dead code in Go and in the frontend | minimalism | S | low | not applied: edits in desktop/frontend/dist were denied |
 | NOTALLY-DESK-OPT-10 | Back off in the live loop when a sync does not move the cursor | battery | S | medium | rejected (owner, 2026-10-30) |
 | NOTALLYXYZ-SHARED-3 | Desktop: show why the notes did not open before setup can delete unsynced changes | stability | S | low | applied |
 | NOTALLYXYZ-SHARED-4 | Desktop: save the edit that waits for the autosave debounce when the app quits | stability | S | low | applied |
@@ -336,7 +336,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 - **Safety**: No change to Seal/Open, keys, bbolt buckets, record JSON, maxBodyLength, maxBlobDownload or the 413 branch from 0a92797c. LocalStore.Dir is an in-memory field only. The CSP, the attachment URL handling and the Go bridge stay the same.
 - **Verification**: Merged three lean items (HasAttachment, core helpers, frontend dead code). The liveStop part is taken out: OPT-10 edits StartLive, and that part saves no lines. Verify: go build, go vet, 'go test -race ./core/' (covers relabel via sync_test.go:132 and ReferencedBlobIDs via runOnce). No JS tests: open each confirm dialog and the settings toggles in a Linux build.
 - **Effort**: S. **Risk**: low. **Impact**: low. **Net lines**: about -35 (estimate).
-- **Status**: approved
+- **Status**: not applied: the permission system denied the edits in desktop/frontend/dist, so the item stopped. The tested Go commit b91802ec is not on the branch. See Results.
 
 #### NOTALLY-DESK-OPT-10: Back off in the live loop when a sync does not move the cursor
 - **What**: The live loop polls GET /v1/changes (limit 1, wait 25) from the stored cursor and calls e.Sync() when a change exists. If a sync already runs, Sync() only sets e.again and returns. The cursor is still old, so the server answers the next poll at once, and the loop sends one request for each round trip until the running sync pulls. This occurs at start while the first pull runs, after each push from this device (the poll returns the device's own change) for the tail of that sync, and for the full length of a long attachment transfer while another device edits. It also occurs when the pull fails before SetCursor (for example a bbolt write error).
@@ -662,3 +662,56 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 - Caddy encode compresses the base64 JSON change pages and skips octet-stream blobs.
 - Tests cover accounts, rate limit, conflicts, tombstones, paging, long poll, blobs and quota. CI runs go test -race before the image build.
 - Security scope left alone on purpose: duplicated rate-limit and bearer parsing in createAccount and auth, GOMEMLIMIT in Dockerfile:15 and compose.yaml (0a92797c), seal/ and testvectors.json.
+
+## Results
+
+Checked on 2026-10-30 on branch optimize at 002fe4c9. All approved items are applied, except NOTALLY-DESK-OPT-09. No adb, emulator or device was used.
+
+### Size
+
+| Artifact | Before | After | Change |
+|---|---|---|---|
+| Android release APK (7.11.3, versionCode 71138) | 14,663,817 B | 7,623,879 B | -7,039,938 B (-48%) |
+
+Before: the APK built on 2026-10-29 from 4982e52f. After: assembleRelease at 002fe4c9. The new APK has only lib/arm64-v8a and lib/armeabi-v7a, and no zstd-jni (NOTALLY-AND-OPT-02, NOTALLY-AND-OPT-03). README.md now says "about 7.6 MB". The sizes of the macOS app, the desktop app and the server binary were not measured.
+
+### Checks
+
+Each command ran alone, in this order.
+
+| Command | Result |
+|---|---|
+| `cd server && go vet ./... && go test -race ./...` | pass (also with -count=1) |
+| `cd desktop && go vet ./... && go test ./...` | pass (also with -count=1) |
+| `(cd server && go build -o /tmp/nxyz-mac-test-server .) && cd mac && ./test.sh && swift build` | fail at swift build. The server build and ./test.sh pass (26 tests in 6 suites). |
+| `cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:testDebugUnitTest` | pass: 225 tests, 0 failures, 11 skipped. The first run was up to date, so --rerun ran the tests again. |
+| `cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:lintDebug` | fail: 519 errors, 565 warnings |
+| `cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleRelease` | pass |
+
+The two failures do not come from this branch:
+
+- swift build: the macOS 27 SDK of the Command Line Tools declares SwiftUI's @State as a macro, and its plugin (SwiftUIMacros) ships only with Xcode. All errors are this macro error. 4982e52f already has 44 @State uses in mac/Sources, and mac/README.md:54-56 records the cause. With SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk, swift build passes. test.sh and build-app.sh select that SDK.
+- lintDebug: the errors are MissingTranslation (351), MissingQuantity (90), StringFormatMatches (58), ImpliedQuantity (18), StringFormatInvalid (1) and RepeatOnLifecycleWrongUsage (1, UiExtensions.kt:431, called from EditActivity.onStart). They are in res/values*/strings.xml, BaseNoteDao.kt, UiExtensions.kt and SettingsFragment.kt. No commit of git log --grep=Optimization changes these files or EditActivity.onStart. The repo has no lint settings and no lint baseline, before or after this branch. Lint was not run at 4982e52f.
+
+### Items that were not applied
+
+- NOTALLY-DESK-OPT-09: the permission system denied the edits in desktop/frontend/dist. The Go part is tested as commit b91802ec ('Remove dead Go code from the desktop app'), but it is not on the branch. Only the reflog keeps it, so git gc can delete it later. To finish: allow edits in desktop/frontend/dist (icons.js, app.js, editor.js, ui.js, style.css), run git cherry-pick b91802ec, then do the frontend part. Until then, 'window.nxyz = app' (a global handle to the decrypted notes) stays.
+- Rejected by the owner (2026-10-30): NOTALLY-AND-OPT-08, NOTALLY-DESK-OPT-05, NOTALLY-DESK-OPT-10, NOTALLY-MAC-OPT-09, NOTALLY-SRV-OPT-07, NOTALLYXYZ-SHARED-5 for Android and NOTALLYXYZ-SHARED-7 for desktop.
+- Optional parts that were not done: NOTALLY-MAC-OPT-01 puts the focus in the title also for a new text note, not in the body. NOTALLY-MAC-OPT-04 does not disable Delete Checked Items when no item is checked; Delete then does nothing.
+
+Known limits that the item runs found (not fixed):
+
+- NOTALLYXYZ-SHARED-4: if the debounce save already runs when the user closes the window, the app can close the store before that save gets to bbolt. The time window is very short.
+- NOTALLYXYZ-SHARED-3: if the user finishes setup while startup still waits on a key-store prompt, a late startup error can stay. It shows again only after a later Disconnect.
+- NOTALLY-DESK-OPT-04: if renderNotes() runs two times in one frame (fast typing in the search field), the second call can save the scroll position 0.
+- NOTALLY-MAC-OPT-07: for a cache that does not open, the message shows the general text of SQLiteError, because SQLiteError is not a LocalizedError.
+
+### What the owner must check by hand
+
+No check ran on a device, in a Wails build or on Windows. The Verified line of each item gives the steps.
+
+- Android phone (ARM): install the new release APK over 1.1.3 and open the encrypted database (NOTALLY-AND-OPT-02). Then do the device steps of NOTALLY-AND-OPT-01, -03, -04, -05, -06, -07 and -10. Make a signed build with release.zsh and run bundleRelease (NOTALLY-AND-OPT-09). The APK does not install on x86-only devices (Intel emulators, some Chromebooks), and README.md does not say this.
+- Desktop on Linux and Windows: make a Wails build on each, then do the UI steps of NOTALLY-DESK-OPT-01 to -08, NOTALLYXYZ-SHARED-3 and NOTALLYXYZ-SHARED-4. On Windows (WebView2), check that a close of the window saves the open note (NOTALLYXYZ-SHARED-4) and that Cancel has the focus in confirm dialogs (NOTALLY-DESK-OPT-08). For Windows, only GOOS=windows go vet ran (NOTALLYXYZ-SHARED-4).
+- macOS: do the UI steps of NOTALLY-MAC-OPT-01 to -05, -07, -08 and -10.
+- Server: stop the server in Docker during an upload (NOTALLY-SRV-OPT-03, -04), read the server log in Docker (NOTALLY-SRV-OPT-06), and sync with the Android, desktop and macOS clients.
+- The item review did not give an OK for NOTALLY-SRV-OPT-01 (b780f6f9, approved security-review change) and NOTALLY-AND-OPT-01 (dae1414e, 87fe5140). Read these commits again.

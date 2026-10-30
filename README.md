@@ -157,7 +157,7 @@ desktop), macOS 26 with the Command Line Tools (macOS app).
 For the Linux build dependencies and the Windows build, refer to
 [desktop/README.md](desktop/README.md).
 
-The release APK is about 15 MB. The macOS app is about 1.4 MB and has no third-party
+The release APK is about 7.6 MB. The macOS app is about 1.4 MB and has no third-party
 dependencies.
 
 <details>
