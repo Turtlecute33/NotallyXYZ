@@ -380,7 +380,7 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 | NOTALLY-MAC-OPT-04 | Confirm Delete Checked Items in lists | ui-ux | S | low | applied |
 | NOTALLY-MAC-OPT-05 | Count open editors per note so that a second window keeps remote edits held back | stability | S | low | applied |
 | NOTALLY-MAC-OPT-06 | Read the server testvectors.json in the mac tests and delete the 550 KB copy | minimalism | S | low | applied |
-| NOTALLY-MAC-OPT-07 | Show why the notes did not open before the setup screen can wipe unsynced changes | stability | S | low | approved |
+| NOTALLY-MAC-OPT-07 | Show why the notes did not open before the setup screen can wipe unsynced changes | stability | S | low | applied |
 | NOTALLY-MAC-OPT-08 | Remove dead code and the second copy of the parent-checked rule | minimalism | S | low | approved |
 | NOTALLY-MAC-OPT-09 | Read, decrypt and decode thumbnails off the main thread | speed | M | low | rejected (owner, 2026-10-30) |
 | NOTALLY-MAC-OPT-10 | Show 'just now' in place of 'in 0 seconds' | ui-ux | S | low | approved |
@@ -470,7 +470,8 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 - **Verification**: The trigger is rare now, because releases from 1.1.1 on share one signing identity. When it occurs, the user loses unsynced data with no warning. Verify by hand with a test account and an ad-hoc build: deny the Keychain prompt and look for the message on the setup screen.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about +8 (estimate).
 - **Shared**: NOTALLYXYZ-SHARED-3, also in NOTALLY-DESK-OPT-03 and in desktop startup error handling (not listed: desktop/app.go:104-112, :253-258; desktop/frontend/dist/setup.js:8, :33-49).
-- **Status**: approved
+- **Verified**: (cd server && go build -o /tmp/nxyz-mac-test-server .) passed; cd mac && ./test.sh passed (26 tests in 6 suites); SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk swift build passed with no new warning. A plain swift build fails on the macOS 27 SDK (@State macro plugin not found) also without this change, as mac/README.md tells. The cache check is in AppModel.init and SetupView shows the message for the form and for the new key screen; finishSetup clears it. No unit test (AppModel and SetupView are in the app target, the test target covers NotallyCore only). Not checked: no run-time check of the UI (deny the Keychain prompt with a test account and an ad-hoc build, then look for the message on the setup screen).
+- **Status**: applied
 
 #### NOTALLY-MAC-OPT-08: Remove dead code and the second copy of the parent-checked rule
 - **What**: Dead code: NoteCard stores `let search: String` that its body never reads, but NotesView passes model.search, so each search keystroke changes a stored property of every card and SwiftUI runs every visible card body again (all matching cards in grid mode, which is not lazy). ListEditor has `onChange: () -> Void`, and the only caller passes `{}`; because of it, commit() has a `normalize:` flag and setBody has a branch that does nothing. EditorController.hasSelection, the stored LocalStore.directory and public NoteStore.note(_:) have no reader. Duplicate logic: the rule 'a parent is checked exactly when all children are' is in ListOps.fixParentChecked (applied by normalized()) and again in the child branch of setChecked with a helper parentIndex that has no other caller; setChild also applies fixParentChecked again. Every caller normalizes in the same action, and flush() normalizes before every save.

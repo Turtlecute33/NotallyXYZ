@@ -21,6 +21,11 @@ struct SetupView: View {
             Text("End-to-end encrypted notes. Your server stores only ciphertext.")
                 .foregroundStyle(.secondary)
 
+            if let startupError = model.startupError {
+                Text("\(startupError) Connecting again deletes changes on this Mac that are not synced yet.")
+                    .foregroundStyle(.red).font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let keys = newKeys {
                 keyConfirmation(keys)
             } else {

@@ -100,6 +100,8 @@ final class AppModel {
     var searchFocusRequest = 0
     /// New notes that are not saved yet (saved on the first content).
     var drafts: [String: Note] = [:]
+    /// Why the notes on this Mac did not open at launch. A new setup deletes them.
+    private(set) var startupError: String?
 
     @ObservationIgnored private let defaults = UserDefaults.standard
 
@@ -159,8 +161,14 @@ final class AppModel {
             return
         }
         #endif
-        if let url = APIClient.validate(serverURL), let raw = Keychain.load() {
-            try? open(url: url, keys: SyncKeys(raw: raw))
+        guard let url = APIClient.validate(serverURL) else { return }
+        if let raw = Keychain.load() {
+            do { try open(url: url, keys: SyncKeys(raw: raw)) } catch {
+                startupError = "The app cannot open the notes on this Mac: \((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)"
+            }
+        } else if FileManager.default.fileExists(atPath: Self.dataDirectory.appendingPathComponent("cache.sqlite").path) {
+            // Only a setup makes the cache, so this is a Keychain error and not a first start.
+            startupError = "The app cannot read the sync key from the Keychain. Allow access and open the app again."
         }
     }
 
@@ -200,6 +208,7 @@ final class AppModel {
 
     func finishSetup(server url: URL, keys: SyncKeys) throws {
         wipeLocalData()
+        startupError = nil
         guard Keychain.save(keys.raw) else { throw CocoaError(.fileWriteNoPermission) }
         serverURL = url.absoluteString
         try open(url: url, keys: keys)
