@@ -67,7 +67,11 @@ android {
                 )
         }
         vectorDrawables.generatedDensities?.clear()
-        ndk { debugSymbolLevel = "FULL" }
+        ndk {
+            debugSymbolLevel = "FULL"
+            // Phones with Android 7 or later use ARM. The x86 libraries add about 5.9 MB.
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
         testOptions {

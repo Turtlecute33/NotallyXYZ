@@ -62,7 +62,7 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 | ID | Finding | Area | Effort | Risk | Status |
 |---|---|---|---|---|---|
 | NOTALLY-AND-OPT-01 | Stop the two full backups at each process start | battery | S | low | applied |
-| NOTALLY-AND-OPT-02 | Ship only ARM native libraries in the release APK | minimalism | S | low | approved |
+| NOTALLY-AND-OPT-02 | Ship only ARM native libraries in the release APK | minimalism | S | low | applied |
 | NOTALLY-AND-OPT-03 | Replace zstd-jni with java.util.zip in CompressUtility | minimalism | S | low | approved |
 | NOTALLY-AND-OPT-04 | Make the auto-remove-deleted-notes worker run and drop koin-androidx-workmanager | stability | S | low | approved |
 | NOTALLY-AND-OPT-05 | Remove the debug content descriptions on checklist items | ui-ux | S | low | approved |
@@ -93,7 +93,8 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 - **Safety**: This is a packaging filter only. Code, the SQLCipher version, the DB format, preference keys and key handling do not change. Robolectric tests use host JVM libraries.
 - **Verification**: Re-measured with unzip -lv. The local nxyz AVD is arm64-v8a (config.ini), so debug runs on the emulator still work. To verify: build the release APK and check with unzip -l that only lib/arm64-v8a and lib/armeabi-v7a remain. Then install it over 1.1.3 and open an encrypted DB. With OPT-03 too, the APK is about 7.7 MB (estimate from the same listing).
 - **Effort**: S. **Risk**: low. **Impact**: high. **Net lines**: about +2 (estimate).
-- **Status**: approved
+- **Verified**: cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:testDebugUnitTest passed (up to date: the filter is not a unit-test input); JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleDebug passed; JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleRelease passed. unzip -l: the release and debug APKs have only lib/arm64-v8a and lib/armeabi-v7a. The release APK is 8,710,217 B (was 14,663,817 B). No unit test (packaging filter only). The README APK size line is not changed here. Not checked: no install over 1.1.3 on a device and no open of an encrypted DB.
+- **Status**: applied
 
 #### NOTALLY-AND-OPT-03: Replace zstd-jni with java.util.zip in CompressUtility
 - **What**: zstd-jni is a native JNI library that ships for 4 ABIs. Only CompressUtility uses it. CompressUtility compresses in-memory undo snapshots (EditTextState) of notes longer than 10,000 characters. These snapshots never go to disk, the DB, a backup or the sync payload. The KDoc already says GZIP.
