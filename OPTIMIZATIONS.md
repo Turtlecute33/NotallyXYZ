@@ -65,7 +65,7 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 | NOTALLY-AND-OPT-02 | Ship only ARM native libraries in the release APK | minimalism | S | low | applied |
 | NOTALLY-AND-OPT-03 | Replace zstd-jni with java.util.zip in CompressUtility | minimalism | S | low | applied |
 | NOTALLY-AND-OPT-04 | Make the auto-remove-deleted-notes worker run and drop koin-androidx-workmanager | stability | S | low | applied |
-| NOTALLY-AND-OPT-05 | Remove the debug content descriptions on checklist items | ui-ux | S | low | approved |
+| NOTALLY-AND-OPT-05 | Remove the debug content descriptions on checklist items | ui-ux | S | low | applied |
 | NOTALLY-AND-OPT-06 | Keep sync setup, Disconnect and Delete server data from stopping halfway or crashing | stability | S | low | approved |
 | NOTALLY-AND-OPT-07 | Paste and new line in a checklist: do not put an empty item between the pasted lines | ui-ux | S | low | approved |
 | NOTALLY-AND-OPT-08 | Move the first encrypted-preferences read off the main thread at startup | speed | S | low | rejected (owner, 2026-10-30) |
@@ -129,7 +129,8 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 - **Safety**: View-binding code only. No storage, preference, schema, sync or crypto code changes, and no dependency is added.
 - **Verification**: The overwrite of the localized Delete and Drag labels is certain. It was not checked on a device whether TalkBack reads "EditText3" in place of the item text or together with it. After the change, the CheckBox has no description, so TalkBack reads its role and state. That is no worse than "CheckBox3". To verify: open a checklist note with TalkBack on.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about -4 (estimate).
-- **Status**: approved
+- **Verified**: cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:testDebugUnitTest passed (225 tests, 0 failures, 11 skipped); JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleDebug passed; :app:ktfmtCheckMain passed. No assembleRelease (no build or packaging change). A grep over android/app/src, misc and scripts finds no use of the removed labels. No unit test (view-binding code only). Not checked: no run-time check of the UI on a device, and no check with TalkBack of what it reads for the item text, the checkbox, Delete and the drag handle.
+- **Status**: applied
 
 #### NOTALLY-AND-OPT-06: Keep sync setup, Disconnect and Delete server data from stopping halfway or crashing
 - **What**: Create account, Connect, Disconnect and Delete server data run in the Settings fragment's viewLifecycleOwner.lifecycleScope. A rotation, a dark-mode switch or leaving Settings cancels that coroutine, but the blocking HttpURLConnection request still completes on the server. Create account: enable() throws CancellationException at database.withTransaction, before it saves syncKey. The server has a new account, but the app never saves or shows the key. A retry makes a second account, or fails with accounts_limit. Delete server data: the CancellationException comes when the first withContext(Dispatchers.IO) returns, so disconnect() never runs. The device stays linked to a deleted account, and each sync fails as unauthorized. The catch in the delete branch then calls showToast(), which calls requireContext() on the detached fragment. This throws IllegalStateException in the cancelled coroutine, and the app crashes (CustomActivityOnCrash screen). A Disconnect alone is also lost without a message if the screen closes while it waits for the sync mutex.

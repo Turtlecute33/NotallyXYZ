@@ -95,11 +95,11 @@ class ListItemVH(
         autoSort: ListItemSort,
         viewMode: NoteViewMode,
     ) {
-        updateEditText(item, position, viewMode)
+        updateEditText(item, viewMode)
 
-        updateCheckBox(item, position)
+        updateCheckBox(item)
 
-        updateDeleteButton(item, position, viewMode)
+        updateDeleteButton(item, viewMode)
 
         updateSwipe(item.isChild, viewMode == NoteViewMode.EDIT && position != 0 && !item.checked)
         binding.DragHandle.apply {
@@ -109,7 +109,6 @@ class ListItemVH(
                     item.checked && autoSort.isAutoSortChecked -> INVISIBLE
                     else -> VISIBLE
                 }
-            contentDescription = "Drag$position"
         }
 
         highlights?.let {
@@ -134,7 +133,7 @@ class ListItemVH(
         binding.EditText.focusAndSelect(selectionStart, selectionEnd, inputMethodManager)
     }
 
-    private fun updateDeleteButton(item: ListItem, position: Int, viewMode: NoteViewMode) {
+    private fun updateDeleteButton(item: ListItem, viewMode: NoteViewMode) {
         binding.Delete.apply {
             visibility =
                 when {
@@ -145,11 +144,10 @@ class ListItemVH(
             setOnClickListener {
                 listManager.delete(absoluteAdapterPosition, inCheckedList = inCheckedList)
             }
-            contentDescription = "Delete$position"
         }
     }
 
-    private fun updateEditText(item: ListItem, position: Int, viewMode: NoteViewMode) {
+    private fun updateEditText(item: ListItem, viewMode: NoteViewMode) {
         binding.EditText.apply {
             setText(item.body)
             paintFlags =
@@ -159,7 +157,6 @@ class ListItemVH(
                     paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
                 }
             alpha = if (item.checked) 0.5f else 1.0f
-            contentDescription = "EditText$position"
             if (viewMode == NoteViewMode.EDIT) {
                 setOnFocusChangeListener { _, hasFocus ->
                     binding.Delete.visibility = if (hasFocus) VISIBLE else INVISIBLE
@@ -216,7 +213,7 @@ class ListItemVH(
 
     private var checkBoxListener: OnCheckedChangeListener? = null
 
-    private fun updateCheckBox(item: ListItem, position: Int) {
+    private fun updateCheckBox(item: ListItem) {
         if (checkBoxListener == null) {
             checkBoxListener = OnCheckedChangeListener { _, isChecked ->
                 binding.CheckBox.setOnCheckedChangeListener(null)
@@ -230,7 +227,6 @@ class ListItemVH(
             setOnCheckedChangeListener(null)
             isChecked = item.checked
             setOnCheckedChangeListener(checkBoxListener)
-            contentDescription = "CheckBox$position"
         }
     }
 
