@@ -54,6 +54,8 @@ export function showSetup(root, app, done) {
     h('div', { class: 'dialog' },
       h('div', { class: 'logo' }, h('img', { src: 'icon.png', alt: '' }), h('h2', { style: 'margin:0', text: 'NotallyXYZ' })),
       h('p', { class: 'muted', text: 'Notes with end-to-end encrypted sync to your own server. The server stores only ciphertext.' }),
+      app.state.startupError ? h('p', { class: 'error-text', role: 'alert',
+        text: app.state.startupError + ' Connecting again deletes changes on this computer that are not synced yet.' }) : null,
       h('div', { class: 'field' }, h('label', { for: 'server', text: 'Server address' }), server),
       modes, fields, error,
       h('div', { class: 'buttons' }, go))));

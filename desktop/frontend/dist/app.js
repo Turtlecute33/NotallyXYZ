@@ -53,8 +53,10 @@ async function refresh() {
   await new Promise((r) => setTimeout(r, 30));
   refreshQueued = false;
   const wasConnected = app.state?.connected;
+  const wasError = app.state?.startupError;
   await reload();
-  if (app.state.connected !== wasConnected) return render();
+  // A startup error can come after the first GetState. Draw the setup screen again to show it.
+  if (app.state.connected !== wasConnected || (!app.state.connected && app.state.startupError !== wasError)) return render();
   if (!app.state.connected) return;
   renderSidebar();
   // The editor covers the grid. editorClosed() calls refresh(), and that draws the grid.

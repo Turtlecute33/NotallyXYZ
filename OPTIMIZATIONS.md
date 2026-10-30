@@ -218,7 +218,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 | NOTALLY-DESK-OPT-08 | Focus Cancel, not the destructive button, in confirm dialogs | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-09 | Remove dead code in Go and in the frontend | minimalism | S | low | approved |
 | NOTALLY-DESK-OPT-10 | Back off in the live loop when a sync does not move the cursor | battery | S | medium | rejected (owner, 2026-10-30) |
-| NOTALLYXYZ-SHARED-3 | Desktop: show why the notes did not open before setup can delete unsynced changes | stability | S | low | approved |
+| NOTALLYXYZ-SHARED-3 | Desktop: show why the notes did not open before setup can delete unsynced changes | stability | S | low | applied |
 | NOTALLYXYZ-SHARED-4 | Desktop: save the edit that waits for the autosave debounce when the app quits | stability | S | low | approved |
 
 #### NOTALLY-DESK-OPT-01: Remove the leftover --card-min root value so 'Fit content' cards fit again
@@ -348,7 +348,8 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 - **Benefit**: After a locked key store, a closed unlock prompt or a cache that does not open, the user sees the cause and can fix it before setup deletes offline edits with no warning. Desktop then works as macOS does.
 - **Effort**: S. **Risk**: low.
 - **Owner decision**: Owner approved this shared item for desktop. Apply the fix of NOTALLY-MAC-OPT-07 (git log --grep=NOTALLY-MAC-OPT-07 shows its commit) to the desktop app, on top of NOTALLY-DESK-OPT-03.
-- **Status**: approved
+- **Verified**: cd desktop && go vet ./... && go test ./... passed (go test -count=1 also); gofmt -l finds no file; node --check frontend/dist/app.js and frontend/dist/setup.js passed. startup keeps the loadKey, ParseKeys or open() error in App.startupError (under a.mu), GetState returns it, setup.js shows it above the form with the warning, and finishSetup clears it. startup now emits 'changed' also after an error, and refresh() draws the setup screen again when the error changes, so an error that comes after the first GetState (a closed unlock prompt) also shows. No unit test (startup and the UI need the Wails runtime; the desktop tests cover core only). Not checked: no Wails build and no run-time check of the UI (on Linux, close the unlock prompt of a locked keyring and look for the message on the setup screen).
+- **Status**: applied
 
 #### NOTALLYXYZ-SHARED-4: Desktop: save the edit that waits for the autosave debounce when the app quits
 - **What**: The editor saves only after a 600 ms typing pause or when the editor closes. Closing the window quits the app, because main.go has no OnBeforeClose and no HideWindowOnClose. shutdown() closes the store and does not save the open note. So the app loses all text typed after the last pause of 600 ms or more. A new note typed with no pause and then quit is lost completely. This is the desktop part of NOTALLY-MAC-OPT-02.

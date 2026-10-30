@@ -31,6 +31,9 @@ type App struct {
 	tempDir  string
 	stop     chan struct{}
 	notify   bool
+
+	// Why the notes on this computer did not open at startup. A new setup deletes them.
+	startupError string
 }
 
 // Config is device state that is not a preference.
@@ -102,16 +105,21 @@ func (a *App) startup(ctx context.Context) {
 		})
 	}
 	if u, err := core.ValidateServer(a.config.Server); err == nil {
-		if text, _, err := loadKey(a.paths); err == nil {
-			if keys, err := core.ParseKeys(text); err == nil {
-				if err := a.open(u.String(), keys); err != nil {
-					wruntime.LogErrorf(ctx, "open cache: %v", err)
-				} else {
-					// The first GetState can run before open. Tell the UI to read the state again.
-					wruntime.EventsEmit(ctx, "changed")
-				}
-			}
+		// Only setup sets the server, so an error here is not a first start.
+		var why string
+		if text, _, err := loadKey(a.paths); err != nil {
+			why = "The app cannot read the sync key from the system key store or the key file. Unlock the key store and open the app again."
+		} else if keys, err := core.ParseKeys(text); err != nil {
+			why = "The saved sync key is not valid: " + err.Error()
+		} else if err := a.open(u.String(), keys); err != nil {
+			wruntime.LogErrorf(ctx, "open cache: %v", err)
+			why = "The app cannot open the notes on this computer: " + err.Error()
 		}
+		a.mu.Lock()
+		a.startupError = why
+		a.mu.Unlock()
+		// The first GetState can run before open or before the error. Tell the UI to read the state again.
+		wruntime.EventsEmit(ctx, "changed")
 	}
 }
 
@@ -193,13 +201,15 @@ type State struct {
 	Platform   string          `json:"platform"`
 	CanNotify  bool            `json:"canNotify"`
 	DataFolder string          `json:"dataFolder"`
+
+	StartupError string `json:"startupError"`
 }
 
 func (a *App) GetState() State {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	st := State{Connected: a.store != nil, Server: a.config.Server, Settings: a.settings, Version: version,
-		Platform: runtime.GOOS, CanNotify: a.notify, DataFolder: a.paths.data}
+		Platform: runtime.GOOS, CanNotify: a.notify, DataFolder: a.paths.data, StartupError: a.startupError}
 	if a.engine != nil {
 		st.Status = a.engine.Status()
 	}
@@ -257,6 +267,7 @@ func (a *App) finishSetup(server string, keys core.Keys) error {
 	a.mu.Lock()
 	a.closeLocked()
 	_ = os.RemoveAll(a.paths.cacheDir())
+	a.startupError = ""
 	a.config.Server = server
 	err := writeJSON(a.paths.configFile(), a.config)
 	a.mu.Unlock()
