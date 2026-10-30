@@ -375,7 +375,7 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 | ID | Finding | Area | Effort | Risk | Status |
 |---|---|---|---|---|---|
 | NOTALLY-MAC-OPT-01 | Put keyboard focus in a new note | ui-ux | S | low | applied |
-| NOTALLY-MAC-OPT-02 | Save the open note when the app quits | stability | S | low | approved |
+| NOTALLY-MAC-OPT-02 | Save the open note when the app quits | stability | S | low | applied |
 | NOTALLY-MAC-OPT-03 | Stop the live poll and the sync debounce from fighting a running sync | stability | S | low | approved |
 | NOTALLY-MAC-OPT-04 | Confirm Delete Checked Items in lists | ui-ux | S | low | approved |
 | NOTALLY-MAC-OPT-05 | Count open editors per note so that a second window keeps remote edits held back | stability | S | low | approved |
@@ -407,7 +407,8 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 - **Verification**: No SwiftUI unit tests. Verify by hand with a test account: type with no pause, press Cmd-Q within 0.5 s, open the app again and look for the text. Do the same with a new note.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about +1 (estimate).
 - **Shared**: NOTALLYXYZ-SHARED-4, also in desktop (not listed: desktop/frontend/dist/editor.js:173-178, desktop/main.go:26-47, desktop/app.go:115-122).
-- **Status**: approved
+- **Verified**: (cd server && go build -o /tmp/nxyz-mac-test-server .) passed; cd mac && ./test.sh passed (25 tests in 6 suites); SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk swift build passed with no new warning. A plain swift build fails on the macOS 27 SDK (@State macro plugin not found) also without this change, as mac/README.md tells. No unit test (view code, no SwiftUI tests). Not checked: no run-time check of the app (type with no pause, Cmd-Q within 0.5 s, open again and look for the text, also for a new note).
+- **Status**: applied
 
 #### NOTALLY-MAC-OPT-03: Stop the live poll and the sync debounce from fighting a running sync
 - **What**: Two faults in the same SyncEngine code. (1) Cancel: the debounce Task and the live Task run sync() inside themselves. A new schedule() (the next typing pause, a pin, color or label change with a 0 ms flush, or a conflict copy through NoteStore.finish -> onLocalChange) cancels the Task that runs the sync. stopLive() on resign or sleep cancels a sync that the live loop awaits. URLSession throws URLError(.cancelled), sync() stores it as lastError, and the status bar shows a 'cancelled' warning. An attachment upload or download then starts again from zero. (2) Spin: when the long poll returns changes while a sync is busy, or after a failed sync, sync() returns at once and the cursor does not move. The server answers the next poll at once, so the loop runs at round-trip speed for the length of a blob transfer, during a multi-page first pull, and with no limit while the pull keeps failing (each round downloads a full page, up to 8 MiB).

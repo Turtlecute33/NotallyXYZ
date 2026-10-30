@@ -46,6 +46,8 @@ struct NoteEditor: View {
             flush()
             model.closeEditor(id)
         }
+        // Quit does not close the windows, so onDisappear does not run. Save the pending change here.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in flush() }
         .onChange(of: model.note(id)) { _, remote in
             // Take remote changes while nothing local is pending.
             if saveTask == nil, let remote, remote != lastSaved {
