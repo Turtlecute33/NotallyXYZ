@@ -25,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -155,7 +156,7 @@ class SyncManager private constructor(private val app: Application) {
     private suspend fun liveUpdates() {
         sync()
         var backoff = 5_000L
-        while (scope.isActive && foreground && isEnabled) {
+        while (currentCoroutineContext().isActive && foreground && isEnabled) {
             try {
                 val database = NotallyDatabase.getDatabase(context).value ?: break
                 val cursor =
