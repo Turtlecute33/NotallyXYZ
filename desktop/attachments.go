@@ -167,12 +167,6 @@ func (a *App) SaveAttachment(localName, originalName string) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-// HasAttachment reports whether an attachment is downloaded.
-func (a *App) HasAttachment(localName string) bool {
-	store, _, err := a.current()
-	return err == nil && store.HasAttachment(localName)
-}
-
 func safeName(name, fallback string) string {
 	name = filepath.Base(strings.ReplaceAll(name, `\`, "/"))
 	name = strings.Map(func(r rune) rune {

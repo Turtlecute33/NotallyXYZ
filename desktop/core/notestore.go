@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -329,7 +330,7 @@ func (s *NoteStore) relabel(tx *Tx, old, value string) error {
 				found = true
 				l = value
 			}
-			if l != "" && !contains(labels, l) {
+			if l != "" && !slices.Contains(labels, l) {
 				labels = append(labels, l)
 			}
 		}
@@ -344,15 +345,6 @@ func (s *NoteStore) relabel(tx *Tx, old, value string) error {
 		s.notes[id] = n
 	}
 	return nil
-}
-
-func contains(list []string, v string) bool {
-	for _, x := range list {
-		if x == v {
-			return true
-		}
-	}
-	return false
 }
 
 // Attachments
@@ -403,10 +395,6 @@ func writeFileAtomic(path string, data []byte) error {
 	return os.Rename(tmp.Name(), path)
 }
 
-func (s *NoteStore) HasAttachment(localName string) bool {
-	return s.local.HasBlob(s.Keys.BlobID(localName))
-}
-
 // AttachmentData returns the decrypted attachment, or an error if it is not downloaded yet.
 func (s *NoteStore) AttachmentData(localName string) ([]byte, error) {
 	id := s.Keys.BlobID(localName)
@@ -425,7 +413,9 @@ func (s *NoteStore) AttachmentData(localName string) ([]byte, error) {
 	return data, nil
 }
 
-func (s *NoteStore) referencedBlobIDs() map[string]bool {
+func (s *NoteStore) ReferencedBlobIDs() map[string]bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	out := map[string]bool{}
 	for _, n := range s.notes {
 		for _, name := range n.AttachmentNames() {
@@ -433,12 +423,6 @@ func (s *NoteStore) referencedBlobIDs() map[string]bool {
 		}
 	}
 	return out
-}
-
-func (s *NoteStore) ReferencedBlobIDs() map[string]bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.referencedBlobIDs()
 }
 
 // Editors
@@ -499,10 +483,4 @@ func (c *blobCache) put(id string, d []byte) {
 		c.size -= len(c.data[old])
 		delete(c.data, old)
 	}
-}
-
-func (c *blobCache) clear() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.data, c.order, c.size = nil, nil, 0
 }

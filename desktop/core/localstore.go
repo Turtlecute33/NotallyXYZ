@@ -47,7 +47,6 @@ var (
 // LocalStore is the encrypted local cache: records stay sealed, blobs are sealed files.
 // Not safe for concurrent use; NoteStore serialises access.
 type LocalStore struct {
-	Dir     string
 	BlobDir string
 	db      *bolt.DB
 	dirty   int64
@@ -63,7 +62,7 @@ func OpenLocalStore(dir string) (*LocalStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &LocalStore{Dir: dir, BlobDir: blobDir, db: db}
+	s := &LocalStore{BlobDir: blobDir, db: db}
 	err = db.Update(func(tx *bolt.Tx) error {
 		for _, name := range [][]byte{bRecords, bPending, bBlobs, bMeta} {
 			if _, err := tx.CreateBucketIfNotExists(name); err != nil {
