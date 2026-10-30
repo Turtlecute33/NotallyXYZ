@@ -105,8 +105,8 @@ function go(view) {
   app.editor?.close();
   closeSettings();
   renderSidebar();
-  renderNotes();
   document.getElementById('content')?.scrollTo(0, 0);
+  renderNotes();
 }
 
 function renderSidebar() {
@@ -247,6 +247,7 @@ function renderNotes() {
   document.getElementById('fab').classList.toggle('hidden', ['archived', 'deleted'].includes(app.view.kind));
   renderViewActions();
   const notes = filtered();
+  const top = content.scrollTop;
   content.textContent = '';
   if (!notes.length) {
     const [ic, text] = app.search ? ['search', 'No results'] : {
@@ -263,6 +264,8 @@ function renderNotes() {
     if (others.length) content.appendChild(h('div', { class: 'section-title', text: 'Others' }));
   }
   if (others.length) content.appendChild(cards(others));
+  // layoutMasonry reads the layout while the grid is empty, and the scroll goes to the top. It runs first, so put the scroll back here.
+  requestAnimationFrame(() => { content.scrollTop = top; });
 }
 
 function cards(notes) {
