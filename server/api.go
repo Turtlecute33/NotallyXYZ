@@ -384,7 +384,7 @@ func (a *api) putBlob(w http.ResponseWriter, r *http.Request) {
 	rc := http.NewResponseController(w)
 	_ = rc.SetReadDeadline(time.Now().Add(30 * time.Minute))
 	_ = rc.SetWriteDeadline(time.Now().Add(31 * time.Minute))
-	_, err := a.store.PutBlob(account(r), id, r.ContentLength, r.Body, a.cfg.maxAccountBytes)
+	err := a.store.PutBlob(account(r), id, r.ContentLength, r.Body, a.cfg.maxAccountBytes)
 	if err != nil {
 		a.internalError(w, "put blob", err)
 		return

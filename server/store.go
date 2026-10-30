@@ -363,27 +363,27 @@ func (s *Store) ListBlobs(acct string) ([]BlobInfo, error) {
 	return list, err
 }
 
-// PutBlob stores exactly size bytes from r. It returns false if the blob already exists.
-func (s *Store) PutBlob(acct, id string, size int64, r io.Reader, maxAccountBytes int64) (bool, error) {
+// PutBlob stores exactly size bytes from r. It keeps an existing blob.
+func (s *Store) PutBlob(acct, id string, size int64, r io.Reader, maxAccountBytes int64) error {
 	if s.BlobExists(acct, id) {
-		return false, nil
+		return nil
 	}
 	if maxAccountBytes > 0 {
 		info, err := s.Info(acct)
 		if err != nil {
-			return false, err
+			return err
 		}
 		if info.Bytes+size > maxAccountBytes {
-			return false, errQuota
+			return errQuota
 		}
 	}
 	dir := filepath.Join(s.blobDir, acct)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return false, err
+		return err
 	}
 	tmp, err := os.CreateTemp(dir, ".upload-*")
 	if err != nil {
-		return false, err
+		return err
 	}
 	defer os.Remove(tmp.Name())
 	n, err := io.Copy(tmp, io.LimitReader(r, size+1))
@@ -397,10 +397,9 @@ func (s *Store) PutBlob(acct, id string, size int64, r io.Reader, maxAccountByte
 		err = cerr
 	}
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	created := false
 	err = s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(accountBucketName(acct))
 		if b == nil {
@@ -423,10 +422,9 @@ func (s *Store) PutBlob(acct, id string, size int64, r io.Reader, maxAccountByte
 		if err := blobs.Put([]byte(id), v); err != nil {
 			return err
 		}
-		created = true
 		return meta.Put(keyBytes, putU64(uint64(used)))
 	})
-	return created, err
+	return err
 }
 
 func (s *Store) OpenBlob(acct, id string) (*os.File, error) {

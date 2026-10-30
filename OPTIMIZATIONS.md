@@ -531,7 +531,7 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 | NOTALLY-SRV-OPT-02 | Answer 404, not 500, when a blob row has no file | stability | S | low | applied |
 | NOTALLY-SRV-OPT-03 | Wait for srv.Shutdown to return before main exits | stability | S | low | applied |
 | NOTALLY-SRV-OPT-04 | Remove leftover .upload-* temp files when the store opens | stability | S | low | applied |
-| NOTALLY-SRV-OPT-05 | Drop the unused 'created' return value of Store.PutBlob | minimalism | S | low | approved |
+| NOTALLY-SRV-OPT-05 | Drop the unused 'created' return value of Store.PutBlob | minimalism | S | low | applied |
 | NOTALLY-SRV-OPT-06 | Remove the custom http.Server ErrorLog that doubles the 'http: ' prefix | minimalism | S | low | approved |
 | NOTALLY-SRV-OPT-07 | Drop the -healthcheck self-probe and the HTTP client it links | minimalism | S | medium | rejected (owner, 2026-10-30) |
 
@@ -594,7 +594,8 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 - **Safety**: Blob files, the blob bucket value (size, created time), keyBytes accounting, quota checks, size checks and status codes stay the same. Only an internal Go signature changes. No protocol or crypto change.
 - **Verification**: Confirmed one caller that discards the bool. Both the early exit and the in-transaction duplicate path give 204, which PROTOCOL.md:211-213 already specifies.
 - **Effort**: S. **Risk**: low. **Impact**: low. **Net lines**: about -2 (estimate).
-- **Status**: approved
+- **Verified**: cd server && go vet ./... && go test ./... passed; go test -race ./... passed; gofmt -l reports no file. No new test: TestBlobs already covers the 204 for a second PUT and the 507 for quota. Not checked: no run-time check with the Android, desktop or macOS clients.
+- **Status**: applied
 
 #### NOTALLY-SRV-OPT-06: Remove the custom http.Server ErrorLog that doubles the 'http: ' prefix
 - **What**: main.go:94 gives net/http its own logger with prefix "http: " and no Lmsgprefix. Each net/http message already starts with "http: ", so a line looks like `http: 2026/10/30 10:00:00 http: panic serving ...`. All other server lines start with the timestamp.
