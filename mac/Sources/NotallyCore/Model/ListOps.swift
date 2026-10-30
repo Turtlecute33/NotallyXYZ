@@ -42,6 +42,7 @@ public enum ListOps {
         return g
     }
 
+    /// A parent also sets its children. `normalized` sets the parent of a child.
     public static func setChecked(_ items: inout [ListItem], at index: Int, _ checked: Bool, now: Int64 = Note.now()) {
         let stamp: Int64? = checked ? now : nil
         items[index].checked = checked
@@ -53,24 +54,7 @@ public enum ListOps {
                 items[i].checkedTimestamp = stamp
                 i += 1
             }
-        } else if let p = parentIndex(items, of: index) {
-            let children = childIndices(items, ofParent: p)
-            let all = children.allSatisfy { items[$0].checked }
-            if all != items[p].checked {
-                items[p].checked = all
-                items[p].checkedTimestamp = all ? now : nil
-            }
         }
-    }
-
-    public static func parentIndex(_ items: [ListItem], of index: Int) -> Int? {
-        guard items[index].isChild else { return nil }
-        var i = index - 1
-        while i >= 0 {
-            if !items[i].isChild { return i }
-            i -= 1
-        }
-        return nil
     }
 
     public static func childIndices(_ items: [ListItem], ofParent p: Int) -> [Int] {
@@ -84,7 +68,6 @@ public enum ListOps {
     public static func setChild(_ items: inout [ListItem], at index: Int, _ isChild: Bool) {
         guard index > 0 || !isChild else { return }
         items[index].isChild = isChild
-        items = groups(items).map(fixParentChecked).flatMap { $0 }
     }
 
     /// Insert a new empty item after `index` (or at the end), like `defaultNewItem`.

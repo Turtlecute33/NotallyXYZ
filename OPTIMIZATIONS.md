@@ -381,7 +381,7 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 | NOTALLY-MAC-OPT-05 | Count open editors per note so that a second window keeps remote edits held back | stability | S | low | applied |
 | NOTALLY-MAC-OPT-06 | Read the server testvectors.json in the mac tests and delete the 550 KB copy | minimalism | S | low | applied |
 | NOTALLY-MAC-OPT-07 | Show why the notes did not open before the setup screen can wipe unsynced changes | stability | S | low | applied |
-| NOTALLY-MAC-OPT-08 | Remove dead code and the second copy of the parent-checked rule | minimalism | S | low | approved |
+| NOTALLY-MAC-OPT-08 | Remove dead code and the second copy of the parent-checked rule | minimalism | S | low | applied |
 | NOTALLY-MAC-OPT-09 | Read, decrypt and decode thumbnails off the main thread | speed | M | low | rejected (owner, 2026-10-30) |
 | NOTALLY-MAC-OPT-10 | Show 'just now' in place of 'in 0 seconds' | ui-ux | S | low | approved |
 
@@ -483,7 +483,8 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 - **Verification**: Merged from four lens findings: lean (three unused symbols, ListEditor onChange, ListOps duplicate rule) and perf (NoteCard.search). Keep two commits: the ListOps part changes model behaviour in the edge case above and changes a test. The linker already strips the unused symbols, so the binary does not get smaller. Run ./test.sh (ModelTests listRules and setChild tests).
 - **Effort**: S. **Risk**: low. **Impact**: low. **Net lines**: about -28 (estimate).
 - **Shared**: NOTALLYXYZ-SHARED-7 (commit 2), also in desktop (not listed: desktop/frontend/dist/listops.js:43-47, :54-60, :67).
-- **Status**: approved
+- **Verified**: (cd server && go build -o /tmp/nxyz-mac-test-server .) passed; cd mac && ./test.sh passed after each commit (26 tests in 6 suites); SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk swift build passed after each commit with no new warning. A plain swift build fails on the macOS 27 SDK (@State macro plugin not found) also without this change, as mac/README.md tells. Commit 1 removes the dead code; commit 2 removes the parent branch of setChecked, parentIndex and the fixParentChecked call in setChild, and ModelTests.listRules now checks the parent through ListOps.normalized. No new unit test. Not checked: no run-time check of the UI (type in the search field in grid mode; in a list, type, paste lines, check and uncheck a child, indent and outdent).
+- **Status**: applied
 
 #### NOTALLY-MAC-OPT-09: Read, decrypt and decode thumbnails off the main thread
 - **What**: ImageCache is @MainActor and Thumbnail calls it synchronously from .task. For each uncached image the main thread reads the whole sealed blob, runs Seal.open over all 64 KiB chunks, and runs CGImageSourceCreateThumbnailAtIndex. Images are stored as imported, so a blob is often a 3-12 MB photo. Grid mode uses MasonryLayout, which is not lazy, so every image card does this at first display, one after the other. ImageViewer does the same at 2400 px, and AudioRow decrypts the whole audio file on the main thread on play. The owner rule says: decode images and thumbnails off the main thread. Small bug on the same path: NoteCard.swift:21 gives the thumbnail no identity, so when the first image of a note changes, the `guard image == nil` at Thumbnail.swift:62 keeps the old image.

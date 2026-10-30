@@ -35,9 +35,9 @@ import Testing
 
         var child = [ListItem(body: "P"), ListItem(body: "c1", isChild: true), ListItem(body: "c2", isChild: true)]
         ListOps.setChecked(&child, at: 1, true, now: 1)
-        #expect(!child[0].checked)
+        #expect(!ListOps.normalized(child, autoSort: false)[0].checked)
         ListOps.setChecked(&child, at: 2, true, now: 2)
-        #expect(child[0].checked)
+        #expect(ListOps.normalized(child, autoSort: false)[0].checked)
 
         var indent = [ListItem(body: "x"), ListItem(body: "y")]
         ListOps.setChild(&indent, at: 0, true)
