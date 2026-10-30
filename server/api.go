@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -398,6 +399,10 @@ func (a *api) getBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f, err := a.store.OpenBlob(account(r), id)
+	if errors.Is(err, os.ErrNotExist) {
+		log.Print("get blob: stored blob has no file")
+		err = errNotFound
+	}
 	if err != nil {
 		a.internalError(w, "get blob", err)
 		return

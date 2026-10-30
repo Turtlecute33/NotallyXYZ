@@ -528,7 +528,7 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 | ID | Finding | Area | Effort | Risk | Status |
 |---|---|---|---|---|---|
 | NOTALLY-SRV-OPT-01 | Cap the POST /v1/account request body at 64 KiB | stability | S | low | applied |
-| NOTALLY-SRV-OPT-02 | Answer 404, not 500, when a blob row has no file | stability | S | low | approved |
+| NOTALLY-SRV-OPT-02 | Answer 404, not 500, when a blob row has no file | stability | S | low | applied |
 | NOTALLY-SRV-OPT-03 | Wait for srv.Shutdown to return before main exits | stability | S | low | approved |
 | NOTALLY-SRV-OPT-04 | Remove leftover .upload-* temp files when the store opens | stability | S | low | approved |
 | NOTALLY-SRV-OPT-05 | Drop the unused 'created' return value of Store.PutBlob | minimalism | S | low | approved |
@@ -558,7 +558,8 @@ The sync server is small and in good shape: 1,383 lines of Go, one dependency (b
 - **Verification**: The stability lens set impact low because the trigger is rare (btrfs power loss or operator error; on ext4 and XFS the bbolt fsync usually commits the rename too). It is raised to medium here because the result is a long Android sync stop on existing installs and the fix is 5 lines with no downside. The DeleteBlob race gives only one failed sync, not a stop.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about +5 (estimate).
 - **Shared**: NOTALLYXYZ-SHARED-6, also in Android (not listed: android/app/src/main/java/com/philkes/notallyx/sync/SyncEngine.kt:118-119, :132, :407-435; SyncApi.kt:131-141). This server fix is the single fix; do not change the Android catch (0a92797c).
-- **Status**: approved
+- **Verified**: cd server && go vet ./... && go test ./... passed; go test -race ./... passed; the new TestBlobFileMissing case fails without the change (500). Not checked: no run-time check with the Android, desktop or macOS clients.
+- **Status**: applied
 
 #### NOTALLY-SRV-OPT-03: Wait for srv.Shutdown to return before main exits
 - **What**: On SIGTERM, Shutdown closes the listener, ListenAndServe returns ErrServerClosed at once, and main returns. The deferred store.Close runs and the process exits while Shutdown is still draining. The net/http docs say the program must wait for Shutdown. Effects on each restart (image update, docker compose up -d, reboot): a POST /v1/changes can commit while its client gets a connection reset, so the next push needs a conflict round trip. Short uploads stop part way and leave a temp file (see NOTALLY-SRV-OPT-04).

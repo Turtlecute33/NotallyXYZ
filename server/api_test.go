@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -285,5 +286,19 @@ func TestBlobs(t *testing.T) {
 	}
 	if code, _ := do(t, srv, "PUT", "/v1/blobs/"+idA, tok, bytes.Repeat([]byte{1}, 2<<20)); code != 413 {
 		t.Fatal("too large blob accepted")
+	}
+}
+
+func TestBlobFileMissing(t *testing.T) {
+	var dir string
+	srv := newTestServer(t, func(c *config) { dir = c.dataDir })
+	tok := signup(t, srv)
+	do(t, srv, "PUT", "/v1/blobs/"+idA, tok, []byte("sealed"))
+	files, _ := filepath.Glob(filepath.Join(dir, "blobs", "*", idA))
+	if len(files) != 1 || os.Remove(files[0]) != nil {
+		t.Fatalf("blob file: %v", files)
+	}
+	if code, _ := do(t, srv, "GET", "/v1/blobs/"+idA, tok, nil); code != 404 {
+		t.Fatalf("get blob with no file: %d", code)
 	}
 }
