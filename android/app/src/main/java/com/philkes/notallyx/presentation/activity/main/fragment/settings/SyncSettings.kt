@@ -178,7 +178,7 @@ private fun Fragment.confirm(message: Int, action: Int, block: suspend () -> Uni
         .show()
 }
 
-private fun Fragment.showToast(text: String) = requireContext().showToast(text)
+private fun Fragment.showToast(text: String) = context?.showToast(text)
 
 private fun Fragment.showSyncKey(key: String) {
     val view =

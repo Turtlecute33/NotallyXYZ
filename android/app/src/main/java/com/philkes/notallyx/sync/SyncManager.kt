@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -189,7 +190,8 @@ class SyncManager private constructor(private val app: Application) {
             val keys = SyncCrypto.deriveKeys(key)
             SyncApi(url, keys.bearer).createAccount(invite.trim())
             val display = SyncCrypto.formatKey(key)
-            enable(url, display, keys)
+            // The server has the account now. Save the key also if the caller cancels.
+            withContext(NonCancellable) { enable(url, display, keys) }
             display
         }
 
@@ -224,7 +226,7 @@ class SyncManager private constructor(private val app: Application) {
 
     /** Stops syncing. Notes on this device stay. */
     suspend fun disconnect() =
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO + NonCancellable) {
             liveJob?.cancel()
             mutex.withLock {
                 preferences.syncKey.save("")
@@ -237,8 +239,10 @@ class SyncManager private constructor(private val app: Application) {
 
     /** Deletes the account and all data on the server, then disconnects. */
     suspend fun deleteServerData() {
-        withContext(Dispatchers.IO) { engineApi().deleteAccount() }
-        disconnect()
+        withContext(Dispatchers.IO + NonCancellable) {
+            engineApi().deleteAccount()
+            disconnect()
+        }
     }
 
     private fun engineApi(): SyncApi {

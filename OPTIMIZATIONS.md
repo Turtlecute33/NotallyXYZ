@@ -66,7 +66,7 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 | NOTALLY-AND-OPT-03 | Replace zstd-jni with java.util.zip in CompressUtility | minimalism | S | low | applied |
 | NOTALLY-AND-OPT-04 | Make the auto-remove-deleted-notes worker run and drop koin-androidx-workmanager | stability | S | low | applied |
 | NOTALLY-AND-OPT-05 | Remove the debug content descriptions on checklist items | ui-ux | S | low | applied |
-| NOTALLY-AND-OPT-06 | Keep sync setup, Disconnect and Delete server data from stopping halfway or crashing | stability | S | low | approved |
+| NOTALLY-AND-OPT-06 | Keep sync setup, Disconnect and Delete server data from stopping halfway or crashing | stability | S | low | applied |
 | NOTALLY-AND-OPT-07 | Paste and new line in a checklist: do not put an empty item between the pasted lines | ui-ux | S | low | approved |
 | NOTALLY-AND-OPT-08 | Move the first encrypted-preferences read off the main thread at startup | speed | S | low | rejected (owner, 2026-10-30) |
 | NOTALLY-AND-OPT-09 | Remove upstream build tooling that the fork never runs | minimalism | S | low | approved |
@@ -141,7 +141,8 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 - **Safety**: Key generation, key format, key derivation, the syncKey and syncServerUrl preferences, crypto and the server calls do not change. The same preferences.syncKey.save("") call still clears the key, inside the same mutex. The only change: a cancel can no longer stop the local step after the server has accepted the request. The FLAG_SECURE key dialogs stay as they are.
 - **Verification**: The ui and stability lenses found this; the two findings are merged here. The safer, smaller fix is kept (NonCancellable plus a null-safe toast). The other option was to move these calls to SyncManager.scope and drop the toast. That option changes the UX and adds a code path. The stability case is covered by adding NonCancellable to disconnect(). Not run on a device. To verify: start Create account against a slow server, rotate during the request, then open Show sync key. Rotate during Delete server data, then check that the app does not crash and the Sync row shows Off.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about +2 (estimate).
-- **Status**: approved
+- **Verified**: cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:testDebugUnitTest passed (225 tests, 0 failures); JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleDebug passed; ./gradlew :app:ktfmtCheckMain passed. No assembleRelease (no build or packaging change). No unit test (SyncManager has no test, and a cancel test needs a server, a database and a fragment). Not checked: no run-time check on a device (rotate during Create account against a slow server, then open Show sync key; rotate during Delete server data, then check that the app does not crash and the Sync row shows Off).
+- **Status**: applied
 
 #### NOTALLY-AND-OPT-07: Paste and new line in a checklist: do not put an empty item between the pasted lines
 - **What**: In a checklist, the fork's 'Paste and new line' button puts the new empty item in the wrong place when the clipboard has more than one line. editText.text.replace() fires the list TextWatcher (count > 1), and checkListPasted() at once splits the text into items p..p+n-1. Then pasteAndNewLine() calls onEditorAction(IME_ACTION_NEXT) on the first item's EditText. Its setOnNextAction runs listManager.add(bindingAdapterPosition + 1) = p+1, so the empty item appears between the first and the second pasted line. Its focus post runs last, so the empty item also takes the focus. Commit 3a3fa9f0 says that the button must open a new item below the pasted text.
