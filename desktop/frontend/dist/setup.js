@@ -31,6 +31,7 @@ export function showSetup(root, app, done) {
   }
 
   async function submit() {
+    if (go.disabled) return; // Enter can come again while a call runs.
     error.textContent = '';
     go.disabled = true;
     try {

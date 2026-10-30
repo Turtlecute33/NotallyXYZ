@@ -213,7 +213,7 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 | NOTALLY-DESK-OPT-03 | Emit 'changed' after startup opens the cache | stability | S | low | applied |
 | NOTALLY-DESK-OPT-04 | Keep the grid scroll position, and do not rebuild the grid behind an open editor | ui-ux | S | low | applied |
 | NOTALLY-DESK-OPT-05 | Stop reading the sync key from the key store on each GetState | speed | S | low | rejected (owner, 2026-10-30) |
-| NOTALLY-DESK-OPT-06 | Ignore Enter in setup while a submit runs | stability | S | low | approved |
+| NOTALLY-DESK-OPT-06 | Ignore Enter in setup while a submit runs | stability | S | low | applied |
 | NOTALLY-DESK-OPT-07 | Add the filled-in reminder when the user clicks Done | ui-ux | S | low | approved |
 | NOTALLY-DESK-OPT-08 | Focus Cancel, not the destructive button, in confirm dialogs | ui-ux | S | low | approved |
 | NOTALLY-DESK-OPT-09 | Remove dead code in Go and in the frontend | minimalism | S | low | approved |
@@ -291,7 +291,8 @@ The NotallyXYZ desktop app is small and in good shape. The Go core is compact an
 - **Safety**: A re-entry guard in the UI only. Key generation, saveKey, the invite token check, ValidateServer and finishSetup do not change.
 - **Verification**: Merged the stability and ui items (same code, same fix). Rare: it needs a second Enter during the network wait, but it affects the key handover. No JS tests: verify with a slow or unreachable server and repeated Enter; only one request must go out.
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about +1 (estimate).
-- **Status**: approved
+- **Verified**: cd desktop && go vet ./... && go test ./... passed (go test -count=1). node --check frontend/dist/setup.js passed. No unit test (no JS tests in desktop). Not checked: no Wails build and no run-time check of the UI (a slow or unreachable server, then Enter many times in setup; only one request must go out).
+- **Status**: applied
 
 #### NOTALLY-DESK-OPT-07: Add the filled-in reminder when the user clicks Done
 - **What**: The Reminders dialog has a 'New reminder' form (date and time, repeat) with its own 'Add reminder' button, and a primary 'Done' button. If the user picks a time and clicks Done, the form is ignored and no reminder is saved. No message shows. The Labels dialog handles the same case: Done adds the text that is still in the 'New label' input (editor.js:277).
