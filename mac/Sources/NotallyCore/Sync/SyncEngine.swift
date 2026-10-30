@@ -149,11 +149,20 @@ public final class SyncEngine {
             var delay: Double = 5
             while !Task.isCancelled {
                 guard let self else { return }
+                // While a sync runs, the cursor does not move and the server answers each poll at once.
+                if self.isSyncing { try? await Task.sleep(for: .seconds(1)); continue }
                 do {
                     let page = try await self.api.changes(since: self.store.local.cursor, limit: 1, wait: 25)
-                    delay = 5
+                    if page.changes.isEmpty { delay = 5; continue }
                     // A separate task, so that stopLive() stops the poll but not a running sync.
-                    if !page.changes.isEmpty { await Task { await self.sync() }.value }
+                    await Task { await self.sync() }.value
+                    if self.lastError != nil && !self.isSyncing {
+                        // A failed sync does not move the cursor. Wait as after a failed poll.
+                        try? await Task.sleep(for: .seconds(delay))
+                        delay = min(delay * 2, 300)
+                    } else {
+                        delay = 5
+                    }
                 } catch {
                     if Task.isCancelled { return }
                     try? await Task.sleep(for: .seconds(delay))

@@ -376,7 +376,7 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 |---|---|---|---|---|---|
 | NOTALLY-MAC-OPT-01 | Put keyboard focus in a new note | ui-ux | S | low | applied |
 | NOTALLY-MAC-OPT-02 | Save the open note when the app quits | stability | S | low | applied |
-| NOTALLY-MAC-OPT-03 | Stop the live poll and the sync debounce from fighting a running sync | stability | S | low | approved |
+| NOTALLY-MAC-OPT-03 | Stop the live poll and the sync debounce from fighting a running sync | stability | S | low | applied |
 | NOTALLY-MAC-OPT-04 | Confirm Delete Checked Items in lists | ui-ux | S | low | approved |
 | NOTALLY-MAC-OPT-05 | Count open editors per note so that a second window keeps remote edits held back | stability | S | low | approved |
 | NOTALLY-MAC-OPT-06 | Read the server testvectors.json in the mac tests and delete the 550 KB copy | minimalism | S | low | approved |
@@ -420,7 +420,8 @@ NotallyXYZ for macOS is small (about 5,500 lines with tests, no third-party code
 - **Verification**: Merged from three lens findings: perf 'wait in the live poll', stability 'do not long-poll while a sync runs' and stability 'stop cancels of a running sync'. They edit the same line (SyncEngine.swift:154). Keep two commits so that each can be reverted. The busy case uses a fixed 1 s check, not the doubling backoff, so live updates are not delayed up to 300 s after a long transfer. A sync that runs at resign or sleep can now finish, the same as syncs that open() and becameActive() start. Run ./test.sh (SyncTests need the local server binary, see test.sh).
 - **Effort**: S. **Risk**: low. **Impact**: medium. **Net lines**: about +5 (estimate).
 - **Shared**: NOTALLYXYZ-SHARED-1 (commit 2), also in NOTALLY-DESK-OPT-10. NOTALLYXYZ-SHARED-2 (commit 1), also in NOTALLY-AND-OPT-10 (part (b)).
-- **Status**: approved
+- **Verified**: (cd server && go build -o /tmp/nxyz-mac-test-server .) passed; cd mac && ./test.sh passed after each commit (26 tests in 6 suites); SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk swift build passed with no new warning. A plain swift build fails on the macOS 27 SDK (@State macro plugin not found) also without this change, as mac/README.md tells. Commit 1 adds the test SyncTests.aLaterScheduleDoesNotCancelARunningSync; it fails on the old schedule() and passed 10 runs out of 10 on the new one. Commit 2 has no unit test (the live loop waits up to 25 s per poll). Not checked: no run-time check of the app (type on during an attachment upload, switch apps during a sync, and the 1 s wait and the backoff of the live loop against a real server).
+- **Status**: applied
 
 #### NOTALLY-MAC-OPT-04: Confirm Delete Checked Items in lists
 - **What**: More > Delete Checked Items removes all checked items of a list at once, with no confirmation and no undo. List changes go through NoteEditor.update with no UndoManager, so Cmd-Z does not bring the items back. The change saves after 700 ms and syncs to all devices 2 s later. Desktop asks first. Android can undo.
