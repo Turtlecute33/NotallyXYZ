@@ -2,6 +2,7 @@ package com.philkes.notallyx.presentation.activity.note
 
 import android.os.Bundle
 import android.view.View
+import android.widget.EditText
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SortedList
 import com.philkes.notallyx.data.model.ListItem
@@ -216,6 +217,19 @@ class EditListActivity : EditActivity(Type.LIST) {
     override fun setupListeners() {
         super.setupListeners()
         binding.AddItem.setOnClickListener { listManager.add() }
+    }
+
+    override fun pasteAndNextAction(editText: EditText, paste: () -> Unit) {
+        val position =
+            binding.MainListView.findContainingViewHolder(editText)?.bindingAdapterPosition
+        if (position == null || position == RecyclerView.NO_POSITION) {
+            return super.pasteAndNextAction(editText, paste)
+        }
+        val itemCount = items.size
+        paste()
+        // A paste with more than one line adds the lines as items below this item.
+        // Open the new item below the last pasted item.
+        listManager.add(position + 1 + items.size - itemCount)
     }
 
     override fun setStateFromModel(savedInstanceState: Bundle?) {

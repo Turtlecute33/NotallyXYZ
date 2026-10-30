@@ -660,14 +660,20 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         val isMultiLine = editText.inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
         val start = minOf(editText.selectionStart, editText.selectionEnd).coerceAtLeast(0)
         val end = maxOf(editText.selectionStart, editText.selectionEnd).coerceAtLeast(0)
-        editText.text.replace(
-            start,
-            end,
-            if (isMultiLine && !hasNextAction) "$clip\n" else clip,
-        )
-        if (hasNextAction) {
-            editText.onEditorAction(EditorInfo.IME_ACTION_NEXT)
+        val paste: () -> Unit = {
+            editText.text.replace(
+                start,
+                end,
+                if (isMultiLine && !hasNextAction) "$clip\n" else clip,
+            )
         }
+        if (hasNextAction) pasteAndNextAction(editText, paste) else paste()
+    }
+
+    /** Runs [paste], then the "next" IME action of [editText]. */
+    protected open fun pasteAndNextAction(editText: EditText, paste: () -> Unit) {
+        paste()
+        editText.onEditorAction(EditorInfo.IME_ACTION_NEXT)
     }
 
     protected open fun openMoreOptionsBottomSheet() {
