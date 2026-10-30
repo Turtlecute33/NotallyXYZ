@@ -127,6 +127,19 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
         }
 
         applicationScope.launch {
+            // Nothing refreshes the on-save zip while backup on save is off, so a switch from off
+            // to on makes one full export. Later saves then add only the changed note to it.
+            preferences.backupOnSave.flow.withPrevious().collect { (onSaveBefore, onSave) ->
+                val backupFolder = preferences.backupsFolder.value
+                if (onSaveBefore == false && onSave && backupFolder != EMPTY_PATH) {
+                    runOnIODispatcher {
+                        autoBackupOnSave(backupFolder, preferences.backupPassword.value, null)
+                    }
+                }
+            }
+        }
+
+        applicationScope.launch {
             preferences.periodicBackups.flow.collect { value ->
                 val backupFolder = preferences.backupsFolder.value
                 checkUpdatePeriodicBackup(backupFolder, backupFolder, value.periodInDays.toLong())
