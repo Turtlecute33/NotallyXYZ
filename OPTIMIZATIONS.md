@@ -93,7 +93,7 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 - **Safety**: This is a packaging filter only. Code, the SQLCipher version, the DB format, preference keys and key handling do not change. Robolectric tests use host JVM libraries.
 - **Verification**: Re-measured with unzip -lv. The local nxyz AVD is arm64-v8a (config.ini), so debug runs on the emulator still work. To verify: build the release APK and check with unzip -l that only lib/arm64-v8a and lib/armeabi-v7a remain. Then install it over 1.1.3 and open an encrypted DB. With OPT-03 too, the APK is about 7.7 MB (estimate from the same listing).
 - **Effort**: S. **Risk**: low. **Impact**: high. **Net lines**: about +2 (estimate).
-- **Verified**: cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:testDebugUnitTest passed (up to date: the filter is not a unit-test input); JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleDebug passed; JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleRelease passed. unzip -l: the release and debug APKs have only lib/arm64-v8a and lib/armeabi-v7a. The release APK is 8,710,217 B (was 14,663,817 B). No unit test (packaging filter only). The README APK size line is not changed here. Not checked: no install over 1.1.3 on a device and no open of an encrypted DB. Emulator (2026-10-30): pass for the debug APK. It runs on arm64 and opens an encrypted DB after a restart.
+- **Verified**: cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:testDebugUnitTest passed (up to date: the filter is not a unit-test input); JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleDebug passed; JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleRelease passed. unzip -l: the release and debug APKs have only lib/arm64-v8a and lib/armeabi-v7a. The release APK is 8,710,217 B (was 14,663,817 B). No unit test (packaging filter only). The README APK size line is not changed here. Not checked: no install over 1.1.3 on a device and no open of an encrypted DB. Emulator (2026-10-30): pass for the debug APK. It runs on arm64 and opens an encrypted DB after a restart. Phone (2026-10-31): pass. The signed release 7.11.3, installed over 7.11.3, opens the real encrypted database.
 - **Status**: applied
 
 #### NOTALLY-AND-OPT-03: Replace zstd-jni with java.util.zip in CompressUtility
@@ -105,7 +105,7 @@ The fork's own code is in good shape. The sync engine is lean, does its work off
 - **Safety**: The compressed bytes exist only in RAM, so they are not a storage format. This is upstream editor code, not security-review code. No schema, preference key or crypto change.
 - **Verification**: CompressUtilityTest and EditTextCompressionTest cover the round trip and the invalid-data case. For notes over 10k chars, each keystroke runs 2 compressions and 1 decompression on the main thread (UiExtensions.kt:368, 377, 385). Deflate level 1 is a bit slower than zstd level 4 and compresses a bit less, so the undo history of long notes uses a bit more RAM (estimate, not measured). Before release, type in a note of about 100 KB on a slow phone and check the latency.
 - **Effort**: S. **Risk**: low. **Impact**: high. **Net lines**: about -3 (estimate).
-- **Verified**: cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:testDebugUnitTest passed (CompressUtilityTest 3/3, EditTextCompressionTest 2/2); JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleDebug passed; JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleRelease passed (it also runs testReleaseUnitTest); ktfmtCheck passed on the two changed Kotlin files. unzip -l: the release and debug APKs have only libsqlcipher.so, no libzstd-jni. The release APK is 7,623,879 B (was 8,710,217 B). No new unit test (the existing tests cover the round trip and the invalid-data case). The README APK size line is not changed here. Not checked: no run-time check on a device, and no typing latency check in a note of about 100 KB on a slow phone. Emulator (2026-10-30): pass. In a 100 KB note the main thread spends about 1.3 points more than with zstd (about 0.8 ms per key). Undo and redo work.
+- **Verified**: cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:testDebugUnitTest passed (CompressUtilityTest 3/3, EditTextCompressionTest 2/2); JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleDebug passed; JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew :app:assembleRelease passed (it also runs testReleaseUnitTest); ktfmtCheck passed on the two changed Kotlin files. unzip -l: the release and debug APKs have only libsqlcipher.so, no libzstd-jni. The release APK is 7,623,879 B (was 8,710,217 B). No new unit test (the existing tests cover the round trip and the invalid-data case). The README APK size line is not changed here. Not checked: no run-time check on a device, and no typing latency check in a note of about 100 KB on a slow phone. Emulator (2026-10-30): pass. In a 100 KB note the main thread spends about 1.3 points more than with zstd (about 0.8 ms per key). Undo and redo work. Phone (2026-10-31): pass. Typing in a long note in the signed release is smooth.
 - **Status**: applied
 
 #### NOTALLY-AND-OPT-04: Make the auto-remove-deleted-notes worker run and drop koin-androidx-workmanager
@@ -709,7 +709,7 @@ Known limits that the item runs found (not fixed):
 
 ### What the owner must check by hand
 
-No check ran on a real device, in a Wails build or on Windows. The Android emulator checks are in Device checks (2026-10-30). The Verified line of each item gives the steps.
+No check ran in a Wails build or on Windows. The Android emulator checks are in Device checks (2026-10-30). The Android phone checks are in Phone session (2026-10-31). The Verified line of each item gives the steps.
 
 - Android: see "Still for the owner" in Device checks (2026-10-30) below.
 - Desktop on Linux and Windows: make a Wails build on each, then do the UI steps of NOTALLY-DESK-OPT-01 to -08, NOTALLYXYZ-SHARED-3 and NOTALLYXYZ-SHARED-4. On Windows (WebView2), check that a close of the window saves the open note (NOTALLYXYZ-SHARED-4) and that Cancel has the focus in confirm dialogs (NOTALLY-DESK-OPT-08). For Windows, only GOOS=windows go vet ran (NOTALLYXYZ-SHARED-4).
@@ -749,8 +749,15 @@ Crashes and ANRs: none for the optimize build in the whole session (crash buffer
 
 Still for the owner:
 
-- Android phone (ARM): install the signed release APK over 1.1.3 and open the real encrypted database (NOTALLY-AND-OPT-02).
-- Android phone: type in a note of about 100 KB in the release build and check that it feels smooth (NOTALLY-AND-OPT-03). The emulator uses software rendering and a debug build.
-- Android phone with TalkBack: check what TalkBack says for the item text, the checkbox, Delete and the drag handle (NOTALLY-AND-OPT-05).
 - Make a signed build with release.zsh and run bundleRelease (NOTALLY-AND-OPT-09).
 - The APK does not install on x86-only devices (Intel emulators, some Chromebooks), and README.md does not say this.
+
+### Phone session (2026-10-31)
+
+Android only. The owner and Claude did a phone session on 2026-10-31, on the owner Pixel 9 Pro XL (GrapheneOS, Android 17). Claude built the release APK of branch optimize. Claude checked that its signing certificate is the same as the certificate of the installed release. Claude installed it over the installed release with adb install -r, so the app data stayed. The owner did the steps on the phone and reported them as good. Claude read logcat after each step. Logcat showed no crash and no ANR for the app.
+
+- Build: release 7.11.3 (versionCode 71138), signed with scripts/build-release.zsh. Certificate 81776480...b48b, the same value as in README.md. Installed over the installed 7.11.3.
+- NOTALLY-AND-OPT-02: the app opens the real encrypted database. Pass.
+- NOTALLY-AND-OPT-03: typing in a long note is smooth. Pass.
+- Sync works.
+- The optional steps for checklist paste (NOTALLY-AND-OPT-07) and TalkBack (NOTALLY-AND-OPT-05) were offered to the owner.
