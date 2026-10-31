@@ -713,7 +713,7 @@ No check ran in a Wails build or on Windows. The Android emulator checks are in 
 
 - Android: see "Still for the owner" in Device checks (2026-10-30) below.
 - Desktop on Linux and Windows: make a Wails build on each, then do the UI steps of NOTALLY-DESK-OPT-01 to -08, NOTALLYXYZ-SHARED-3 and NOTALLYXYZ-SHARED-4. On Windows (WebView2), check that a close of the window saves the open note (NOTALLYXYZ-SHARED-4) and that Cancel has the focus in confirm dialogs (NOTALLY-DESK-OPT-08). For Windows, only GOOS=windows go vet ran (NOTALLYXYZ-SHARED-4).
-- macOS: do the UI steps of NOTALLY-MAC-OPT-01 to -05, -07, -08 and -10.
+- macOS: the owner did NOTALLY-MAC-OPT-01, -04, -08 and -10 on 2026-10-31 (see Mac session). Still open: -02 (save on quit), -03 (sync timing), -05 (two windows, optional) and -07 (setup screen reason). They need a normal setup, not the demo mode.
 - Server: check the server in Docker, and sync with the Android, desktop and macOS clients. The stop during an upload (NOTALLY-SRV-OPT-03, -04) and the log check (NOTALLY-SRV-OPT-06) passed on loopback (see their Verified lines).
 - The item review found one problem in NOTALLY-SRV-OPT-01 (b780f6f9: the commit message had no blank line after the subject; fixed) and one in NOTALLY-AND-OPT-01 (dae1414e: the on-save zip could stay old; the owner approved the follow-up commit that makes a full export when backup on save goes from off to on). The device step for the follow-up passed on the emulator (see Device checks (2026-10-30)).
 
@@ -761,3 +761,18 @@ Android only. The owner and Claude did a phone session on 2026-10-31, on the own
 - NOTALLY-AND-OPT-03: typing in a long note is smooth. Pass.
 - Sync works.
 - The optional steps for checklist paste (NOTALLY-AND-OPT-07) and TalkBack (NOTALLY-AND-OPT-05) were offered to the owner.
+
+### Mac session (2026-10-31)
+
+The owner checked the macOS app on this Mac. Claude made a debug build (`CONFIG=debug ./build-app.sh`), started a sync server of this repo on 127.0.0.1 with a test invite, made a test account with a new sync key, and opened the app in its debug demo mode (NXYZ_DEMO_SERVER, NXYZ_DEMO_KEY). The demo keeps the account in memory and a temporary folder: it does not use the Keychain or the real notes. After the session Claude stopped the server, deleted its data and built the release bundle again.
+
+| Item | Check | Result |
+|---|---|---|
+| NOTALLY-MAC-OPT-01 | A new note (⌘N) has keyboard focus at once | pass (owner) |
+| NOTALLY-MAC-OPT-08 | Two ticked sub-items tick their parent | pass (owner) |
+| NOTALLY-MAC-OPT-04 | Delete Checked Items asks first | pass (owner) |
+| NOTALLY-MAC-OPT-10 | An edit shows 'just now' | pass (owner) |
+| NOTALLY-MAC-OPT-02, -03, -07 | Save on quit, sync timing, setup screen reason | not possible in demo mode (it starts empty at each launch) |
+
+Side effect: the demo has the bundle ID of the real app, so it removed the reminders that the real app had scheduled on this Mac. The real app schedules them again when it opens.
+

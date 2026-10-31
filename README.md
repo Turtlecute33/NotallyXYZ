@@ -118,6 +118,9 @@ server and all apps together.
 ```
 
 Compare it with the output of `apksigner verify --print-certs <file>.apk`, or use AppVerifier.
+The APK is for ARM devices (arm64-v8a and armeabi-v7a). It does not install on x86-only devices,
+for example Intel emulators and some Chromebooks.
+
 Do not install an APK with a different certificate. The package name is `com.notallyxyz`, so the
 app installs next to NotallyX. To move your notes, export a backup in NotallyX (Settings →
 Export backup) and import it in NotallyXYZ.
