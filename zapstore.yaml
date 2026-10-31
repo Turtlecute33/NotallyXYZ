@@ -1,0 +1,28 @@
+# Zapstore listing. The Zapstore indexer reads this file and publishes each new GitHub release.
+repository: https://github.com/Turtlecute33/NotallyXYZ
+summary: Notes with end-to-end encrypted sync to your own server. No account, no trackers.
+description: |
+  NotallyXYZ is a fork of NotallyX, the minimal notes app. It adds one feature: sync between your
+  devices, through a server that you run yourself. The server keeps only ciphertext. It never gets
+  the key, the note text, the label names or the file names.
+
+  Sync is off by default. Without sync, the app is NotallyX and makes no network connections. No
+  account, no trackers, no Google Play Services. There are also native apps for macOS, Linux and
+  Windows.
+
+  - **Notes and lists**: formatting, links, lists with subtasks, colours, labels, pins, archive
+    and bin.
+  - **Attachments**: images, files and audio. They sync too, encrypted like the notes.
+  - **Reminders** with repetition.
+  - **Safe merge**: changes from two devices merge field by field. If two devices change the text
+    of the same note, the app keeps both versions.
+  - **One key, no account**: a random 256-bit sync key connects your devices. The app encrypts
+    each note, label and attachment with AES-256-GCM before it leaves the device.
+  - **From NotallyX**: app lock with biometrics or PIN, optional database encryption, automatic
+    backups, a home screen widget, and import from Google Keep, Evernote and Quillpad.
+license: GPL-3.0-only
+tags: [notes, privacy, encryption, sync]
+icon: ./android/fastlane/metadata/android/en-US/images/icon.png
+images:
+  - ./docs/banner.png
+metadata_sources: []
