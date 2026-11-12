@@ -1,6 +1,9 @@
 package core
 
-import "reflect"
+import (
+	"reflect"
+	"slices"
+)
 
 // MergeResult is the outcome of a three-way merge.
 type MergeResult struct {
@@ -46,6 +49,8 @@ func Merge(base *Note, local, remote Note) MergeResult {
 			c := remote
 			c.ID = RandomID()
 			c.Title = ConflictTitle(remote.Title)
+			// Only the note keeps the pin and the reminders, else each reminder fires twice.
+			c.Pinned, c.Reminders = false, []Reminder{}
 			copy = &c
 		}
 	}
@@ -97,9 +102,13 @@ func union[T any](base *Note, local, remote Note, get func(Note) []T, key func(T
 	return get(local)
 }
 
-// SameText: same title, type and content text, for linking an unsynced note on the first pull.
+// SameText: same type, title, content (list items with their checked state) and attachment
+// names, for linking an unsynced note on the first pull. Other notes are not linked, because the
+// link keeps the local version of the other fields.
 func SameText(a, b Note) bool {
-	if a.Type != b.Type || a.Title != b.Title {
+	file := func(f FileAttachment) string { return f.LocalName }
+	if a.Type != b.Type || a.Title != b.Title || !sameNames(a.Images, b.Images, file) ||
+		!sameNames(a.Files, b.Files, file) || !sameNames(a.Audios, b.Audios, func(x Audio) string { return x.Name }) {
 		return false
 	}
 	if a.Type == TypeNote {
@@ -109,9 +118,22 @@ func SameText(a, b Note) bool {
 		return false
 	}
 	for i := range a.Items {
-		if a.Items[i].Body != b.Items[i].Body {
+		if a.Items[i].Body != b.Items[i].Body || a.Items[i].Checked != b.Items[i].Checked {
 			return false
 		}
 	}
 	return true
+}
+
+// sameNames compares two lists as sets of names.
+func sameNames[T any](a, b []T, name func(T) string) bool {
+	set := func(list []T) []string {
+		out := make([]string, 0, len(list))
+		for _, x := range list {
+			out = append(out, name(x))
+		}
+		slices.Sort(out)
+		return slices.Compact(out)
+	}
+	return slices.Equal(set(a), set(b))
 }

@@ -119,14 +119,37 @@ func TestMerge(t *testing.T) {
 		strings.Join(r.Note.Labels, ",") != "A,L,R" || r.Note.ModifiedTimestamp != remote.ModifiedTimestamp {
 		t.Fatalf("one-sided merge: %+v", r.Note)
 	}
-	remote.Body = "remote"
+	remote.Body, remote.Reminders = "remote", []Reminder{{ID: 1, DateTime: 1}}
 	r = Merge(&base, local, remote)
 	if r.ConflictCopy == nil || r.ConflictCopy.Title != "T (conflict)" || r.ConflictCopy.Body != "remote" || r.Note.Body != "local" {
 		t.Fatalf("content conflict: %+v", r)
 	}
+	// The pin and the reminders stay on the note only, else each reminder fires twice.
+	if c := r.ConflictCopy; c.Pinned || len(c.Reminders) != 0 || c.Reminders == nil || !r.Note.Pinned || len(r.Note.Reminders) != 1 {
+		t.Fatalf("conflict copy: %+v", c)
+	}
 	local.Body = "remote"
 	if r = Merge(&base, local, remote); r.ConflictCopy != nil {
 		t.Fatal("same content on both sides is no conflict")
+	}
+}
+
+func TestSameText(t *testing.T) {
+	a := NewNote(TypeList)
+	a.Items = []ListItem{{Body: "Milk"}}
+	b := a
+	b.Items = []ListItem{{Body: "Milk", Checked: true}}
+	if !SameText(a, a) || SameText(a, b) {
+		t.Fatal("checked state")
+	}
+	b = a
+	b.Audios = []Audio{{Name: "rec.m4a"}}
+	if SameText(a, b) {
+		t.Fatal("attachments")
+	}
+	a.Audios = []Audio{{Name: "rec.m4a", Timestamp: 5}}
+	if !SameText(a, b) {
+		t.Fatal("same attachment names")
 	}
 }
 

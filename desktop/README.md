@@ -13,8 +13,9 @@ server (`server/seal`).
 - Text notes with bold, italic, monospace, strikethrough and links (incl. links to other notes)
 - Lists with subtasks (Tab, Shift+Tab), drag to reorder, checked items at the bottom, delete checked
 - Colors (12 NotallyX presets and custom), labels, pin, archive, bin, duplicate, search, sort
-- Images, files and audio playback; add images and files from disk
-- Reminders with repetition, as system notifications while the app runs
+- Images, files and audio playback; add images and files from disk (up to 100 MB each)
+- Reminders with repetition, as system notifications while the app runs. A notification shows the
+  note title only, because the system can keep notification text on disk
 - Live sync (long poll), conflict-free field merge with the Android and macOS apps
 - Appearance settings: theme, text size, grid or list, note preview on or off, preview length,
   labels, images and dates on cards
@@ -44,7 +45,8 @@ store it in a password manager.
 
 - The sync key is kept in the system key store (Secret Service such as GNOME Keyring or KWallet on
   Linux, Credential Manager on Windows). Without a key store, it goes into a file that only your
-  user can read; Settings shows which one is used.
+  user can read; setup tells you, and Settings shows which one is used. When a key store works
+  later, the app moves the key into it at the next start and deletes the file.
 - Notes are encrypted with AES-256-GCM before they leave the computer; the server sees only random
   ids and padded ciphertext. The local cache keeps the records and attachments exactly as sealed on
   the server; notes are decrypted only in memory.
@@ -52,8 +54,12 @@ store it in a password manager.
   the access token made up is ignored, and the note is written to the server again.
 - Images and audio go to the web view from memory, with `Cache-Control: no-store`. Opening a file in
   another app writes a plaintext copy to a private temporary folder that is removed on quit.
-  Files that could run code (`.exe`, `.sh`, `.desktop`, …) can only be saved, not opened.
+  Only images, audio, video, PDF and plain text files open in another app; all other files can only
+  be saved. On Windows, opened and saved files get the Mark of the Web, like a download.
 - HTTPS only (plain HTTP is accepted for `localhost` for testing). No redirects, no cookies.
+- A note is at most 8 MB encrypted (the server limit). The app does not save a larger note, so that
+  sync does not stop.
+- Settings → Delete all data on the server also removes the notes from this computer.
 - Data: `~/.local/share/NotallyXYZ` and `~/.config/NotallyXYZ` on Linux,
   `%LOCALAPPDATA%\NotallyXYZ` and `%APPDATA%\NotallyXYZ` on Windows. `NOTALLYXYZ_HOME=<folder>`
   puts all data, and the key, into one folder (portable use).
@@ -80,7 +86,7 @@ go test -race ./core/
 The tests check the keys against `testvectors.json`, the note payloads, the merge and the
 reminder rules, and run sync end to end against the real server (built from `../server`):
 notes, labels, blobs, conflicts, deletions, forged deletions, notes open in an editor,
-first-pull linking.
+first-pull linking, deletions before the first push, notes over the size limit.
 
 ## Known limitations
 

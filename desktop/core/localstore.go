@@ -282,10 +282,12 @@ func (t *Tx) PendingBlobs() []string {
 
 func (t *Tx) MarkUploaded(id string) error { return t.AddBlob(id, true) }
 
-// PruneBlobs removes local blob files that no note references and that are on the server.
+// PruneBlobs removes local blob files that no note references: at once when they are on the
+// server, else after an hour (an added attachment that no note kept; it is never uploaded).
 func (t *Tx) PruneBlobs(referenced map[string]bool) error {
+	hourAgo := time.Now().Unix() - 3600
 	for id, b := range t.blobs() {
-		if b.Uploaded && !referenced[id] {
+		if !referenced[id] && (b.Uploaded || b.Created < hourAgo) {
 			if err := os.Remove(t.s.BlobPath(id)); err != nil && !errors.Is(err, os.ErrNotExist) {
 				continue
 			}

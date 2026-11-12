@@ -10,6 +10,7 @@
   --accent: #7285d0;
   --accent-text: #ffffff;
   --danger: #c4314b;
+  --warning: #9a5b00; /* 5.4:1 on --surface */
   --shadow: 0 1px 2px rgba(20, 22, 30, .06), 0 2px 8px rgba(20, 22, 30, .05);
   --radius: 16px;
   --gap: 12px;
@@ -22,6 +23,7 @@
   --border: #363845;
   --text: #f1f0f7;
   --muted: #a3a5b5;
+  --warning: #c27c0e; /* 4.8:1 on --surface */
   --shadow: 0 1px 2px rgba(0, 0, 0, .35);
   color-scheme: dark;
 }
@@ -33,6 +35,7 @@
     --border: #363845;
     --text: #f1f0f7;
     --muted: #a3a5b5;
+    --warning: #c27c0e;
     --shadow: 0 1px 2px rgba(0, 0, 0, .35);
     color-scheme: dark;
   }
@@ -84,7 +87,7 @@ svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; s
   border-top: 1px solid var(--border); margin-top: 8px; }
 .sync-status svg { width: 16px; height: 16px; }
 .sync-status .text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sync-status.error { color: #c27c0e; }
+.sync-status.error { color: var(--warning); }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -167,6 +170,7 @@ svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; s
 
 /* Editor */
 .editor { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--bg); z-index: 5; }
+.editor:focus { outline: 0; }
 .editor.colored.light-color { color: #1a1b21; --muted: #4d505d; --border: rgba(0, 0, 0, .18); --surface-2: rgba(0, 0, 0, .08); color-scheme: light; }
 .editor.colored.dark-color { color: #f1f0f7; --muted: #d5d5df; --border: rgba(255, 255, 255, .25); --surface-2: rgba(255, 255, 255, .12); color-scheme: dark; }
 .editor .icon-btn { color: inherit; }
@@ -189,7 +193,7 @@ svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; s
 .images img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
 .images .img .icon-btn, .file-row .icon-btn { width: 30px; height: 30px; }
 .images .img .icon-btn { position: absolute; top: 4px; right: 4px; background: rgba(0, 0, 0, .55); color: #fff; opacity: 0; }
-.images .img:hover .icon-btn { opacity: 1; }
+.images .img:hover .icon-btn, .images .img .icon-btn:focus { opacity: 1; }
 .file-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 12px; }
 .file-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-row audio { flex: 1; height: 32px; }

@@ -41,7 +41,7 @@ func (a *App) attachmentHandler() http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		mime := r.URL.Query().Get("m")
+		mime := strings.ToLower(r.URL.Query().Get("m"))
 		if mime == "" {
 			mime = mimeFor(name)
 		}
@@ -72,7 +72,7 @@ func (a *App) AddAttachments(kind string) ([]core.FileAttachment, error) {
 	opts := wruntime.OpenDialogOptions{Title: "Add files"}
 	if kind == "image" {
 		opts = wruntime.OpenDialogOptions{Title: "Add images", Filters: []wruntime.FileFilter{
-			{DisplayName: "Images", Pattern: "*.jpg;*.jpeg;*.png;*.gif;*.webp;*.bmp"}}}
+			{DisplayName: "Images", Pattern: "*.jpg;*.jpeg;*.png;*.gif;*.webp;*.bmp;*.JPG;*.JPEG;*.PNG;*.GIF;*.WEBP;*.BMP"}}}
 	}
 	files, err := wruntime.OpenMultipleFilesDialog(a.ctx, opts)
 	if err != nil {
@@ -93,13 +93,12 @@ func (a *App) AddAttachments(kind string) ([]core.FileAttachment, error) {
 	return out, nil
 }
 
-// Files of these types could run code when opened. They can only be saved.
-var executable = map[string]bool{
-	".exe": true, ".bat": true, ".cmd": true, ".com": true, ".msi": true, ".ps1": true, ".vbs": true,
-	".vbe": true, ".js": true, ".jse": true, ".wsf": true, ".hta": true, ".scr": true, ".lnk": true,
-	".jar": true, ".desktop": true, ".sh": true, ".appimage": true, ".run": true, ".py": true,
-	".reg": true, ".cpl": true, ".msc": true, ".pif": true, ".url": true, ".html": true, ".htm": true,
-	".svg": true,
+// Only files of these types open with the default app. Other files could run code: they can
+// only be saved.
+var openable = map[string]bool{
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".bmp": true, ".avif": true, ".heic": true,
+	".mp3": true, ".m4a": true, ".aac": true, ".ogg": true, ".opus": true, ".wav": true, ".flac": true, ".3gp": true,
+	".amr": true, ".mp4": true, ".webm": true, ".mov": true, ".mkv": true, ".pdf": true, ".txt": true,
 }
 
 // OpenAttachment writes a plaintext copy into a private temporary folder (removed on quit)
@@ -110,7 +109,7 @@ func (a *App) OpenAttachment(localName, originalName string) error {
 		return err
 	}
 	name := safeName(originalName, localName)
-	if executable[strings.ToLower(filepath.Ext(name))] {
+	if !openable[strings.ToLower(filepath.Ext(name))] {
 		return a.SaveAttachment(localName, originalName)
 	}
 	data, err := store.AttachmentData(localName)
@@ -134,6 +133,7 @@ func (a *App) OpenAttachment(localName, originalName string) error {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return err
 	}
+	markFromInternet(path)
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
@@ -164,21 +164,67 @@ func (a *App) SaveAttachment(localName, originalName string) error {
 	if err != nil || path == "" {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return err
+	}
+	markFromInternet(path)
+	return nil
 }
 
-func safeName(name, fallback string) string {
-	name = filepath.Base(strings.ReplaceAll(name, `\`, "/"))
-	name = strings.Map(func(r rune) rune {
-		if r < 32 || strings.ContainsRune(`<>:"|?*`, r) {
-			return '_'
-		}
-		return r
-	}, name)
-	if name == "" || name == "." || name == ".." || strings.HasPrefix(name, ".") {
-		return fallback
+// markFromInternet adds the Mark of the Web on Windows, so that Windows and the app that opens
+// the file treat it like a download (SmartScreen, protected view).
+func markFromInternet(path string) {
+	if runtime.GOOS == "windows" {
+		_ = os.WriteFile(path+":Zone.Identifier", []byte("[ZoneTransfer]\r\nZoneId=3\r\n"), 0o600)
 	}
-	return name
+}
+
+// safeName makes a file name for Windows and Linux from the attachment name, else from fallback.
+func safeName(name, fallback string) string {
+	for _, n := range []string{name, fallback} {
+		n = filepath.Base(strings.ReplaceAll(n, `\`, "/"))
+		n = strings.Map(func(r rune) rune {
+			if r < 32 || r == 127 || strings.ContainsRune(`<>:"/\|?*`, r) {
+				return '_'
+			}
+			return r
+		}, n)
+		// Long names fail in Windows paths. Keep the extension.
+		if r := []rune(n); len(r) > 100 {
+			ext := []rune(filepath.Ext(n))
+			if len(ext) > 10 {
+				ext = nil
+			}
+			n = string(r[:100-len(ext)]) + string(ext)
+		}
+		// Windows removes trailing dots and spaces, which can change the type: "a.exe." is "a.exe".
+		n = strings.TrimRight(n, ". ")
+		if n == "" || strings.HasPrefix(n, ".") {
+			continue
+		}
+		if base, _, _ := strings.Cut(n, "."); reservedName(base) {
+			n = "_" + n
+		}
+		return n
+	}
+	return "attachment"
+}
+
+// reservedName: Windows opens a device for these names, also with an extension ("nul.txt").
+func reservedName(base string) bool {
+	b := strings.ToUpper(strings.TrimRight(base, " "))
+	switch b {
+	case "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$":
+		return true
+	}
+	if len(b) < 4 || (b[:3] != "COM" && b[:3] != "LPT") {
+		return false
+	}
+	switch b[3:] {
+	case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "¹", "²", "³":
+		return true
+	}
+	return false
 }
 
 // cleanStaleTemp removes plaintext copies left by a crash.

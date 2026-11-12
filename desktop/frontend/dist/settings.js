@@ -1,5 +1,5 @@
 // Settings: sync, appearance (same set as the macOS app), lists, danger zone.
-import { confirm, dialog, h, iconButton, segmented, toast, toggle, errText } from './ui.js';
+import { confirm, copySecret, dialog, h, iconButton, segmented, toast, toggle, errText } from './ui.js';
 
 const api = () => window.go.main.App;
 
@@ -18,9 +18,14 @@ export function showSettings(main, app, onClose) {
   }
   main.appendChild(el);
 
-  const row = (label, hint, control, disabled = false) =>
-    h('div', { class: 'row' + (disabled ? ' disabled' : '') },
-      h('div', { class: 'label' }, h('div', { text: label }), hint ? h('div', { class: 'muted', text: hint }) : null), control);
+  let rows = 0;
+  const row = (label, hint, control, disabled = false) => {
+    // The label names the select, switch or option group of the row for screen readers.
+    const id = 'setting-' + ++rows;
+    (control.matches('select, .segmented') ? control : control.querySelector('input'))?.setAttribute('aria-labelledby', id);
+    return h('div', { class: 'row' + (disabled ? ' disabled' : '') },
+      h('div', { class: 'label' }, h('div', { id, text: label }), hint ? h('div', { class: 'muted', text: hint }) : null), control);
+  };
   const set = async (patch) => { await app.setSettings(patch); draw(); };
   const number = (value, key, disabled) => {
     const sel = h('select', { class: 'input', disabled, onchange: () => set({ [key]: parseInt(sel.value, 10) }) },
@@ -77,7 +82,7 @@ export function showSettings(main, app, onClose) {
       h('div', { class: 'group' },
         row('Disconnect this device', 'Removes the sync key and the local cache. Notes stay on the server.',
           h('button', { class: 'btn', onclick: disconnect }, 'Disconnect…')),
-        row('Delete all data on the server', 'Removes all notes and attachments from the server, for every device.',
+        row('Delete all data on the server', 'Removes all notes and attachments from the server, for every device, and from this computer.',
           h('button', { class: 'btn danger', onclick: deleteAll }, 'Delete…'))),
       h('p', { class: 'muted small', style: 'margin:18px 6px' },
         `NotallyXYZ ${st.version} · Data: ${st.dataFolder}. Notes are encrypted on this device before they go to the server.`),
@@ -89,7 +94,7 @@ export function showSettings(main, app, onClose) {
     await dialog('Sync key', h('div', {},
       h('div', { class: 'key-box', text: key }),
       h('p', { class: 'muted small', style: 'margin-top:10px', text: 'Anyone with this key can read your notes. Use it only to connect your own devices.' })),
-    [{ label: 'Copy', keep: true, value: () => { window.runtime.ClipboardSetText(key); toast('Sync key copied'); } }, { label: 'Done', value: true, primary: true }]);
+    [{ label: 'Copy', keep: true, value: () => copySecret(key) }, { label: 'Done', value: true, primary: true }]);
   }
 
   async function cleanUp() {
@@ -107,7 +112,7 @@ export function showSettings(main, app, onClose) {
   }
 
   async function deleteAll() {
-    if (!(await confirm('Delete all data on the server?', 'All notes and attachments are removed from the server. Other devices keep their local copy, but stop syncing. This cannot be undone.', 'Delete everything'))) return;
+    if (!(await confirm('Delete all data on the server?', 'All notes and attachments are removed from the server and from this computer. Other devices keep their local copy, but stop syncing. This cannot be undone.', 'Delete everything'))) return;
     try {
       await api().DeleteServerData();
       close();

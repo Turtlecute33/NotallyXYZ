@@ -2,6 +2,7 @@ package core
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf16"
+
+	"notallyxyz-server/seal"
 )
 
 // NoteStore holds the decrypted notes and labels in memory, backed by the sealed local cache.
@@ -146,24 +149,63 @@ func utf16Len(s string) int {
 	return n
 }
 
+// maxRecordBytes is the largest sealed record that the server accepts (PROTOCOL.md §6). The
+// server refuses a whole push for one larger record.
+const maxRecordBytes = 8 << 20
+
+// maxBlobBytes is the default attachment limit of the server (MAX_BLOB_MB). Import reads the file into memory.
+const maxBlobBytes = 100 << 20
+
+var errTooLarge = errors.New("A note is larger than 8 MB and cannot sync. Make it shorter.")
+
 func (s *NoteStore) Save(n Note) error {
+	s.mu.Lock()
+	changed, err := s.saveLocked(n)
+	s.mu.Unlock()
+	if changed {
+		s.emit(true)
+	}
+	return err
+}
+
+// Update changes fields of the current version of a note, not of an older copy in the UI that
+// would undo a remote edit. change must not modify slices in place.
+func (s *NoteStore) Update(id string, change func(*Note)) error {
+	s.mu.Lock()
+	n, ok := s.notes[id]
+	if !ok {
+		s.mu.Unlock()
+		return fmt.Errorf("note not found")
+	}
+	change(&n)
+	changed, err := s.saveLocked(n)
+	s.mu.Unlock()
+	if changed {
+		s.emit(true)
+	}
+	return err
+}
+
+// saveLocked stores a local change while s.mu is held. It reports whether the note changed.
+func (s *NoteStore) saveLocked(n Note) (bool, error) {
 	if !isValidID(n.ID) {
-		return fmt.Errorf("invalid note id")
+		return false, fmt.Errorf("invalid note id")
 	}
 	n.normalize()
-	s.mu.Lock()
 	old, ok := s.notes[n.ID]
 	if ok && old.Equal(n) {
-		s.mu.Unlock()
-		return nil
+		return false, nil
 	}
 	// Only a body that grows past the limit is refused. Other changes of a longer note are saved.
 	if size := utf16Len(n.Body); size > maxBodyLength && (!ok || size > utf16Len(old.Body)) {
-		s.mu.Unlock()
-		return fmt.Errorf("The text is longer than %d characters.", maxBodyLength)
+		return false, fmt.Errorf("The text is longer than %d characters.", maxBodyLength)
+	}
+	sealed := s.sealNote(n)
+	if len(sealed) > maxRecordBytes {
+		return false, errTooLarge
 	}
 	err := s.local.Update(func(tx *Tx) error {
-		if err := tx.PutLocal("note", n.ID, s.sealNote(n)); err != nil {
+		if err := tx.PutLocal("note", n.ID, sealed); err != nil {
 			return err
 		}
 		for _, name := range n.Labels {
@@ -173,14 +215,11 @@ func (s *NoteStore) Save(n Note) error {
 		}
 		return nil
 	})
-	if err == nil {
-		s.notes[n.ID] = n
+	if err != nil {
+		return false, err
 	}
-	s.mu.Unlock()
-	if err == nil {
-		s.emit(true)
-	}
-	return err
+	s.notes[n.ID] = n
+	return true, nil
 }
 
 func (s *NoteStore) DeleteForever(ids ...string) error {
@@ -361,6 +400,13 @@ func newUUID() string {
 
 // ImportAttachment seals a file into the blob cache. The local name is a UUID, like Android.
 func (s *NoteStore) ImportAttachment(path, mimeType string) (FileAttachment, error) {
+	st, err := os.Stat(path)
+	if err != nil {
+		return FileAttachment{}, err
+	}
+	if st.Size() > maxBlobBytes || seal.SealedSize(int(st.Size())) > maxBlobBytes {
+		return FileAttachment{}, fmt.Errorf("%s is larger than 100 MB.", filepath.Base(path))
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return FileAttachment{}, err

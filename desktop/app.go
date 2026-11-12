@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/wailsapp/wails/v2/pkg/options"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -32,6 +33,8 @@ type App struct {
 	tempDir  string
 	stop     chan struct{}
 	notify   bool
+	// The sync key is in the key file, not in the system key store. Read at open, not per GetState.
+	keyInFile bool
 
 	// Why the notes on this computer did not open at startup. A new setup deletes them.
 	startupError string
@@ -86,7 +89,7 @@ func (s *Settings) clean() {
 	s.PreviewItems = min(10, max(1, s.PreviewItems))
 }
 
-func NewApp() *App { return &App{paths: appPaths()} }
+func NewApp(p paths) *App { return &App{paths: p} }
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
@@ -111,13 +114,20 @@ func (a *App) startup(ctx context.Context) {
 	if u, err := core.ValidateServer(a.config.Server); err == nil {
 		// Only setup sets the server, so an error here is not a first start.
 		var why string
-		if text, _, err := loadKey(a.paths); err != nil {
+		if text, inFile, err := loadKey(a.paths); err != nil {
 			why = "The app cannot read the sync key from the system key store or the key file. Unlock the key store and open the app again."
 		} else if keys, err := core.ParseKeys(text); err != nil {
 			why = "The saved sync key is not valid: " + err.Error()
-		} else if err := a.open(u.String(), keys); err != nil {
-			wruntime.LogErrorf(ctx, "open cache: %v", err)
-			why = "The app cannot open the notes on this computer: " + err.Error()
+		} else {
+			// A key store that did not work at setup can work now: then the key leaves the file.
+			inFile = inFile && !moveKeyToKeyring(a.paths, text)
+			a.mu.Lock()
+			a.keyInFile = inFile
+			a.mu.Unlock()
+			if err := a.open(u.String(), keys); err != nil {
+				wruntime.LogErrorf(ctx, "open cache: %v", err)
+				why = "The app cannot open the notes on this computer: " + err.Error()
+			}
 		}
 		a.mu.Lock()
 		a.startupError = why
@@ -227,9 +237,7 @@ func (a *App) GetState() State {
 	if a.engine != nil {
 		st.Status = a.engine.Status()
 	}
-	if a.store != nil {
-		_, st.KeyInFile, _ = loadKey(a.paths)
-	}
+	st.KeyInFile = a.store != nil && a.keyInFile
 	return st
 }
 
@@ -288,9 +296,13 @@ func (a *App) finishSetup(server string, keys core.Keys) error {
 	if err != nil {
 		return err
 	}
-	if _, err := saveKey(a.paths, keys.Display()); err != nil {
+	inFile, err := saveKey(a.paths, keys.Display())
+	if err != nil {
 		return err
 	}
+	a.mu.Lock()
+	a.keyInFile = inFile
+	a.mu.Unlock()
 	return a.open(server, keys)
 }
 
@@ -367,6 +379,33 @@ func (a *App) SaveNote(n core.Note) error {
 		return err
 	}
 	return store.Save(n)
+}
+
+// NotePatch holds the fields that the card menu changes. Nil fields stay as they are.
+type NotePatch struct {
+	Pinned *bool   `json:"pinned"`
+	Color  *string `json:"color"`
+	Folder *string `json:"folder"`
+}
+
+// PatchNote changes fields of the current note, so that a card drawn before a remote edit
+// does not undo that edit.
+func (a *App) PatchNote(id string, p NotePatch) error {
+	store, _, err := a.current()
+	if err != nil {
+		return err
+	}
+	return store.Update(id, func(n *core.Note) {
+		if p.Pinned != nil {
+			n.Pinned = *p.Pinned
+		}
+		if p.Color != nil {
+			n.Color = *p.Color
+		}
+		if p.Folder != nil && *p.Folder != n.Folder {
+			n.Folder, n.ModifiedTimestamp = *p.Folder, core.Now()
+		}
+	})
 }
 
 func (a *App) DeleteForever(id string) error {
@@ -456,33 +495,33 @@ func (a *App) reminderLoop(store *core.NoteStore, stop chan struct{}) {
 				if title == "" {
 					title = "Reminder"
 				}
-				body := preview(n)
+				// The system keeps notification text on disk in plaintext: the title only, no note text.
 				if a.notify {
 					_ = wruntime.SendNotification(a.ctx, wruntime.NotificationOptions{
-						ID: n.ID, Title: title, Body: body, Data: map[string]any{"id": n.ID}})
+						ID: n.ID, Title: "Reminder", Body: notificationText(n.Title), Data: map[string]any{"id": n.ID}})
 				}
-				wruntime.EventsEmit(a.ctx, "reminder", map[string]string{"id": n.ID, "title": title, "body": body})
+				wruntime.EventsEmit(a.ctx, "reminder", map[string]string{"id": n.ID, "title": title})
 			}
 			last = now
 		}
 	}
 }
 
-func preview(n core.Note) string {
-	text := n.Body
-	if n.Type == core.TypeList {
-		var items []string
-		for _, it := range n.Items {
-			if !it.Checked {
-				items = append(items, "• "+it.Body)
-			}
+// notificationText makes a note title safe for a system notification, on one line.
+func notificationText(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
 		}
-		text = strings.Join(items, "\n")
+		return r
+	}, s)
+	if runtime.GOOS == "windows" {
+		// go-toast puts the text into XML CDATA and, when COM fails, into a PowerShell
+		// here-string, where $(…) would run as code.
+		return strings.NewReplacer("]]>", "]] >", "$", "＄").Replace(s)
 	}
-	if r := []rune(text); len(r) > 200 {
-		text = string(r[:200]) + "…"
-	}
-	return text
+	// Linux notification servers read markup in the body.
+	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(s)
 }
 
 // helpers

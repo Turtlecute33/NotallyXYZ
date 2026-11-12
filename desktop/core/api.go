@@ -20,6 +20,9 @@ import (
 
 var ErrUnauthorized = errors.New("The server does not know this sync key.")
 
+// ErrCursorAhead: the server has fewer changes than this device saw (409 cursor_ahead).
+var ErrCursorAhead = errors.New("The server has older data than this device. It may have been restored from a backup. See the server README.")
+
 // HTTPError is an error status of the server (PROTOCOL.md §6, Limits and errors).
 type HTTPError struct {
 	Status int
@@ -33,12 +36,12 @@ func (e *HTTPError) Error() string {
 	return fmt.Sprintf("Server error %d: %s.", e.Status, e.Code)
 }
 
+// RemoteChange has no deleted flag: a deletion is only a sealed tombstone (PROTOCOL.md §7).
 type RemoteChange struct {
-	Kind    string `json:"kind"`
-	ID      string `json:"id"`
-	Seq     int64  `json:"seq"`
-	Deleted bool   `json:"deleted"`
-	Data    []byte `json:"data"`
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+	Seq  int64  `json:"seq"`
+	Data []byte `json:"data"`
 }
 
 type ChangesPage struct {
@@ -48,11 +51,10 @@ type ChangesPage struct {
 }
 
 type OutgoingChange struct {
-	Kind    string `json:"kind"`
-	ID      string `json:"id"`
-	Base    int64  `json:"base"`
-	Deleted bool   `json:"deleted"`
-	Data    []byte `json:"data"`
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+	Base int64  `json:"base"`
+	Data []byte `json:"data"`
 }
 
 type PushResult struct {
@@ -187,6 +189,10 @@ func (a *API) Changes(ctx context.Context, since int64, limit, wait int) (Change
 	var out ChangesPage
 	q := url.Values{"since": {strconv.FormatInt(since, 10)}, "limit": {strconv.Itoa(limit)}, "wait": {strconv.Itoa(wait)}}
 	err := a.do(ctx, "GET", "v1/changes", q, nil, &out, time.Duration(wait+60)*time.Second)
+	var h *HTTPError
+	if errors.As(err, &h) && h.Status == http.StatusConflict {
+		return out, ErrCursorAhead
+	}
 	return out, err
 }
 
@@ -236,8 +242,8 @@ func (a *API) PutBlob(ctx context.Context, id, file string) error {
 // could report any limit.
 const maxBlobDownload = 1 << 30
 
-// GetBlob downloads into target (written only on success).
-func (a *API) GetBlob(ctx context.Context, id, target string) error {
+// GetBlob downloads into target, written only when verify accepts the downloaded file.
+func (a *API) GetBlob(ctx context.Context, id, target string, verify func(path string) error) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 	req, err := a.request(ctx, "GET", "v1/blobs/"+id, nil, nil)
@@ -266,6 +272,9 @@ func (a *API) GetBlob(ctx context.Context, id, target string) error {
 		return err
 	}
 	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := verify(tmp.Name()); err != nil {
 		return err
 	}
 	return os.Rename(tmp.Name(), target)

@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -167,7 +169,7 @@ func TestForgedDeletionsAreRepaired(t *testing.T) {
 	}
 	var forged []OutgoingChange
 	for _, ch := range page.Changes {
-		forged = append(forged, OutgoingChange{Kind: ch.Kind, ID: ch.ID, Base: ch.Seq, Deleted: true, Data: bytes.Repeat([]byte{1}, 400)})
+		forged = append(forged, OutgoingChange{Kind: ch.Kind, ID: ch.ID, Base: ch.Seq, Data: bytes.Repeat([]byte{1}, 400)})
 	}
 	if res, err := api.Push(ctx, forged); err != nil || len(res) != 2 || res[0].Conflict {
 		t.Fatalf("forge: %v %+v", err, res)
@@ -183,18 +185,18 @@ func TestForgedDeletionsAreRepaired(t *testing.T) {
 		t.Fatal("server copy was not repaired")
 	}
 
-	// A deleted flag without sealed data, or with a sealed note, is no deletion either.
+	// A change without data, or with a sealed note, is no deletion either.
 	before := len(a.store.Notes())
 	err = a.store.ApplyRemote([]RemoteChange{
-		{Kind: "note", ID: note.ID, Seq: 1000, Deleted: true},
-		{Kind: "note", ID: note.ID, Seq: 1001, Deleted: true, Data: keys.Seal("note", note.ID, EncodeNote(note))},
+		{Kind: "note", ID: note.ID, Seq: 1000},
+		{Kind: "note", ID: note.ID, Seq: 1001, Data: keys.Seal("note", note.ID, EncodeNote(note))},
 	}, 0)
 	if err != nil || len(a.store.Notes()) != before {
-		t.Fatalf("flag-only deletion applied: %v", err)
+		t.Fatalf("deletion without tombstone applied: %v", err)
 	}
-	// An authentic tombstone deletes, whatever the flag says.
+	// An authentic tombstone deletes.
 	err = a.store.ApplyRemote([]RemoteChange{
-		{Kind: "note", ID: note.ID, Seq: 1002, Deleted: false, Data: keys.Seal("note", note.ID, tombstone)},
+		{Kind: "note", ID: note.ID, Seq: 1002, Data: keys.Seal("note", note.ID, tombstone)},
 	}, 0)
 	if _, ok := a.store.Note(note.ID); err != nil || ok {
 		t.Fatal("authentic tombstone not applied")
@@ -246,5 +248,99 @@ func TestFirstPullLinksSameNote(t *testing.T) {
 	a.sync(t)
 	if len(a.store.Notes()) != 1 || len(b.store.Notes()) != 1 {
 		t.Fatalf("duplicates: %d %d", len(a.store.Notes()), len(b.store.Notes()))
+	}
+}
+
+// An Android voice memo and a photo note, both without title and text, are not linked: the
+// link would keep only the local fields, and the audio, labels and reminders would be lost.
+func TestFirstPullDoesNotLinkDifferentAttachments(t *testing.T) {
+	server, keys := account(t)
+	a, b := newDevice(t, server, keys), newDevice(t, server, keys)
+	memo := NewNote(TypeNote)
+	memo.Audios = []Audio{{Name: "rec.m4a", Timestamp: 1}}
+	memo.Labels, memo.Reminders = []string{"Voice"}, []Reminder{{ID: 1, DateTime: 4102444800000}}
+	_ = a.store.Save(memo)
+	photo := NewNote(TypeNote)
+	photo.Images = []FileAttachment{{LocalName: "photo.jpg", OriginalName: "photo.jpg", MimeType: "image/jpeg"}}
+	_ = b.store.Save(photo)
+	a.sync(t)
+	b.sync(t)
+	a.sync(t)
+	for _, d := range []*device{a, b} {
+		n, ok := d.store.Note(memo.ID)
+		if len(d.store.Notes()) != 2 || !ok || len(n.Audios) != 1 || len(n.Labels) != 1 || len(n.Reminders) != 1 {
+			t.Fatalf("memo: %+v (%d notes)", n, len(d.store.Notes()))
+		}
+	}
+}
+
+// A note or label deleted before its first push is never sent: the server never had it.
+func TestDeletionBeforeFirstPushIsNotSent(t *testing.T) {
+	server, keys := account(t)
+	a := newDevice(t, server, keys)
+	note := NewNote(TypeNote)
+	note.Title = "Draft"
+	_ = a.store.Save(note)
+	_ = a.store.CreateLabel("Gone")
+	_ = a.store.DeleteForever(note.ID)
+	_ = a.store.DeleteLabel("Gone")
+	a.sync(t)
+	page, err := NewAPI(server, keys).Changes(context.Background(), 0, 100, 0)
+	if err != nil || len(page.Changes) != 0 {
+		t.Fatalf("sent: %v %+v", err, page.Changes)
+	}
+	_ = a.store.local.View(func(tx *Tx) error {
+		if len(tx.Records()) != 0 {
+			t.Fatalf("rows left: %+v", tx.Records())
+		}
+		return nil
+	})
+}
+
+// The server refuses a whole push for one record over 8 MiB: Save refuses such a note, and push
+// leaves one that is already stored and sends the others.
+func TestTooLargeNote(t *testing.T) {
+	server, keys := account(t)
+	a, b := newDevice(t, server, keys), newDevice(t, server, keys)
+	big := NewNote(TypeList)
+	for range 9 {
+		big.Items = append(big.Items, ListItem{Body: strings.Repeat("x", 1<<20)})
+	}
+	if err := a.store.Save(big); !errors.Is(err, errTooLarge) {
+		t.Fatalf("save: %v", err)
+	}
+	if _, ok := a.store.Note(big.ID); ok {
+		t.Fatal("refused note is in memory")
+	}
+	_ = a.store.local.Update(func(tx *Tx) error {
+		return tx.PutLocal("note", big.ID, keys.Seal("note", big.ID, EncodeNote(big)))
+	})
+	small := NewNote(TypeNote)
+	small.Title = "Small"
+	_ = a.store.Save(small)
+	a.engine.Sync()
+	if st := a.engine.Status(); st.Error != errTooLarge.Error() {
+		t.Fatalf("status: %+v", st)
+	}
+	b.sync(t)
+	if _, ok := b.store.Note(small.ID); !ok || len(b.store.Notes()) != 1 {
+		t.Fatal("the other note did not go")
+	}
+	_ = a.store.local.View(func(tx *Tx) error {
+		if r := tx.Record("note", big.ID); r == nil || r.Dirty == 0 {
+			t.Fatal("the large note is not pending")
+		}
+		return nil
+	})
+}
+
+// A server restored from an older backup has fewer changes than the cursor: sync stops with a clear error.
+func TestCursorAhead(t *testing.T) {
+	server, keys := account(t)
+	a := newDevice(t, server, keys)
+	_ = a.store.local.Update(func(tx *Tx) error { return tx.SetCursor(1000) })
+	a.engine.Sync()
+	if st := a.engine.Status(); st.Error != ErrCursorAhead.Error() {
+		t.Fatalf("status: %+v", st)
 	}
 }

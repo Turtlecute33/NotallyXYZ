@@ -22,8 +22,12 @@ var icon []byte
 var version = "dev"
 
 func main() {
-	app := NewApp()
-	err := wails.Run(&options.App{
+	p, err := appPaths()
+	if err != nil {
+		log.Fatalf("no user config folder: %v", err)
+	}
+	app := NewApp(p)
+	err = wails.Run(&options.App{
 		Title:     "NotallyXYZ",
 		Width:     1120,
 		Height:    760,

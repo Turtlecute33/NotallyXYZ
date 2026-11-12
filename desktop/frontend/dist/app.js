@@ -9,6 +9,8 @@ import { PRESETS, ago, applyColor, confirm, h, iconButton, menu, prompt, shortDa
 
 const api = window.go.main.App;
 const rt = window.runtime;
+// Shows the error of a call into Go. Resolves true on success.
+const ok = (call) => call.then(() => true, (e) => { toast(errText(e)); return false; });
 
 const app = {
   state: null,
@@ -66,6 +68,8 @@ app.refresh = refresh;
 
 // Shell
 
+let searchTimer = 0;
+
 function render() {
   const root = document.getElementById('app');
   root.textContent = '';
@@ -78,13 +82,13 @@ function render() {
     h('aside', { class: 'sidebar' },
       h('div', { class: 'brand' }, h('img', { src: 'icon.png', alt: '' }), 'NotallyXYZ'),
       h('nav', { class: 'nav', id: 'nav', 'aria-label': 'Folders and labels' }),
-      h('div', { class: 'sync-status', id: 'sync' })),
+      h('div', { class: 'sync-status', id: 'sync', 'aria-live': 'polite' })),
     h('main', { class: 'main', id: 'main' },
       h('div', { class: 'topbar' },
         h('h1', { id: 'title' }),
         h('label', { class: 'search' }, iconEl('search'),
           h('input', { id: 'search', type: 'search', placeholder: 'Search', value: app.search, spellcheck: false,
-            oninput: (e) => { app.search = e.target.value; renderNotes(); } })),
+            oninput: (e) => { app.search = e.target.value; clearTimeout(searchTimer); searchTimer = setTimeout(renderNotes, 150); } })),
         h('div', { class: 'spacer' }),
         h('span', { id: 'view-actions', style: 'display:flex;gap:4px' })),
       h('div', { class: 'content', id: 'content', tabindex: '-1' }),
@@ -214,7 +218,7 @@ function renderViewActions() {
   box.textContent = '';
   if (app.view.kind === 'deleted') {
     box.appendChild(iconButton('trash', 'Empty bin', async () => {
-      if (await confirm('Empty the bin?', 'All notes in the bin are deleted forever, on all your devices.', 'Empty bin')) api.EmptyBin();
+      if (await confirm('Empty the bin?', 'All notes in the bin are deleted forever, on all your devices.', 'Empty bin')) ok(api.EmptyBin());
     }));
   }
   box.append(
@@ -250,12 +254,23 @@ function renderNotes() {
   renderViewActions();
   const notes = filtered();
   const top = content.scrollTop;
+  const focusId = app.focusAfter;
+  app.focusAfter = null;
+  // layoutMasonry reads the layout while the grid is empty, and the scroll goes to the top. It runs first, so put the scroll back here.
+  // The focus goes back to the card of the closed note, if the focus went with the editor.
+  const restore = () => requestAnimationFrame(() => {
+    content.scrollTop = top;
+    if (focusId && document.activeElement === document.body) {
+      (content.querySelector(`.card[data-id="${CSS.escape(focusId)}"]`) || content).focus({ preventScroll: true });
+    }
+  });
   content.textContent = '';
   if (!notes.length) {
     const [ic, text] = app.search ? ['search', 'No results'] : {
       deleted: ['trash', 'The bin is empty'], archived: ['archive', 'No archived notes'], reminders: ['bell', 'No reminders'],
     }[app.view.kind] || ['note', 'No notes yet'];
     content.appendChild(h('div', { class: 'empty' }, iconEl(ic), h('div', { text })));
+    restore();
     return;
   }
   const pinned = app.view.kind === 'deleted' ? [] : notes.filter((n) => n.pinned);
@@ -266,8 +281,7 @@ function renderNotes() {
     if (others.length) content.appendChild(h('div', { class: 'section-title', text: 'Others' }));
   }
   if (others.length) content.appendChild(cards(others));
-  // layoutMasonry reads the layout while the grid is empty, and the scroll goes to the top. It runs first, so put the scroll back here.
-  requestAnimationFrame(() => { content.scrollTop = top; });
+  restore();
 }
 
 function cards(notes) {
@@ -300,7 +314,7 @@ new ResizeObserver(() => document.querySelectorAll('.masonry').forEach(layoutMas
 
 function card(note) {
   const s = app.settings;
-  const el = h('div', { class: 'card', tabindex: '0', role: 'button', 'aria-label': note.title || 'Untitled note',
+  const el = h('div', { class: 'card', tabindex: '0', role: 'button', 'data-id': note.id, 'aria-label': note.title || 'Untitled note',
     onclick: (e) => { if (!e.target.closest('.more-btn, .sl')) openNote(note.id); },
     onkeydown: (e) => { if (e.key === 'Enter') openNote(note.id); },
     oncontextmenu: (e) => { e.preventDefault(); noteMenu(note, e.clientX, e.clientY); } });
@@ -330,7 +344,9 @@ function card(note) {
   if (preview && note.type === 'NOTE' && note.body) {
     const body = h('div', { class: 'body' });
     body.style.webkitLineClamp = String(lines);
-    renderSpans(body, note.body, note.spans);
+    // The card shows a few lines: render the start of a long body only, not inside a surrogate pair.
+    const end = /[\uD800-\uDBFF]/.test(note.body[1499] || '') ? 1499 : 1500;
+    renderSpans(body, note.body.slice(0, end), note.spans);
     body.addEventListener('click', (e) => {
       const link = e.target.closest('.sl');
       if (link) { e.stopPropagation(); app.openLink(link.dataset.link); }
@@ -360,21 +376,21 @@ function card(note) {
   return el;
 }
 
+// The card can be older than the note (sync): PatchNote changes only the given fields of the current note.
 function noteMenu(note, x, y) {
-  const save = (patch) => api.SaveNote({ ...note, ...patch });
   if (note.folder === 'DELETED') {
     menu(x, y, [
       { label: 'Restore', icon: 'restore', action: () => moveNote(note.id, 'NOTES') },
       { label: 'Delete forever', icon: 'trash', danger: true, action: async () => {
-        if (await confirm('Delete forever?', 'The note is deleted on all your devices.', 'Delete')) api.DeleteForever(note.id);
+        if (await confirm('Delete forever?', 'The note is deleted on all your devices.', 'Delete')) ok(api.DeleteForever(note.id));
       } },
     ]);
     return;
   }
   menu(x, y, [
-    { label: note.pinned ? 'Unpin' : 'Pin', icon: 'pin', action: () => save({ pinned: !note.pinned }) },
+    { label: note.pinned ? 'Unpin' : 'Pin', icon: 'pin', action: () => ok(api.PatchNote(note.id, { pinned: !note.pinned })) },
     { label: 'Color…', icon: 'palette', action: () => colorMenu(note, x, y) },
-    { label: 'Duplicate', icon: 'copy', action: () => api.Duplicate(note.id) },
+    { label: 'Duplicate', icon: 'copy', action: () => ok(api.Duplicate(note.id)) },
     'sep',
     note.folder === 'ARCHIVED' ? { label: 'Unarchive', icon: 'archive', action: () => moveNote(note.id, 'NOTES') }
       : { label: 'Archive', icon: 'archive', action: () => moveNote(note.id, 'ARCHIVED', 'Note archived') },
@@ -384,14 +400,14 @@ function noteMenu(note, x, y) {
 
 function colorMenu(note, x, y) {
   menu(x, y, PRESETS.map(([name, hex]) => ({ label: (note.color === hex ? '✓ ' : '  ') + name,
-    action: () => api.SaveNote({ ...note, color: hex }) })));
+    action: () => ok(api.PatchNote(note.id, { color: hex })) })));
 }
 
 async function moveNote(id, folder, message) {
   const note = app.notes.find((n) => n.id === id);
   if (!note) return;
   const before = note.folder;
-  await api.SaveNote({ ...note, folder, modifiedTimestamp: Date.now() });
+  if (!(await ok(api.PatchNote(id, { folder })))) return;
   if (message) toast(message, { label: 'Undo', run: () => moveNote(id, before) });
 }
 app.moveNote = moveNote;
@@ -417,13 +433,14 @@ app.openNote = openNote;
 
 async function openEditor(note, isDraft) {
   closeSettings();
-  if (app.editor) await app.editor.close();
+  if (app.editor && !(await app.editor.close())) return; // not saved: it stays open
   app.editor = new NoteEditor(app, note, isDraft);
   document.getElementById('main').appendChild(app.editor.el);
 }
 
 app.editorClosed = (editor) => {
   if (app.editor === editor) app.editor = null;
+  app.focusAfter = editor.note.id;
   refresh();
 };
 
@@ -445,8 +462,8 @@ app.lightbox = (src) => {
 
 // Settings
 
-function openSettings() {
-  app.editor?.close();
+async function openSettings() {
+  if (app.editor && !(await app.editor.close())) return;
   app.settingsOpen = true;
   renderSidebar();
   showSettings(document.getElementById('main'), app, () => { app.settingsOpen = false; renderSidebar(); });
@@ -475,8 +492,11 @@ rt.EventsOn('changed', () => refresh());
 rt.EventsOn('status', (st) => { if (app.state) app.state.status = st; renderStatus(st); });
 rt.EventsOn('open', (id) => openNote(id));
 rt.EventsOn('reminder', (r) => toast('⏰ ' + r.title, { label: 'Open', run: () => openNote(r.id) }, 15000));
-// Go holds the first close of the window. Save the pending change, then quit.
-rt.EventsOn('quit', async () => { await app.editor?.save(); rt.Quit(); });
+// Go holds the first close of the window. Save the pending change (and wait for a save that runs), then quit.
+rt.EventsOn('quit', async () => {
+  if (!app.editor || (await app.editor.save())) rt.Quit();
+  else toast('The note is not saved. Close the window again to quit without saving it.', null, 15000);
+});
 window.addEventListener('focus', () => { if (app.state?.connected) api.SyncNow(); });
 // Relative dates and next reminders stay current.
 setInterval(() => { if (app.state?.connected && !app.editor) refresh(); }, 60e3);
@@ -485,8 +505,12 @@ document.addEventListener('contextmenu', (e) => {
   // Keep the default menu (copy, paste) only in text fields.
   if (!e.target.closest('input, textarea, [contenteditable]:not([contenteditable="false"])')) e.preventDefault();
 });
-document.addEventListener('dragover', (e) => { if (!e.target.closest?.('.li')) e.preventDefault(); });
-document.addEventListener('drop', (e) => { if (!e.target.closest?.('.li')) e.preventDefault(); });
+// A dropped file must not open in the web view. List items take their own drags (reorder).
+const noDrop = (e) => {
+  if (Array.from(e.dataTransfer?.types || []).includes('Files') || !e.target.closest?.('.li')) e.preventDefault();
+};
+document.addEventListener('dragover', noDrop);
+document.addEventListener('drop', noDrop);
 
 await reload();
 render();

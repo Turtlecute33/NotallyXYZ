@@ -1,5 +1,5 @@
 // First start: server address, then connect with a sync key or create an account.
-import { dialog, h, segmented, toast, errText } from './ui.js';
+import { copySecret, dialog, h, segmented, toast, errText } from './ui.js';
 
 const api = () => window.go.main.App;
 
@@ -42,6 +42,9 @@ export function showSetup(root, app, done) {
         await showNewKey(display);
       }
       await done();
+      if (app.state.keyInFile) {
+        toast('No system key store was found: the sync key is in a file that only you can read. See Settings → Sync.', null, 15000);
+      }
     } catch (e) {
       error.textContent = errText(e);
     } finally {
@@ -69,6 +72,6 @@ async function showNewKey(display) {
   await dialog('Save your sync key', h('div', {},
     h('p', { text: 'This key is the only way to read your notes and to connect other devices. Store it in your password manager now. It is shown only here and in Settings.' }),
     h('div', { class: 'key-box', text: display })),
-  [{ label: 'Copy', keep: true, value: () => { window.runtime.ClipboardSetText(display); toast('Sync key copied'); } },
+  [{ label: 'Copy', keep: true, value: () => copySecret(display) },
     { label: 'I saved it', value: true, primary: true }]);
 }

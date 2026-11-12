@@ -2,7 +2,10 @@ package core
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
+	"net/url"
+	"os"
 	"sync"
 	"time"
 )
@@ -24,6 +27,7 @@ type Engine struct {
 	status    SyncStatus
 	running   bool
 	again     bool
+	retry     time.Duration // wait before the next try after a failed sync; 0 after a full sync
 	scheduled *time.Timer
 	liveStop  context.CancelFunc
 	ctx       context.Context
@@ -66,8 +70,8 @@ func (e *Engine) Stop() {
 	if e.scheduled != nil {
 		e.scheduled.Stop()
 	}
+	e.cancel() // under e.mu: Sync and StartLive check ctx and add to wg under e.mu
 	e.mu.Unlock()
-	e.cancel()
 	e.wg.Wait()
 }
 
@@ -101,16 +105,18 @@ func (e *Engine) Sync() {
 	e.mu.Unlock()
 	defer e.wg.Done()
 	e.setStatus(func(s *SyncStatus) { s.Syncing = true })
+	var done bool
+	var err error
 	for {
 		e.runMu.Lock()
-		err := e.runOnce(e.ctx)
+		done, err = e.runOnce(e.ctx)
 		e.runMu.Unlock()
 		if errors.Is(err, context.Canceled) {
 			break
 		}
 		e.setStatus(func(s *SyncStatus) {
 			if err != nil {
-				s.Error = err.Error()
+				s.Error = errorText(err)
 			} else {
 				s.Error, s.LastSync = "", Now()
 			}
@@ -123,38 +129,79 @@ func (e *Engine) Sync() {
 			break
 		}
 	}
+	// After a failure, or with changes left after conflicts, try again: 5 s, doubling to 5 min.
 	e.mu.Lock()
 	e.running = false
+	if err == nil && done {
+		e.retry = 0
+	} else {
+		e.retry = min(max(2*e.retry, 5*time.Second), 5*time.Minute)
+	}
+	retry := e.retry
 	e.mu.Unlock()
 	e.setStatus(func(s *SyncStatus) { s.Syncing = false })
+	if retry > 0 {
+		e.Schedule(retry)
+	}
 }
 
-func (e *Engine) runOnce(ctx context.Context) error {
-	if err := e.pull(ctx); err != nil {
-		return err
+// errorText is the sync error for the UI, without Go internals.
+func errorText(err error) string {
+	var h *HTTPError
+	var u *url.Error
+	var cert *tls.CertificateVerificationError
+	switch {
+	case errors.As(err, &cert):
+		return "The certificate of the server is not valid."
+	case errors.As(err, &u):
+		return "Offline: the server cannot be reached."
+	case errors.As(err, &h) && h.Code == "quota_exceeded":
+		return "The account on the server is full."
+	case errors.As(err, &h) && h.Status >= 500:
+		return "The server has a problem. The app tries again later."
 	}
+	return err.Error()
+}
+
+// runOnce runs pull, push and blobs. done is false if local changes are left after conflicts.
+func (e *Engine) runOnce(ctx context.Context) (done bool, err error) {
+	if err := e.pull(ctx); err != nil {
+		return false, err
+	}
+	var tooLarge error
+	conflict := false
 	for range 3 {
-		conflict, err := e.push(ctx)
+		// A note over the server limit stays here; the other changes still go.
+		if conflict, err = e.push(ctx); errors.Is(err, errTooLarge) {
+			tooLarge, err = err, nil
+		}
 		if err != nil {
-			return err
+			return false, err
 		}
 		if !conflict {
 			break
 		}
 		if err := e.pull(ctx); err != nil { // conflicts: merge, then push again
-			return err
+			return false, err
 		}
 	}
 	e.downloadMissingBlobs(ctx)
 	referenced := e.store.ReferencedBlobIDs()
-	return e.store.local.Update(func(tx *Tx) error { return tx.PruneBlobs(referenced) })
+	if err := e.store.local.Update(func(tx *Tx) error { return tx.PruneBlobs(referenced) }); err != nil {
+		return false, err
+	}
+	return !conflict, tooLarge
+}
+
+func (e *Engine) cursor() int64 {
+	var cursor int64
+	_ = e.store.local.View(func(tx *Tx) error { cursor = tx.Cursor(); return nil })
+	return cursor
 }
 
 func (e *Engine) pull(ctx context.Context) error {
 	for {
-		var cursor int64
-		_ = e.store.local.View(func(tx *Tx) error { cursor = tx.Cursor(); return nil })
-		page, err := e.API.Changes(ctx, cursor, 500, 0)
+		page, err := e.API.Changes(ctx, e.cursor(), 500, 0)
 		if err != nil {
 			return err
 		}
@@ -167,25 +214,48 @@ func (e *Engine) pull(ctx context.Context) error {
 	}
 }
 
-// push sends local changes. It reports true if the server reported conflicts.
+// push sends local changes. It reports true if the server reported conflicts, and errTooLarge
+// after it sent all other changes if a record is over the server limit.
 func (e *Engine) push(ctx context.Context) (bool, error) {
-	var dirty []Record
+	var dirty, unknown []Record
 	held := e.store.heldBack()
 	_ = e.store.local.View(func(tx *Tx) error {
 		for _, r := range tx.Records() {
-			if r.Dirty > 0 && !(r.Kind == "note" && held[r.ID]) && (r.Deleted || r.Sealed != nil) {
+			switch {
+			case r.Dirty == 0 || (r.Kind == "note" && held[r.ID]):
+			case r.Deleted && r.Seq == 0:
+				unknown = append(unknown, r)
+			case r.Deleted || r.Sealed != nil:
 				dirty = append(dirty, r)
 			}
 		}
 		return nil
 	})
+	// The server never had these records: the deletion is not sent, the row goes.
+	if len(unknown) > 0 {
+		e.store.mu.Lock()
+		err := e.store.local.Update(func(tx *Tx) error {
+			for _, r := range unknown {
+				if cur := tx.Record(r.Kind, r.ID); cur != nil && cur.Deleted && cur.Seq == 0 {
+					if err := tx.DeleteRow(r.Kind, r.ID); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		})
+		e.store.mu.Unlock()
+		if err != nil {
+			return false, err
+		}
+	}
 	if len(dirty) == 0 {
 		return false, nil
 	}
-	if err := e.uploadPendingBlobs(ctx); err != nil {
+	if err := e.uploadBlobs(ctx, dirty); err != nil {
 		return false, err
 	}
-	conflict := false
+	conflict, tooLarge := false, false
 	var batch []Record
 	var out []OutgoingChange
 	bytes := 0
@@ -223,55 +293,91 @@ func (e *Engine) push(ctx context.Context) (bool, error) {
 		if r.Deleted {
 			data = e.store.Keys.Seal(r.Kind, r.ID, tombstone)
 		}
+		// The server refuses the whole request for one record over its limit.
+		if len(data) > maxRecordBytes {
+			tooLarge = true
+			continue
+		}
 		if len(batch) > 0 && (bytes+len(data) > maxBatchBytes || len(batch) >= maxBatchCount) {
 			if err := flush(); err != nil {
 				return false, err
 			}
 		}
 		batch = append(batch, r)
-		out = append(out, OutgoingChange{Kind: r.Kind, ID: r.ID, Base: r.Seq, Deleted: r.Deleted, Data: data})
+		out = append(out, OutgoingChange{Kind: r.Kind, ID: r.ID, Base: r.Seq, Data: data})
 		bytes += len(data)
 	}
-	return conflict, flush()
+	if err := flush(); err != nil {
+		return false, err
+	}
+	if tooLarge {
+		return conflict, errTooLarge
+	}
+	return conflict, nil
 }
 
-// uploadPendingBlobs: blobs go up before the notes that reference them.
-func (e *Engine) uploadPendingBlobs(ctx context.Context) error {
-	var pending []string
-	_ = e.store.local.View(func(tx *Tx) error { pending = tx.PendingBlobs(); return nil })
-	var present []string
-	for _, id := range pending {
-		if e.store.local.HasBlob(id) {
-			present = append(present, id)
+// uploadBlobs uploads the attachments of the pushed notes that the server does not have: new
+// ones, and ones that the clean-up of another device removed. Blobs go up before the notes.
+func (e *Engine) uploadBlobs(ctx context.Context, records []Record) error {
+	pending := map[string]bool{}
+	_ = e.store.local.View(func(tx *Tx) error {
+		for _, id := range tx.PendingBlobs() {
+			pending[id] = true
 		}
-	}
-	if len(present) == 0 {
 		return nil
-	}
-	missing, err := e.API.MissingBlobs(ctx, present)
-	if err != nil {
-		return err
-	}
-	isMissing := map[string]bool{}
-	for _, id := range missing {
-		isMissing[id] = true
-	}
-	for _, id := range present {
-		if isMissing[id] {
-			if err := e.API.PutBlob(ctx, id, e.store.local.BlobPath(id)); err != nil {
-				var h *HTTPError
-				if !errors.As(err, &h) || h.Status != 413 {
-					return err
-				}
-				// Larger than the server allows: stays on this device only. While a note uses it,
-				// it stays pending and the next push tries again. When no note uses it, prune removes it.
-				if e.store.ReferencedBlobIDs()[id] {
-					continue
-				}
+	})
+	var ids []string
+	seen := map[string]bool{}
+	for _, r := range records {
+		n, ok := e.store.Note(r.ID)
+		if r.Kind != "note" || r.Deleted || !ok {
+			continue
+		}
+		for _, name := range n.AttachmentNames() {
+			if id := e.store.Keys.BlobID(name); !seen[id] && e.store.local.HasBlob(id) {
+				seen[id] = true
+				ids = append(ids, id)
 			}
 		}
+	}
+	for len(ids) > 0 {
+		chunk := ids[:min(len(ids), 1000)]
+		ids = ids[len(chunk):]
+		missing, err := e.API.MissingBlobs(ctx, chunk)
+		if err != nil {
+			return err
+		}
+		isMissing := map[string]bool{}
+		for _, id := range missing {
+			isMissing[id] = true
+		}
+		var uploaded []string
+		for _, id := range chunk {
+			if isMissing[id] {
+				if err := e.API.PutBlob(ctx, id, e.store.local.BlobPath(id)); err != nil {
+					var h *HTTPError
+					if !errors.As(err, &h) || h.Status != 413 {
+						return err
+					}
+					continue // larger than the server allows: stays on this device only, and pending
+				}
+			}
+			if pending[id] {
+				uploaded = append(uploaded, id)
+			}
+		}
+		if len(uploaded) == 0 {
+			continue
+		}
 		e.store.mu.Lock()
-		err := e.store.local.Update(func(tx *Tx) error { return tx.MarkUploaded(id) })
+		err = e.store.local.Update(func(tx *Tx) error {
+			for _, id := range uploaded {
+				if err := tx.MarkUploaded(id); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 		e.store.mu.Unlock()
 		if err != nil {
 			return err
@@ -286,8 +392,16 @@ func (e *Engine) downloadMissingBlobs(ctx context.Context) {
 		if e.store.local.HasBlob(id) {
 			continue
 		}
-		if err := e.API.GetBlob(ctx, id, e.store.local.BlobPath(id)); err != nil {
-			continue // not uploaded yet by the other device; retried on the next sync
+		// A blob that does not open is not stored.
+		verify := func(path string) error {
+			sealed, err := os.ReadFile(path)
+			if err == nil {
+				_, err = e.store.Keys.Open("blob", id, sealed)
+			}
+			return err
+		}
+		if err := e.API.GetBlob(ctx, id, e.store.local.BlobPath(id), verify); err != nil {
+			continue // not uploaded yet by the other device, or damaged; retried on the next sync
 		}
 		e.store.mu.Lock()
 		_ = e.store.local.Update(func(tx *Tx) error { return tx.AddBlob(id, true) })
@@ -314,22 +428,27 @@ func (e *Engine) StartLive() {
 		defer e.wg.Done()
 		delay := 5 * time.Second
 		for ctx.Err() == nil {
-			var cursor int64
-			_ = e.store.local.View(func(tx *Tx) error { cursor = tx.Cursor(); return nil })
+			cursor := e.cursor()
 			page, err := e.API.Changes(ctx, cursor, 1, 25)
-			if err != nil {
-				select {
-				case <-ctx.Done():
-					return
-				case <-time.After(delay):
-				}
-				delay = min(delay*2, 5*time.Minute)
+			progress := err == nil
+			if progress && len(page.Changes) > 0 {
+				e.Sync()
+				// Sync returns at once while another sync runs: wait for that one.
+				e.runMu.Lock()
+				e.runMu.Unlock()
+				progress = e.cursor() != cursor
+			}
+			if progress {
+				delay = 5 * time.Second
 				continue
 			}
-			delay = 5 * time.Second
-			if len(page.Changes) > 0 {
-				e.Sync()
+			// An error, or a sync that did not apply the change: wait, else the same poll repeats at once.
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(delay):
 			}
+			delay = min(delay*2, 5*time.Minute)
 		}
 	}()
 }
@@ -340,7 +459,7 @@ func (e *Engine) RemoveUnusedServerBlobs() (int, error) {
 	ctx := e.ctx
 	e.runMu.Lock()
 	defer e.runMu.Unlock()
-	if err := e.runOnce(ctx); err != nil {
+	if _, err := e.runOnce(ctx); err != nil {
 		return 0, err
 	}
 	pending := false

@@ -26,11 +26,13 @@ export function iconButton(name, title, onClick, extra = {}) {
 }
 
 const overlays = () => document.getElementById('overlays');
+let dialogs = 0;
 
 // Modal dialog. buttons: [{label, value, primary, danger}]. Resolves with the value (null on Escape).
 export function dialog(title, body, buttons, opts = {}) {
   return new Promise((resolve) => {
     const prevFocus = document.activeElement;
+    const id = 'dialog-title-' + ++dialogs;
     let scrim;
     const close = (v) => {
       scrim.remove();
@@ -48,8 +50,8 @@ export function dialog(title, body, buttons, opts = {}) {
     const btns = buttons.map((b) =>
       h('button', { class: 'btn' + (b.primary ? ' primary' : '') + (b.danger ? ' danger' : ''),
         onclick: () => (b.keep ? b.value() : close(typeof b.value === 'function' ? b.value() : b.value)) }, b.label));
-    const box = h('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true' },
-      title ? h('h2', { text: title }) : null, body, btns.length ? h('div', { class: 'buttons' }, btns) : null);
+    const box = h('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': title ? id : null },
+      title ? h('h2', { id, text: title }) : null, body, btns.length ? h('div', { class: 'buttons' }, btns) : null);
     scrim = h('div', { class: 'scrim', onmousedown: (e) => { if (e.target === scrim) close(null); } }, box);
     overlays().appendChild(scrim);
     document.addEventListener('keydown', onKey, true);
@@ -74,6 +76,7 @@ let openMenu = null;
 // Context menu at a point. items: [{label, icon, action, danger}] or 'sep'.
 export function menu(x, y, items) {
   closeMenu();
+  const prev = document.activeElement; // gets the focus back, also for a dialog that a menu item opens
   const el = h('div', { class: 'menu', role: 'menu' },
     items.filter(Boolean).map((it) => it === 'sep' ? h('hr') :
       h('button', { class: it.danger ? 'danger' : '', role: 'menuitem', onclick: () => { closeMenu(); it.action(); } },
@@ -88,7 +91,7 @@ export function menu(x, y, items) {
     document.addEventListener('mousedown', away, true);
     document.addEventListener('keydown', key, true);
   });
-  openMenu = { el, away, key };
+  openMenu = { el, away, key, prev };
   el.querySelector('button')?.focus();
 }
 
@@ -97,7 +100,19 @@ export function closeMenu() {
   openMenu.el.remove();
   document.removeEventListener('mousedown', openMenu.away, true);
   document.removeEventListener('keydown', openMenu.key, true);
+  const { prev } = openMenu;
   openMenu = null;
+  prev?.focus?.();
+}
+
+// Copies the sync key, and empties the clipboard after 60 s if it still holds the key.
+export function copySecret(text) {
+  const rt = window.runtime;
+  rt.ClipboardSetText(text);
+  toast('Sync key copied. The clipboard is emptied in 60 seconds.');
+  setTimeout(async () => {
+    try { if ((await rt.ClipboardGetText()) === text) await rt.ClipboardSetText(''); } catch { /* no clipboard access */ }
+  }, 60e3);
 }
 
 let toastBox = null;

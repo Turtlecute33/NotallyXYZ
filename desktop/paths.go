@@ -17,13 +17,14 @@ type paths struct {
 	keyFileOnly  bool
 }
 
-func appPaths() paths {
+func appPaths() (paths, error) {
 	if home := os.Getenv("NOTALLYXYZ_HOME"); home != "" {
-		return paths{config: home, data: home, keyFileOnly: true}
+		return paths{config: home, data: home, keyFileOnly: true}, nil
 	}
+	// No fallback to the temporary folder: other users can read and write there.
 	config, err := os.UserConfigDir()
 	if err != nil {
-		config = os.TempDir()
+		return paths{}, err
 	}
 	var data string
 	switch runtime.GOOS {
@@ -44,7 +45,7 @@ func appPaths() paths {
 	if runtime.GOOS == "darwin" {
 		name = "NotallyXYZ Desktop" // apart from the native macOS app
 	}
-	return paths{config: filepath.Join(config, name), data: filepath.Join(data, name)}
+	return paths{config: filepath.Join(config, name), data: filepath.Join(data, name)}, nil
 }
 
 func (p paths) settingsFile() string { return filepath.Join(p.config, "settings.json") }
@@ -65,6 +66,18 @@ func saveKey(p paths, key string) (inFile bool, err error) {
 		return true, err
 	}
 	return true, os.WriteFile(p.keyFile(), []byte(key+"\n"), 0o600)
+}
+
+// moveKeyToKeyring moves the key from the key file into the system key store, if one works
+// now. The file goes only when the key store gives the key back.
+func moveKeyToKeyring(p paths, key string) bool {
+	if p.keyFileOnly || keyring.Set(keyringService, keyringUser, key) != nil {
+		return false
+	}
+	if got, err := keyring.Get(keyringService, keyringUser); err != nil || got != key {
+		return false
+	}
+	return os.Remove(p.keyFile()) == nil
 }
 
 func loadKey(p paths) (key string, inFile bool, err error) {

@@ -37,12 +37,13 @@ export class NoteEditor {
     this.timer = null;
     this.lastSaved = clone(note);
     api().EditorOpened(note.id);
-    this.el = h('div', { class: 'editor', role: 'region', 'aria-label': 'Note editor' });
+    this.el = h('div', { class: 'editor', role: 'region', 'aria-label': 'Note editor', tabindex: '-1' });
     this.onKey = (e) => {
       if (e.key === 'Escape' && !document.querySelector('.scrim, .menu, .lightbox')) { e.preventDefault(); this.close(); }
     };
     document.addEventListener('keydown', this.onKey);
     this.build();
+    if (!isDraft) requestAnimationFrame(() => this.el.focus()); // a draft focuses its text in build()
   }
 
   get editable() { return this.note.viewMode !== 'READ_ONLY' && this.note.folder !== 'DELETED'; }
@@ -178,20 +179,27 @@ export class NoteEditor {
     this.timer = setTimeout(() => this.save(), 600);
   }
 
-  async save() {
+  // Saves the pending change after the save that runs. Resolves false if it failed.
+  save() {
     clearTimeout(this.timer);
     this.timer = null;
-    if (!this.dirty) return;
-    if (this.isDraft && isEmptyNote(this.note)) return;
+    this.saving = (this.saving || Promise.resolve()).then(() => this.saveNow());
+    return this.saving;
+  }
+
+  async saveNow() {
+    if (!this.dirty || (this.isDraft && isEmptyNote(this.note))) return true;
     this.dirty = false;
     const snapshot = clone(this.note);
     try {
       await api().SaveNote(snapshot);
       this.isDraft = false;
       this.lastSaved = snapshot;
+      return true;
     } catch (e) {
       this.dirty = true;
       toast('Could not save: ' + errText(e));
+      return false;
     }
   }
 
@@ -211,18 +219,22 @@ export class NoteEditor {
     } else this.build();
   }
 
+  // Resolves false, and the editor stays open, if the change could not be saved (the toast says why).
   async close() {
+    if (!(await this.save())) return false;
+    if (this.closed) return true;
+    this.closed = true;
     document.removeEventListener('keydown', this.onKey);
-    await this.save();
     this.rich?.destroy();
     this.el.remove();
     api().EditorClosed(this.note.id);
     this.app.editorClosed(this);
+    return true;
   }
 
   async move(folder) {
     this.update((x) => { x.folder = folder; x.modifiedTimestamp = Date.now(); });
-    await this.close();
+    if (!(await this.close())) return;
     if (folder === 'DELETED') toast('Note moved to the bin', { label: 'Undo', run: () => this.app.moveNote(this.note.id, 'NOTES') });
     if (folder === 'ARCHIVED') toast('Note archived', { label: 'Undo', run: () => this.app.moveNote(this.note.id, 'NOTES') });
   }
@@ -230,15 +242,16 @@ export class NoteEditor {
   async deleteForever() {
     if (!(await confirm('Delete forever?', 'The note is deleted on all your devices.', 'Delete'))) return;
     this.dirty = false;
-    await api().DeleteForever(this.note.id);
+    await this.save(); // waits for a save that runs
+    try { await api().DeleteForever(this.note.id); } catch (e) { toast(errText(e)); return; }
     await this.close();
   }
 
   async duplicate() {
-    await this.save();
-    const copy = await api().Duplicate(this.note.id);
-    await this.close();
-    this.app.openNote(copy.id);
+    if (!(await this.save())) return;
+    let copy;
+    try { copy = await api().Duplicate(this.note.id); } catch (e) { toast(errText(e)); return; }
+    if (await this.close()) this.app.openNote(copy.id);
   }
 
   // Labels
