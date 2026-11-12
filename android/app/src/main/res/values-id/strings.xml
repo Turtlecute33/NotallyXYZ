@@ -113,7 +113,7 @@
     <string name="daily">Setiap hari</string>
     <string name="dark">Gelap</string>
     <string name="data_in_public">Menyimpan data di folder publik</string>
-    <string name="data_in_public_message">Dengan mengaktifkan fitur ini, basis data internal aplikasi dan berkas-berkas yang terlampir akan dipindahkan ke folder publik aplikasi (Android/media/com.philkes.notallyx). Jika dipadukan dengan aplikasi sinkronisasi berkas, fitur ini dapat digunakan untuk menyinkronkan data NotallyX di antara beberapa perangkat.</string>
+    <string name="data_in_public_message">Dengan mengaktifkan fitur ini, basis data internal aplikasi dan berkas-berkas yang terlampir akan dipindahkan ke folder publik aplikasi (Android/media/com.notallyxyz). Jika dipadukan dengan aplikasi sinkronisasi berkas, fitur ini dapat digunakan untuk menyinkronkan data NotallyX di antara beberapa perangkat.</string>
     <string name="database">Basis Data</string>
     <string name="database_dump_created">Salinan mentah basis data yang dibuat di \'%1$s\'</string>
     <string name="date">Tanggal</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">Untuk mengimpor Catatan Anda dari berkas markdown/teks biasa (satu berkas atau folder), klik Impor. Setiap berkas akan diimpor sebagai catatan terpisah, dan nama berkas tersebut akan menjadi judul catatan. Jika isi teks dimulai dengan sintaks daftar (misalnya sintaks Markdown ’- [x]’, sintaks NotallyX ’[✓]’, atau ’*’, ’-’), teks tersebut akan dikonversi menjadi Catatan Daftar.</string>
     <string name="play">Mainkan</string>
     <string name="please_grant_notally_alarm">Mohon izinkan NotallyX untuk mengirimkan pengingat</string>
-    <string name="please_grant_notally_audio">Mohon berikan izin kepada NotallyX untuk merekam audio. Rekaman tidak akan pernah keluar dari perangkat Anda</string>
+    <string name="please_grant_notally_audio">Mohon berikan izin kepada NotallyXYZ untuk merekam audio. Rekaman hanya keluar dari perangkat Anda dengan enkripsi ujung ke ujung, saat sinkronisasi aktif</string>
     <string name="please_grant_notally_notification">Mohon berikan izin kepada NotallyX untuk mengirimkan pemberitahuan</string>
     <string name="please_grant_notally_notification_auto_backup">Jika pencadangan otomatis gagal, Anda akan menerima pemberitahuan, asalkan Anda memberikan izin kepada NotallyX untuk mengirimkan pemberitahuan</string>
     <string name="previous">Sebelumnya</string>
@@ -331,7 +331,7 @@
     <string name="redo">Ulangi</string>
     <string name="reimport_database">Impor Ulang DB</string>
     <string name="reimport_database_failed">Gagal mengimpor ulang basis data</string>
-    <string name="reimport_database_message">Sekarang Anda dapat mencoba mengimpor ulang basis data mentah tersebut. Tindakan ini akan menghapus basis data yang rusak saat ini (salinan cadangan akan disimpan di \'Android/media/com.philkes.notallyx/logs\') dan kemudian mencoba mengimpor basis data mentah tersebut dengan melewati catatan yang rusak jika memungkinkan</string>
+    <string name="reimport_database_message">Sekarang Anda dapat mencoba mengimpor ulang basis data mentah tersebut. Tindakan ini akan menghapus basis data yang rusak saat ini (salinan cadangan akan disimpan di \'Android/media/com.notallyxyz/logs\') dan kemudian mencoba mengimpor basis data mentah tersebut dengan melewati catatan yang rusak jika memungkinkan</string>
     <string name="reminder_no_repetition">Tidak ada pengulangan</string>
     <string name="reminders">Pengingat</string>
     <string name="remove_link">Hapus Tautan</string>

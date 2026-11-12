@@ -113,7 +113,7 @@
     <string name="daily">Diariamente</string>
     <string name="dark">Escuro</string>
     <string name="data_in_public">Armazenar dados em pasta pública</string>
-    <string name="data_in_public_message">Ao ativar esta opção, o banco de dados interno do aplicativo e os arquivos anexados serão movidos para a pasta pública do aplicativo (Android/media/com.philkes.notallyx). Em combinação com aplicativos de sincronização de arquivos, isso pode ser usado para sincronizar os dados do NotallyX entre vários dispositivos.</string>
+    <string name="data_in_public_message">Ao ativar esta opção, o banco de dados interno do aplicativo e os arquivos anexados serão movidos para a pasta pública do aplicativo (Android/media/com.notallyxyz). Em combinação com aplicativos de sincronização de arquivos, isso pode ser usado para sincronizar os dados do NotallyX entre vários dispositivos.</string>
     <string name="database">Banco de dados</string>
     <string name="database_dump_created">Dump bruto do banco de dados criado em \'%1$s\'</string>
     <string name="date">Data</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">Para importar suas notas de arquivos markdown/texto simples (arquivo único ou pasta), clique em Importar. Cada arquivo é importado como uma nota separada, o nome do arquivo torna-se o título da nota. Se o conteúdo do texto começar com sintaxe de lista (ex: Markdown ’- [x]’, sintaxe NotallyX ’[✓]’, ou ’*’, ’-’), ele será convertido em uma nota de Lista.</string>
     <string name="play">Tocar</string>
     <string name="please_grant_notally_alarm">Conceda permissão ao NotallyX para enviar lembretes</string>
-    <string name="please_grant_notally_audio">Conceda ao NotallyX permissão para gravar áudio. As gravações nunca saem do seu dispositivo</string>
+    <string name="please_grant_notally_audio">Conceda ao NotallyXYZ permissão para gravar áudio. As gravações só saem do seu dispositivo com criptografia de ponta a ponta, quando a sincronização está ativada</string>
     <string name="please_grant_notally_notification">Conceda ao NotallyX permissão para enviar notificações</string>
     <string name="please_grant_notally_notification_auto_backup">Se um backup automático falhar, você poderá receber uma notificação, se conceder ao NotallyX permissão para enviar notificações</string>
     <string name="previous">Anterior</string>
@@ -331,7 +331,7 @@
     <string name="redo">Refazer</string>
     <string name="reimport_database">Reimportar banco de dados</string>
     <string name="reimport_database_failed">Falha na reimportação do banco de dados</string>
-    <string name="reimport_database_message">Agora você pode tentar reimportar o banco de dados bruto. Isso exclui o banco de dados corrompido atual (um backup será armazenado em \'Android/media/com.philkes.notallyx/logs\') e, em seguida, tenta importar o banco de dados bruto, ignorando as notas corrompidas, se possível</string>
+    <string name="reimport_database_message">Agora você pode tentar reimportar o banco de dados bruto. Isso exclui o banco de dados corrompido atual (um backup será armazenado em \'Android/media/com.notallyxyz/logs\') e, em seguida, tenta importar o banco de dados bruto, ignorando as notas corrompidas, se possível</string>
     <string name="reminder_no_repetition">Sem repetição</string>
     <string name="reminders">Lembretes</string>
     <string name="remove_link">Remover link</string>

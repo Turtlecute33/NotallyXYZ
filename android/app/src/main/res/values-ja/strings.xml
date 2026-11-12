@@ -113,7 +113,7 @@
     <string name="daily">毎日</string>
     <string name="dark">ダーク</string>
     <string name="data_in_public">データをパブリックフォルダに保存する</string>
-    <string name="data_in_public_message">これを有効にすると、アプリの内部データベースと添付ファイルがアプリのパブリックフォルダ（Android/media/com.philkes.notallyx）に移動されます。ファイル同期アプリと組み合わせて使用することで、複数のデバイス間でNotallyXのデータを同期させることができます。</string>
+    <string name="data_in_public_message">これを有効にすると、アプリの内部データベースと添付ファイルがアプリのパブリックフォルダ（Android/media/com.notallyxyz）に移動されます。ファイル同期アプリと組み合わせて使用することで、複数のデバイス間でNotallyXのデータを同期させることができます。</string>
     <string name="database">データベース</string>
     <string name="database_dump_created">「\'%1$s\'」に作成された生のデータベースダンプ</string>
     <string name="date">日時</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">Markdown/プレーンテキストファイル（単一のファイルまたはフォルダ）からノートをインポートするには、「インポート」をクリックしてください。各ファイルは個別のノートとしてインポートされ、ファイル名がノートのタイトルになります。 テキストの内容がリスト記法（例：Markdownの「- [x]」、NotallyXの「[✓]」、または「*」、「-」）で始まっている場合、そのテキストはリストノートに変換されます。</string>
     <string name="play">再生</string>
     <string name="please_grant_notally_alarm">NotallyXがリマインダーを送信できるよう許可してください</string>
-    <string name="please_grant_notally_audio">NotallyX に音声録音の許可を付与してください。録音データは端末の外に出ることはありません。</string>
+    <string name="please_grant_notally_audio">NotallyXYZ に音声録音の許可を付与してください。録音データが端末の外に出るのは、同期がオンのときにエンドツーエンドで暗号化された場合だけです。</string>
     <string name="please_grant_notally_notification">NotallyX に通知を送信する権限を付与してください</string>
     <string name="please_grant_notally_notification_auto_backup">自動バックアップが失敗した場合、NotallyXに通知送信の許可を与えていると、通知を受け取ることができます</string>
     <string name="previous">前へ</string>
@@ -331,7 +331,7 @@
     <string name="redo">やり直し</string>
     <string name="reimport_database">データベースの再インポート</string>
     <string name="reimport_database_failed">データベースの再インポートに失敗しました</string>
-    <string name="reimport_database_message">これで、生データベースの再インポートを試みることができます。これにより、現在の破損したデータベースが削除され（バックアップは「Android/media/com.philkes.notallyx/logs」に保存されます）、可能であれば破損したメモをスキップして生データベースのインポートが試みられます。</string>
+    <string name="reimport_database_message">これで、生データベースの再インポートを試みることができます。これにより、現在の破損したデータベースが削除され（バックアップは「Android/media/com.notallyxyz/logs」に保存されます）、可能であれば破損したメモをスキップして生データベースのインポートが試みられます。</string>
     <string name="reminder_no_repetition">繰り返しなし</string>
     <string name="reminders">お知らせ</string>
     <string name="remove_link">リンクを削除</string>

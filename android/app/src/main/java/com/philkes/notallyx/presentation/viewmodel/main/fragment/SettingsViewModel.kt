@@ -241,7 +241,7 @@ class SettingsViewModel(
                 }
             noteReminders.forEach { app.cancelPinAndReminders(it.id, it.reminders) }
             val deletedNotes = deleteBaseNotes(ids)
-            app.deleteAttachments(deletedNotes)
+            withContext(Dispatchers.IO) { app.deleteAttachments(deletedNotes) }
             withContext(Dispatchers.IO) { labelDao.deleteAll() }
             savePreference(preferences.startView, START_VIEW_DEFAULT)
             app.showToast(R.string.cleared_data)

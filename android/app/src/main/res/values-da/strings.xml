@@ -113,7 +113,7 @@
     <string name="daily">Dagligt</string>
     <string name="dark">Mørkt</string>
     <string name="data_in_public">Gem data i den offentlige mappe</string>
-    <string name="data_in_public_message">Når denne funktion aktiveres, flyttes appens interne database og vedhæftede filer til appens offentlige mappe (Android/media/com.philkes.notallyx). I kombination med filsynkroniseringsapps kan dette bruges til at synkronisere NotallyX-data mellem flere enheder.</string>
+    <string name="data_in_public_message">Når denne funktion aktiveres, flyttes appens interne database og vedhæftede filer til appens offentlige mappe (Android/media/com.notallyxyz). I kombination med filsynkroniseringsapps kan dette bruges til at synkronisere NotallyX-data mellem flere enheder.</string>
     <string name="database">Database</string>
     <string name="database_dump_created">Ubehandlet databaseudtræk oprettet i \'%1$s\'</string>
     <string name="date">Dato</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">For at importere dine noter fra Markdown- eller almindelige tekstfiler (en enkelt fil eller en mappe) skal du klikke på »Import«. Hver fil importeres som en separat note, og filens navn bliver notens titel. Hvis tekstindholdet starter med listesyntaks (f.eks. Markdown ’- [x]’, NotallyX-syntaks ’[✓]’ eller ’*’, ’-’), konverteres det til en listenote.</string>
     <string name="play">Afspil</string>
     <string name="please_grant_notally_alarm">Giv venligst NotallyX tilladelse til at sende påmindelser</string>
-    <string name="please_grant_notally_audio">Giv venligst NotallyX tilladelse til at optage lyd. Optagelserne forlader aldrig din enhed</string>
+    <string name="please_grant_notally_audio">Giv venligst NotallyXYZ tilladelse til at optage lyd. Optagelserne forlader kun din enhed end-to-end-krypteret, når synkronisering er slået til</string>
     <string name="please_grant_notally_notification">Giv venligst NotallyX tilladelse til at sende notifikationer</string>
     <string name="please_grant_notally_notification_auto_backup">Hvis en automatisk sikkerhedskopiering mislykkes, kan du modtage en besked, hvis du giver NotallyX tilladelse til at sende beskeder</string>
     <string name="previous">Forrige</string>
@@ -331,7 +331,7 @@
     <string name="redo">Gør om</string>
     <string name="reimport_database">Genimporter database</string>
     <string name="reimport_database_failed">Reimport af database mislykkedes</string>
-    <string name="reimport_database_message">Du kan nu prøve at importere rådatabasen igen. Dette sletter den nuværende beskadigede database (der gemmes en sikkerhedskopi i \'Android/media/com.philkes.notallyx/logs\') og forsøger derefter at importere rådatabasen ved at springe de beskadigede noter over, hvis det er muligt</string>
+    <string name="reimport_database_message">Du kan nu prøve at importere rådatabasen igen. Dette sletter den nuværende beskadigede database (der gemmes en sikkerhedskopi i \'Android/media/com.notallyxyz/logs\') og forsøger derefter at importere rådatabasen ved at springe de beskadigede noter over, hvis det er muligt</string>
     <string name="reminder_no_repetition">Ingen gentagelse</string>
     <string name="reminders">Påmindelser</string>
     <string name="remove_link">Fjern link</string>

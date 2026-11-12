@@ -23,12 +23,14 @@ import android.view.ViewGroup.VISIBLE
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import androidx.activity.OnBackPressedCallback
 import androidx.annotation.ColorInt
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -52,6 +54,7 @@ import com.philkes.notallyx.presentation.bindLabels
 import com.philkes.notallyx.presentation.collectIn
 import com.philkes.notallyx.presentation.displayEditLabelDialog
 import com.philkes.notallyx.presentation.displayFormattedTimestamp
+import com.philkes.notallyx.presentation.dp
 import com.philkes.notallyx.presentation.extractColor
 import com.philkes.notallyx.presentation.getQuantityString
 import com.philkes.notallyx.presentation.hideKeyboard
@@ -64,6 +67,7 @@ import com.philkes.notallyx.presentation.setTextSizeSp
 import com.philkes.notallyx.presentation.setupProgressDialog
 import com.philkes.notallyx.presentation.setupReminderChip
 import com.philkes.notallyx.presentation.showKeyboard
+import com.philkes.notallyx.presentation.showToast
 import com.philkes.notallyx.presentation.view.note.ErrorAdapter
 import com.philkes.notallyx.presentation.view.note.action.ActionSelectionBottomSheet
 import com.philkes.notallyx.presentation.view.note.action.AddBottomSheet
@@ -86,7 +90,6 @@ import com.philkes.notallyx.utils.FileError
 import com.philkes.notallyx.utils.changeStatusAndNavigationBarColor
 import com.philkes.notallyx.utils.changehistory.ChangeHistory
 import com.philkes.notallyx.utils.findWebUrls
-import com.philkes.notallyx.utils.getLatestText
 import com.philkes.notallyx.utils.getUriForFile
 import com.philkes.notallyx.utils.isInLandscapeMode
 import com.philkes.notallyx.utils.log
@@ -100,7 +103,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
 abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEditBinding>() {
@@ -123,6 +125,15 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
 
     protected val canEdit
         get() = notallyModel.viewMode.value == NoteViewMode.EDIT
+
+    /** False for editors whose text is not a note: they never save it to the database. */
+    protected open val savesNoteAutomatically = true
+
+    /** Enabled only while back has something to leave first, see [handleBack]. */
+    private val backCallback =
+        object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() = handleBack()
+        }
 
     private val autoSaveHandler = Handler(Looper.getMainLooper())
     private var syncRegisteredId = 0L
@@ -160,7 +171,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putLong("id", notallyModel.id)
-        if (notallyModel.isModified()) {
+        if (savesNoteAutomatically && notallyModel.isModified()) {
             lifecycleScope.launch { saveNote() }
         }
     }
@@ -168,6 +179,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
     open suspend fun saveNote(checkAutoSave: Boolean = true): Long {
         updateModel()
         return notallyModel.saveNote(checkAutoSave).also {
+            registerOpenNote(notallyModel.id)
             WidgetProvider.sendBroadcast(application, longArrayOf(it))
         }
     }
@@ -193,6 +205,11 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         initialiseBinding()
         setContentView(binding.root)
         configureEdgeToEdgeInsets()
+        if (resources.configuration.screenWidthDp > CONTENT_MAX_WIDTH_DP) {
+            binding.ContentLayout.updateLayoutParams { width = CONTENT_MAX_WIDTH_DP.dp }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback)
+        updateBackCallback()
 
         initChangeHistory()
         lifecycleScope.launch {
@@ -200,17 +217,6 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
             val selectedId = intent.getLongExtra(EXTRA_SELECTED_BASE_NOTE, 0L)
             val id = persistedId ?: selectedId
             loadNote(id, persistedId, savedInstanceState, true)
-        }
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            try {
-                updateModel()
-                runBlocking(Dispatchers.IO) { saveNote() }
-            } catch (e: Exception) {
-                log(TAG, msg = "Saving note on Crash failed", throwable = e)
-            } finally {
-                // Let the system handle the crash
-                DEFAULT_EXCEPTION_HANDLER?.uncaughtException(thread, throwable)
-            }
         }
     }
 
@@ -221,10 +227,14 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         initListeners: Boolean,
     ) {
         changeHistory.reset()
+        // Register before the note is read, so that a sync pull cannot change it in between.
+        registerOpenNote(id)
         if (persistedId == null || notallyModel.originalNote == null) {
             notallyModel.setState(id, intent.data == null)
         }
-        if (notallyModel.isNewNote) {
+        // Only once per ViewModel: a recreated activity must not add the shared content again.
+        if (notallyModel.isNewNote && !notallyModel.intentHandled) {
+            notallyModel.intentHandled = true
             when (intent.action) {
                 Intent.ACTION_SEND,
                 Intent.ACTION_SEND_MULTIPLE,
@@ -237,11 +247,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
             }
         }
 
-        if (syncRegisteredId != notallyModel.id) {
-            SyncManager.get(this).noteClosed(syncRegisteredId)
-            SyncManager.get(this).noteOpened(notallyModel.id)
-            syncRegisteredId = notallyModel.id
-        }
+        registerOpenNote(notallyModel.id)
         initBottomMenu()
         resetToolbars()
         if (initListeners) setupListeners()
@@ -260,11 +266,27 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         setupEditNoteReminderChip()
     }
 
+    /** Tells the sync engine that [id] is open in the editor. A new note has the id 0. */
+    private fun registerOpenNote(id: Long) {
+        // After onDestroy nothing would close the registration again.
+        if (syncRegisteredId == id || isDestroyed) return
+        val syncManager = SyncManager.get(this)
+        syncManager.noteClosed(syncRegisteredId)
+        syncManager.noteOpened(id)
+        syncRegisteredId = id
+    }
+
     override fun onRestart() {
         super.onRestart()
         lifecycleScope.launch {
-            notallyModel.refreshOriginalNote()
-            setupEditNoteReminderChip()
+            updateModel()
+            val hasEdits = notallyModel.isModified()
+            if (notallyModel.refreshOriginalNote() && !hasEdits) {
+                // Changed meanwhile (widget, notification, sync): show the stored note.
+                loadNote(notallyModel.id, null, null, false)
+            } else {
+                setupEditNoteReminderChip()
+            }
         }
     }
 
@@ -287,7 +309,10 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.mainContentLayout) { view, insets ->
-            val systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val systemBarsInsets =
+                insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+                )
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime()) // For keyboard
 
             // Apply top padding to your main content to push it below the status bar
@@ -510,9 +535,21 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
             text = ""
             visibility = VISIBLE
         }
+        updateBackCallback()
     }
 
     protected fun isInSearchMode(): Boolean = binding.EnterSearchKeyword.visibility == VISIBLE
+
+    /** True while back must first leave a mode of the editor, e.g. the in-note search. */
+    protected open fun interceptsBack(): Boolean = isInSearchMode()
+
+    protected open fun handleBack() {
+        if (isInSearchMode()) endSearch()
+    }
+
+    protected fun updateBackCallback() {
+        backCallback.isEnabled = interceptsBack()
+    }
 
     protected fun updateJumpButtonsVisibility(manualSize: Int? = null) {
         jumpToTop?.post {
@@ -542,6 +579,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         resetToolbars()
         binding.Toolbar.navigationIcon = navigationIconBeforeSearch
         binding.Toolbar.setControlsContrastColorForAllViews(colorInt, overwriteBackground = false)
+        updateBackCallback()
     }
 
     protected open fun initBottomMenu() {
@@ -649,12 +687,22 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
      * with a "next" IME action (title, list items) run that action instead, e.g. a new list item.
      */
     private fun pasteAndNewLine() {
-        val editText = currentFocus as? EditText ?: return
+        val editText = currentFocus as? EditText
+        if (editText == null) {
+            showToast(R.string.paste_select_field)
+            return
+        }
         val clip =
             ContextCompat.getSystemService(this, ClipboardManager::class.java)
-                ?.getLatestText()
+                ?.primaryClip
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.coerceToText(this)
                 ?.toString()
-        if (clip.isNullOrEmpty()) return
+        if (clip.isNullOrEmpty()) {
+            showToast(R.string.paste_no_text)
+            return
+        }
         val hasNextAction =
             editText.imeOptions and EditorInfo.IME_MASK_ACTION == EditorInfo.IME_ACTION_NEXT
         val isMultiLine = editText.inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
@@ -1156,6 +1204,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         const val EXTRA_FOLDER_TO = "notallyx.intent.extra.FOLDER_TO"
         const val EXTRA_INITIAL_SEARCH_QUERY = "notallyx.intent.extra.INITIAL_SEARCH_QUERY"
 
-        val DEFAULT_EXCEPTION_HANDLER = Thread.getDefaultUncaughtExceptionHandler()
+        /** The note content does not get wider than this on large windows. */
+        private const val CONTENT_MAX_WIDTH_DP = 720
     }
 }

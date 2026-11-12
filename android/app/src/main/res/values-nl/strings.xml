@@ -113,7 +113,7 @@
     <string name="daily">Dagelijks</string>
     <string name="dark">Donker</string>
     <string name="data_in_public">Gegevens opslaan in de openbare map</string>
-    <string name="data_in_public_message">Als je deze optie inschakelt, worden de interne database en de bijgevoegde bestanden van de app verplaatst naar de openbare map van de app (Android/media/com.philkes.notallyx). In combinatie met apps voor bestandssynchronisatie kun je dit gebruiken om NotallyX-gegevens tussen meerdere apparaten te synchroniseren.</string>
+    <string name="data_in_public_message">Als je deze optie inschakelt, worden de interne database en de bijgevoegde bestanden van de app verplaatst naar de openbare map van de app (Android/media/com.notallyxyz). In combinatie met apps voor bestandssynchronisatie kun je dit gebruiken om NotallyX-gegevens tussen meerdere apparaten te synchroniseren.</string>
     <string name="database">Database</string>
     <string name="database_dump_created">Onbewerkte databasedump aangemaakt in \'%1$s\'</string>
     <string name="date">Datum</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">Om je notities uit Markdown- of platte-tekstbestanden (één bestand of een map) te importeren, klik je op ‘Importeren’. Elk bestand wordt als een afzonderlijke notitie geïmporteerd; de bestandsnaam wordt de titel van de notitie. Als de tekstinhoud begint met lijstsyntaxis (bijv. Markdown ’- [x]’, NotallyX-syntaxis ’[✓]’, of ’*’, ’-’), wordt deze omgezet naar een lijstnotitie.</string>
     <string name="play">Afspelen</string>
     <string name="please_grant_notally_alarm">Geef NotallyX alstublieft toestemming om herinneringen te versturen</string>
-    <string name="please_grant_notally_audio">Geef NotallyX toestemming om audio op te nemen. Opnames verlaten nooit je apparaat</string>
+    <string name="please_grant_notally_audio">Geef NotallyXYZ toestemming om audio op te nemen. Opnames verlaten je apparaat alleen end-to-end versleuteld, als synchronisatie aan staat</string>
     <string name="please_grant_notally_notification">Geef NotallyX alstublieft toestemming om meldingen te versturen</string>
     <string name="please_grant_notally_notification_auto_backup">Als een automatische back-up mislukt, kun je hiervan een melding ontvangen, mits je NotallyX toestemming hebt gegeven om meldingen te versturen</string>
     <string name="previous">Vorige</string>
@@ -331,7 +331,7 @@
     <string name="redo">Opnieuw doen</string>
     <string name="reimport_database">Database opnieuw importeren</string>
     <string name="reimport_database_failed">Het opnieuw importeren van de database is mislukt</string>
-    <string name="reimport_database_message">Je kunt nu proberen de onbewerkte database opnieuw te importeren. Hierbij wordt de huidige beschadigde database verwijderd (er wordt een back-up opgeslagen in \'Android/media/com.philkes.notallyx/logs\') en wordt vervolgens geprobeerd de onbewerkte database te importeren, waarbij beschadigde notities indien mogelijk worden overgeslagen</string>
+    <string name="reimport_database_message">Je kunt nu proberen de onbewerkte database opnieuw te importeren. Hierbij wordt de huidige beschadigde database verwijderd (er wordt een back-up opgeslagen in \'Android/media/com.notallyxyz/logs\') en wordt vervolgens geprobeerd de onbewerkte database te importeren, waarbij beschadigde notities indien mogelijk worden overgeslagen</string>
     <string name="reminder_no_repetition">Geen herhaling</string>
     <string name="reminders">Herinneringen</string>
     <string name="remove_link">Verwijder Link</string>

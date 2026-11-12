@@ -113,7 +113,7 @@
     <string name="daily">Hàng ngày</string>
     <string name="dark">Tối</string>
     <string name="data_in_public">Lưu dữ liệu trên thư mục công cộng</string>
-    <string name="data_in_public_message">Bật chế độ này, cơ sở dữ liệu và các tệp đính kèm trong ứng dụng sẽ được di chuyển đến thư mục công cộng (Android/media/com.philkes.notallyx). Kết hợp với các ứng dụng đồng bộ tệp, có thể được sử dụng để đồng bộ dữ liệu của NotallyX giữa nhiều thiết bị.</string>
+    <string name="data_in_public_message">Bật chế độ này, cơ sở dữ liệu và các tệp đính kèm trong ứng dụng sẽ được di chuyển đến thư mục công cộng (Android/media/com.notallyxyz). Kết hợp với các ứng dụng đồng bộ tệp, có thể được sử dụng để đồng bộ dữ liệu của NotallyX giữa nhiều thiết bị.</string>
     <string name="database">Cơ sở dữ liệu</string>
     <string name="database_dump_created">Bản sao lưu cơ sở dữ liệu thô được tạo trong \'%1$s\'</string>
     <string name="date">Ngày</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">Để nhập ghi chú từ tệp thuần văn bản/markdown (tệp lẻ hoặc thư mục), ấn Nhập. Mỗi tệp sẽ được nhập thành một ghi chú lẻ, tên tệp trở thành tiêu đề ghi chú. Nếu nội dung văn bản bắt đầu với cú pháp mục liệt kê (ví dụ Markdown ’- [x]’, NotallyX ’[✓]’, hoặc  ’*’, ’-’) nó sẽ được chuyển thành ghi chú dạng liệt kê.</string>
     <string name="play">Chơi</string>
     <string name="please_grant_notally_alarm">Cho phép NotallyX gửi nhắc nhở</string>
-    <string name="please_grant_notally_audio">Cho phép NotallyX ghi âm, tệp ghê âm luôn nằm trên thiết bị</string>
+    <string name="please_grant_notally_audio">Cho phép NotallyXYZ ghi âm. Tệp ghi âm chỉ rời khỏi thiết bị khi được mã hóa đầu cuối, lúc bật đồng bộ</string>
     <string name="please_grant_notally_notification">Cho phép NotallyX gửi thông báo</string>
     <string name="please_grant_notally_notification_auto_backup">Nếu tự động sao lưu thất bại, bạn có thể được nhận thông báo nếu bạn cho phép NotallyX gửi thông báo</string>
     <string name="previous">Trước</string>
@@ -331,7 +331,7 @@
     <string name="redo">Thực hiện lại thao tác</string>
     <string name="reimport_database">Nhập lại cơ sở dữ liệu</string>
     <string name="reimport_database_failed">Không thể nhập lại cơ sở dữ liệu</string>
-    <string name="reimport_database_message">Bây giờ bạn có thể thử nhập lại cơ sở dữ liệu thô. Thao tác này sẽ xóa cơ sở dữ liệu bị hỏng hiện tại (bản sao lưu sẽ được lưu trữ trong thư mục ‘Android/media/com.philkes.notallyx/logs’) và sau đó cố gắng nhập cơ sở dữ liệu thô, đồng thời bỏ qua các ghi chú bị hỏng nếu có thể.</string>
+    <string name="reimport_database_message">Bây giờ bạn có thể thử nhập lại cơ sở dữ liệu thô. Thao tác này sẽ xóa cơ sở dữ liệu bị hỏng hiện tại (bản sao lưu sẽ được lưu trữ trong thư mục ‘Android/media/com.notallyxyz/logs’) và sau đó cố gắng nhập cơ sở dữ liệu thô, đồng thời bỏ qua các ghi chú bị hỏng nếu có thể.</string>
     <string name="reminder_no_repetition">Không lặp lại</string>
     <string name="reminders">Nhắc nhở</string>
     <string name="remove_link">Bỏ liên kết</string>

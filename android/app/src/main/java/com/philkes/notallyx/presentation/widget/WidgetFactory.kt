@@ -23,6 +23,9 @@ import com.philkes.notallyx.presentation.widget.WidgetProvider.Companion.getWidg
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
+/** Longer bodies make the RemoteViews too large for a binder transaction. */
+private const val MAX_WIDGET_BODY_LENGTH = 2000
+
 class WidgetFactory(
     private val app: NotallyXApplication,
     private val id: Long,
@@ -80,7 +83,7 @@ class WidgetFactory(
 
             setTextViewTextSize(R.id.Note, TypedValue.COMPLEX_UNIT_SP, bodyTextSize)
             if (note.body.isNotEmpty()) {
-                setTextViewText(R.id.Note, note.body)
+                setTextViewText(R.id.Note, note.body.take(MAX_WIDGET_BODY_LENGTH))
                 setViewVisibility(R.id.Note, View.VISIBLE)
             } else setViewVisibility(R.id.Note, View.GONE)
 

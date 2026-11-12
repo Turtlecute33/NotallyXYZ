@@ -1,6 +1,5 @@
 package com.philkes.notallyx.presentation.activity.note
 
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.Intent.ACTION_CREATE_DOCUMENT
 import android.content.Intent.CATEGORY_OPENABLE
@@ -25,6 +24,7 @@ import com.philkes.notallyx.presentation.viewmodel.preference.EditAction
 import com.philkes.notallyx.utils.changehistory.ChangeHistory
 import com.philkes.notallyx.utils.findAllOccurrences
 import com.philkes.notallyx.utils.getFileName
+import com.philkes.notallyx.utils.isFileOrOwnProviderUri
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,10 +44,17 @@ class EditTextPlainActivity : EditActivity(Type.NOTE) {
     val originalFileUri: StateFlow<Uri?>
         field = MutableStateFlow<Uri?>(null)
 
+    /** Hash of the text as it was loaded or last saved, to see if there are unsaved changes. */
+    private var savedTextHash = 0
+
+    override val savesNoteAutomatically = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Store the original URI if this is a txt file being opened
-        if (intent.action == Intent.ACTION_VIEW && intent.data != null) {
-            originalFileUri.value = intent.data
+        // Store the original URI if this is a txt file being opened. Never write to this app's
+        // own files on behalf of another app.
+        val data = intent.data
+        if (intent.action == Intent.ACTION_VIEW && data != null && !isFileOrOwnProviderUri(data)) {
+            originalFileUri.value = data
         }
         setupActivityResultLaunchers()
         super.onCreate(savedInstanceState)
@@ -95,12 +102,37 @@ class EditTextPlainActivity : EditActivity(Type.NOTE) {
 
     override fun toggleCanEdit(mode: NoteViewMode) {}
 
-    @SuppressLint("MissingSuperCall")
     override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
         outState.apply {
             putInt(EXTRA_SELECTION_START, binding.EnterBody.selectionStart)
             putInt(EXTRA_SELECTION_END, binding.EnterBody.selectionEnd)
+            putInt(EXTRA_SAVED_TEXT_HASH, savedTextHash)
         }
+    }
+
+    // Back always asks first if there are unsaved changes.
+    override fun interceptsBack() = true
+
+    override fun handleBack() {
+        if (isInSearchMode()) endSearch() else closeEditor()
+    }
+
+    /** Closes the editor, but asks to save or discard unsaved changes first. */
+    private fun closeEditor() {
+        if (notallyModel.body.toString().hashCode() == savedTextHash) {
+            finish()
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setMessage(R.string.save_changes)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val uri = originalFileUri.value
+                if (uri != null) saveToUri(uri) { finish() } else saveAs()
+            }
+            .setNegativeButton(R.string.discard) { _, _ -> finish() }
+            .setNeutralButton(R.string.cancel, null)
+            .show()
     }
 
     override suspend fun highlightSearchResults(search: String): Int {
@@ -138,7 +170,7 @@ class EditTextPlainActivity : EditActivity(Type.NOTE) {
     }
 
     override fun resetToolbars() {
-        binding.Toolbar.setNavigationOnClickListener { finish() }
+        binding.Toolbar.setNavigationOnClickListener { closeEditor() }
         binding.Toolbar.setNavigationIcon(R.drawable.close)
         updateTopActions(listOf(EditAction.SEARCH), changeable = false)
     }
@@ -148,6 +180,10 @@ class EditTextPlainActivity : EditActivity(Type.NOTE) {
         // Remove the modified time display
         binding.Date.visibility = GONE
 
+        savedTextHash =
+            if (savedInstanceState?.containsKey(EXTRA_SAVED_TEXT_HASH) == true) {
+                savedInstanceState.getInt(EXTRA_SAVED_TEXT_HASH)
+            } else notallyModel.body.toString().hashCode()
         updateEditText()
         savedInstanceState?.let {
             val selectionStart = it.getInt(EXTRA_SELECTION_START, -1)
@@ -176,16 +212,18 @@ class EditTextPlainActivity : EditActivity(Type.NOTE) {
             addIconButton(R.string.save, R.drawable.save, colorInt) {
                 originalFileUri.value?.let { uri -> saveToUri(uri) }
             }
-            addIconButton(R.string.save_to_device, R.drawable.save_as, colorInt) {
-                val intent =
-                    Intent(ACTION_CREATE_DOCUMENT).apply {
-                        addCategory(CATEGORY_OPENABLE)
-                        this.type = "text/*"
-                    }
-                saveAsActivityResultLauncher.launch(intent)
-            }
+            addIconButton(R.string.save_to_device, R.drawable.save_as, colorInt) { saveAs() }
         }
         setBottomAppBarColor(colorInt)
+    }
+
+    private fun saveAs() {
+        val intent =
+            Intent(ACTION_CREATE_DOCUMENT).apply {
+                addCategory(CATEGORY_OPENABLE)
+                this.type = "text/*"
+            }
+        saveAsActivityResultLauncher.launch(intent)
     }
 
     override fun setupAdditionalListeners() {}
@@ -202,17 +240,20 @@ class EditTextPlainActivity : EditActivity(Type.NOTE) {
             }
     }
 
-    private fun saveToUri(uri: Uri) {
+    private fun saveToUri(uri: Uri, onSaved: () -> Unit = {}) {
         lifecycleScope.launch {
             try {
+                val text = notallyModel.body.toString()
                 withContext(Dispatchers.IO) {
                     val outputStream =
-                        contentResolver.openOutputStream(uri)
+                        contentResolver.openOutputStream(uri, "wt")
                             ?: throw IOException("Failed to open output stream for URI: $uri")
-                    outputStream.use { it.write(notallyModel.body.toString().toByteArray()) }
+                    outputStream.use { it.write(text.toByteArray()) }
                 }
                 originalFileUri.value = uri
+                savedTextHash = text.hashCode()
                 showToast(R.string.saved_to_device)
+                onSaved()
             } catch (e: Exception) {
                 MaterialAlertDialogBuilder(this@EditTextPlainActivity)
                     .setTitle(R.string.something_went_wrong)
@@ -241,5 +282,6 @@ class EditTextPlainActivity : EditActivity(Type.NOTE) {
     companion object {
         private const val EXTRA_SELECTION_START = "notallyx.intent.extra.EXTRA_SELECTION_START"
         private const val EXTRA_SELECTION_END = "notallyx.intent.extra.EXTRA_SELECTION_END"
+        private const val EXTRA_SAVED_TEXT_HASH = "notallyx.intent.extra.EXTRA_SAVED_TEXT_HASH"
     }
 }

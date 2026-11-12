@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView.NO_POSITION
 import cn.leaqi.drawer.SwipeDrawer.DIRECTION_LEFT
 import cn.leaqi.drawer.SwipeDrawer.STATE_CLOSE
 import cn.leaqi.drawer.SwipeDrawer.STATE_OPEN
+import com.philkes.notallyx.R
 import com.philkes.notallyx.data.imports.txt.extractListItems
 import com.philkes.notallyx.data.imports.txt.findListSyntaxRegex
 import com.philkes.notallyx.data.model.ListItem
@@ -226,6 +227,7 @@ class ListItemVH(
         binding.CheckBox.apply {
             setOnCheckedChangeListener(null)
             isChecked = item.checked
+            contentDescription = item.body.ifEmpty { context.getString(R.string.item) }
             setOnCheckedChangeListener(checkBoxListener)
         }
     }

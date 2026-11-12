@@ -123,7 +123,7 @@ suspend fun Application.splitOversizedNotes() {
         val created = splitOversizedExistingNoteForMigration(original, dao)
         log(
             TAG,
-            "Note (id: ${original.id}, title: '${original.title}') split into ${created+1} notes (was: $bodyLen characters).",
+            "Note (id: ${original.id}) split into ${created+1} notes (was: $bodyLen characters).",
         )
     }
 

@@ -10,6 +10,7 @@ import android.os.Build
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.content.getSystemService
+import androidx.core.net.toUri
 import com.philkes.notallyx.data.model.BaseNote
 import com.philkes.notallyx.data.model.Reminder
 import com.philkes.notallyx.data.model.nextRepetition
@@ -81,6 +82,19 @@ fun Context.cancelReminder(noteId: Long, reminderId: Long) {
     val pendingIntent = createReminderAlarmIntent(noteId, reminderId)
     alarmManager.cancel(pendingIntent)
     pendingIntent.cancel()
+    // Alarms from 1.1.4 and earlier have no data and a request code made from both ids.
+    "$noteId$reminderId".toIntOrNull()?.let { legacyCode ->
+        PendingIntent.getBroadcast(
+                this,
+                legacyCode,
+                Intent(this, ReminderReceiver::class.java),
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+            )
+            ?.let {
+                alarmManager.cancel(it)
+                it.cancel()
+            }
+    }
     getSystemService<NotificationManager>()?.let { manager ->
         val notificationTag = ReminderReceiver.reminderNotificationTag(noteId)
         manager.cancel(notificationTag, reminderId.toInt())
@@ -95,11 +109,14 @@ private fun Context.createReminderAlarmIntent(noteId: Long, reminderId: Long): P
     val intent = Intent(this, ReminderReceiver::class.java)
     intent.putExtra(ReminderReceiver.EXTRA_REMINDER_ID, reminderId)
     intent.putExtra(ReminderReceiver.EXTRA_NOTE_ID, noteId)
+    // The data makes the PendingIntent of each reminder unique. A request code made from both ids
+    // can collide (note 1 reminder 12 and note 11 reminder 2) or overflow.
+    intent.data = "notallyx-reminder:$noteId/$reminderId".toUri()
     return PendingIntent.getBroadcast(
         this,
-        (noteId.toString() + reminderId.toString()).toInt(),
+        0,
         intent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 }
 

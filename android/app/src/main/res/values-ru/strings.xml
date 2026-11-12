@@ -116,7 +116,7 @@
     <string name="daily">Дни</string>
     <string name="dark">Тёмная</string>
     <string name="data_in_public">Сохранять данные в общедоступной папке</string>
-    <string name="data_in_public_message">При включении этой функции внутренняя база данных приложения и прикрепленные файлы будут перенесены в его общедоступную папку (Android/media/com.philkes.notallyx). Это позволит синхронизировать данные NotallyX между устройствами с помощью приложений для синхронизации файлов.</string>
+    <string name="data_in_public_message">При включении этой функции внутренняя база данных приложения и прикрепленные файлы будут перенесены в его общедоступную папку (Android/media/com.notallyxyz). Это позволит синхронизировать данные NotallyX между устройствами с помощью приложений для синхронизации файлов.</string>
     <string name="database">База данных</string>
     <string name="database_dump_created">Необработанный дамп базы данных, созданный в «»%1$s</string>
     <string name="date">Дата</string>
@@ -326,7 +326,7 @@
     <string name="plain_text_files_help">Для импорта заметок из текстовых файлов (отдельный файл или папка) нажмите \"Импорт\". Каждый файл станет отдельной заметкой — имя файла будет её заголовком. Если текст начинается с элементов списка (например, Markdown \"- [x]\", синтаксис NotallyX \"[~/\", или \"*\", ~), он преобразуется в заметку-список.</string>
     <string name="play">Играть</string>
     <string name="please_grant_notally_alarm">Разрешите NotallyX отправлять напоминания</string>
-    <string name="please_grant_notally_audio">Разрешите доступ к микрофону.\nЗаписи остаются на вашем устройстве</string>
+    <string name="please_grant_notally_audio">Разрешите доступ к микрофону.\nЗаписи покидают ваше устройство только со сквозным шифрованием, когда включена синхронизация</string>
     <string name="please_grant_notally_notification">Разрешите отправку уведомлений</string>
     <string name="please_grant_notally_notification_auto_backup">При сбое авторезервирования вы получите уведомление, если разрешите их отправку. </string>
     <string name="previous">Предыдущий</string>
@@ -339,7 +339,7 @@
     <string name="redo">Вернуть</string>
     <string name="reimport_database">Повторный импорт БД</string>
     <string name="reimport_database_failed">Ошибка при повторном импорте базы данных</string>
-    <string name="reimport_database_message">Теперь вы можете попробовать повторно импортировать исходную базу данных. При этом будет удалена текущая повреждённая база данных (её резервная копия сохранится в папке «Android/media/com.philkes.notallyx/logs»), после чего система попытается импортировать исходную базу данных, по возможности пропуская повреждённые заметки.</string>
+    <string name="reimport_database_message">Теперь вы можете попробовать повторно импортировать исходную базу данных. При этом будет удалена текущая повреждённая база данных (её резервная копия сохранится в папке «Android/media/com.notallyxyz/logs»), после чего система попытается импортировать исходную базу данных, по возможности пропуская повреждённые заметки.</string>
     <string name="reminder_no_repetition">Без повтора</string>
     <string name="reminders">Напоминания</string>
     <string name="remove_link">Удалить ссылку</string>

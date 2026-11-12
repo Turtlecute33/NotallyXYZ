@@ -909,7 +909,15 @@ fun Context.getContrastFontColor(@ColorInt backgroundColor: Int): Int {
     else ContextCompat.getColor(this, R.color.TextLight)
 }
 
-fun @receiver:ColorInt Int.isLightColor() = ColorUtils.calculateLuminance(this) > 0.5
+/**
+ * True if dark text has more contrast on this color than light text. At a luminance of about 0.179
+ * both have the same contrast ratio.
+ */
+fun @receiver:ColorInt Int.isLightColor() = ColorUtils.calculateLuminance(this) > 0.179
+
+/** Columns of the notes grid: about one per 200 dp of window width, at least 2. */
+val Context.notesGridSpanCount: Int
+    get() = (resources.configuration.screenWidthDp / 200).coerceAtLeast(2)
 
 @ColorInt
 fun @receiver:ColorInt Int.getSlightContrastColor(): Int {

@@ -121,7 +121,7 @@
     <string name="daily">Dziennie</string>
     <string name="dark">Ciemny</string>
     <string name="data_in_public">Przechowuj dane w folderze publicznym</string>
-    <string name="data_in_public_message">Po włączeniu tej opcji wewnętrzna baza danych aplikacji i załączone pliki zostaną przeniesione do folderu publicznego aplikacji (Android/media/com.philkes.notallyx). W połączeniu z aplikacjami do synchronizacji plików można to wykorzystać do synchronizacji danych NotallyX między wieloma urządzeniami.</string>
+    <string name="data_in_public_message">Po włączeniu tej opcji wewnętrzna baza danych aplikacji i załączone pliki zostaną przeniesione do folderu publicznego aplikacji (Android/media/com.notallyxyz). W połączeniu z aplikacjami do synchronizacji plików można to wykorzystać do synchronizacji danych NotallyX między wieloma urządzeniami.</string>
     <string name="database">Baza danych</string>
     <string name="database_dump_created">Surowy zrzut bazy danych utworzony w „”%1$s</string>
     <string name="date">Data</string>
@@ -338,7 +338,7 @@
     <string name="plain_text_files_help">Aby zaimportować Notatki z plików tekstowych (pojedynczy plik lub folder), kliknij Przywracanie. Każdy plik jest importowany jako osobna notatka, a nazwa pliku staje się tytułem notatki. Jeśli treść tekstu zaczyna się od składni listy (np. Markdown „- [x]”, składnia NotallyX „[✓]” lub „*”, „-”), zostanie ona przekonwertowana na notatkę listy.</string>
     <string name="play">Nagrywaj</string>
     <string name="please_grant_notally_alarm">Zezwól NotallyX na wysyłanie przypomnień</string>
-    <string name="please_grant_notally_audio">Zezwól NotallyX na nagrywanie dźwięku. Nagrania nigdy nie opuszczą Twojego urządzenia</string>
+    <string name="please_grant_notally_audio">Zezwól NotallyXYZ na nagrywanie dźwięku. Nagrania opuszczają Twoje urządzenie tylko z szyfrowaniem end-to-end, gdy synchronizacja jest włączona</string>
     <string name="please_grant_notally_notification">Zezwól NotallyX na wysyłanie powiadomień</string>
     <string name="please_grant_notally_notification_auto_backup">Jeśli automatyczna kopia zapasowa nie powiedzie się, możesz otrzymać powiadomienie, jeśli zezwolisz NotallyX na wysyłanie powiadomień</string>
     <string name="previous">Wstecz</string>
@@ -351,7 +351,7 @@
     <string name="redo">Ponów</string>
     <string name="reimport_database">Ponowne zaimportowanie bazy danych</string>
     <string name="reimport_database_failed">Nie udało się ponownie zaimportować bazy danych</string>
-    <string name="reimport_database_message">Możesz teraz spróbować ponownie zaimportować surową bazę danych. Spowoduje to usunięcie obecnej uszkodzonej bazy danych (kopia zapasowa zostanie zapisana w katalogu „Android/media/com.philkes.notallyx/logs”), a następnie podjętą zostanie próba zaimportowania surowej bazy danych z pominięciem uszkodzonych notatek, o ile to możliwe.</string>
+    <string name="reimport_database_message">Możesz teraz spróbować ponownie zaimportować surową bazę danych. Spowoduje to usunięcie obecnej uszkodzonej bazy danych (kopia zapasowa zostanie zapisana w katalogu „Android/media/com.notallyxyz/logs”), a następnie podjętą zostanie próba zaimportowania surowej bazy danych z pominięciem uszkodzonych notatek, o ile to możliwe.</string>
     <string name="reminder_no_repetition">Brak powtarzania</string>
     <string name="reminders">Przypomnienia</string>
     <string name="remove_link">Usuń link</string>

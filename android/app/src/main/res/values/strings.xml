@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="paste_no_text">The clipboard has no text</string>
+    <string name="paste_select_field">Select a text field first</string>
+    <string name="save_changes">Save the changes\?</string>
     <string name="about">About</string>
     <string name="add_images">Add images</string>
     <string name="add_item">Add Item</string>
@@ -448,6 +451,7 @@
     <string name="sync_invite">Invite token of the server</string>
     <string name="sync_key">Sync key</string>
     <string name="sync_connect">Connect</string>
+    <string name="sync_create">Create</string>
     <string name="sync_key_title">Your sync key</string>
     <string name="sync_key_message">Keep this key in a password manager. You need it to connect other devices. Nobody can recover it: if you lose it and all devices, the synced copy is lost.</string>
     <string name="sync_key_copied">Sync key copied</string>
@@ -466,5 +470,13 @@
     <string name="sync_error_rate_limited">Too many attempts. Try again later.</string>
     <string name="sync_error_quota">The server storage is full</string>
     <string name="sync_error_locked">Unlock the app first</string>
+    <string name="sync_error_redirect">The server address redirects. Use the final https:// address.</string>
+    <string name="sync_error_unknown_host">Cannot find the server. Check the address.</string>
+    <string name="sync_error_tls">The secure connection failed. Check the server certificate.</string>
+    <string name="sync_error_bad_response">This address is not a NotallyXYZ sync server</string>
+    <string name="sync_error_server">Server error (HTTP %1$s). Try again later.</string>
+    <string name="sync_error_cursor_ahead">The server has older data than this device. Disconnect and connect sync again.</string>
+    <string name="sync_error_incomplete">Other devices changed notes during the sync. Sync tries again later.</string>
+    <string name="sync_error_key_lost">Enter the sync key again</string>
     <string name="sync_clear_data_warning">Sync is on: this also deletes the notes on the server and on your other devices. To remove them only here, first disconnect sync.</string>
 </resources>

@@ -113,7 +113,7 @@
     <string name="daily">Щодня</string>
     <string name="dark">Темна</string>
     <string name="data_in_public">Зберігання даних у публічній папці</string>
-    <string name="data_in_public_message">Увімкнувши цю опцію, внутрішню базу даних застосунку та прикріплені файли буде переміщено до публічної папки застосунку (Android/media/com.philkes.notallyx). У поєднанні з застосунками для синхронізації файлів це можна використовувати для синхронізації даних NotallyX між кількома пристроями.</string>
+    <string name="data_in_public_message">Увімкнувши цю опцію, внутрішню базу даних застосунку та прикріплені файли буде переміщено до публічної папки застосунку (Android/media/com.notallyxyz). У поєднанні з застосунками для синхронізації файлів це можна використовувати для синхронізації даних NotallyX між кількома пристроями.</string>
     <string name="database">База даних</string>
     <string name="database_dump_created">Необроблений дамп бази даних, створений у «»%1$s</string>
     <string name="date">Дата</string>
@@ -330,7 +330,7 @@
     <string name="plain_text_files_help">Щоб імпортувати ваші нотатки з файлів Markdown/plain text (окремий файл або папка), натисніть «Імпортувати». Кожен файл імпортується як окрема нотатка, а назва файлу стає заголовком нотатки. Якщо текстовий вміст починається з синтаксису списку (наприклад, markdown ’- [x]’, синтаксис NotallyX ’[✓]’ або ’*’, ’-’), він буде перетворений на нотатку-список.</string>
     <string name="play">Відтворити</string>
     <string name="please_grant_notally_alarm">Надайте NotallyX дозвіл на надсилання нагадувань</string>
-    <string name="please_grant_notally_audio">Надайте NotallyX дозвіл на запис аудіо. Записи ніколи не залишають ваш пристрій</string>
+    <string name="please_grant_notally_audio">Надайте NotallyXYZ дозвіл на запис аудіо. Записи залишають ваш пристрій лише з наскрізним шифруванням, коли синхронізацію ввімкнено</string>
     <string name="please_grant_notally_notification">Надайте NotallyX дозвіл на надсилання сповіщень</string>
     <string name="please_grant_notally_notification_auto_backup">Якщо автоматичне резервне копіювання не вдасться, ви можете отримати сповіщення, якщо надасте NotallyX дозвіл на надсилання сповіщень</string>
     <string name="previous">Попередній</string>
@@ -343,7 +343,7 @@
     <string name="redo">Повторити</string>
     <string name="reimport_database">Реімпорт БД</string>
     <string name="reimport_database_failed">Помилка реімпорту бази даних</string>
-    <string name="reimport_database_message">Тепер ви можете спробувати виконати реімпорт необробленої бази даних. Це видалить поточну пошкоджену базу даних (резервну копію буде збережено в «Android/media/com.philkes.notallyx/logs»), а потім спробує імпортувати необроблену базу даних, пропускаючи пошкоджені нотатки, якщо це можливо.</string>
+    <string name="reimport_database_message">Тепер ви можете спробувати виконати реімпорт необробленої бази даних. Це видалить поточну пошкоджену базу даних (резервну копію буде збережено в «Android/media/com.notallyxyz/logs»), а потім спробує імпортувати необроблену базу даних, пропускаючи пошкоджені нотатки, якщо це можливо.</string>
     <string name="reminder_no_repetition">Без повторення</string>
     <string name="reminders">Нагадування</string>
     <string name="remove_link">Видалити посилання</string>

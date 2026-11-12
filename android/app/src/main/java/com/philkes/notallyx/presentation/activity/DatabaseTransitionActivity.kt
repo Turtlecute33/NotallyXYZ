@@ -6,7 +6,6 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.color.DynamicColors
 import com.philkes.notallyx.NotallyXApplication
 import com.philkes.notallyx.R
 import com.philkes.notallyx.data.NotallyDatabase
@@ -45,11 +44,8 @@ class DatabaseTransitionActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val notallyXApplication = application as NotallyXApplication
-        if (preferences.useDynamicColors.value) {
-            if (DynamicColors.isDynamicColorAvailable()) {
-                DynamicColors.applyToActivitiesIfAvailable(notallyXApplication)
-            }
-        } else {
+        // Dynamic colors are applied by NotallyXApplication for all activities.
+        if (!preferences.useDynamicColors.value) {
             when (preferences.theme.value) {
                 Theme.SUPER_DARK -> theme.applyStyle(R.style.AppTheme_SuperDark, true)
                 else -> theme.applyStyle(R.style.AppTheme, true)

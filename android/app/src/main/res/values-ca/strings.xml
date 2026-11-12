@@ -116,7 +116,7 @@
     <string name="daily">Diàriament</string>
     <string name="dark">Fosc</string>
     <string name="data_in_public">Emmagatzema les dades en una carpeta publica</string>
-    <string name="data_in_public_message">En habilitar això, la base de dades interna de l\'aplicació i els fitxers adjunts es traslladaran a la carpeta pública de l\'aplicació (Android/media/com.philkes.notallyx). En combinació amb aplicacions de sincronització de fitxers, això es pot utilitzar per sincronitzar les dades de NotallyX entre diversos dispositius.</string>
+    <string name="data_in_public_message">En habilitar això, la base de dades interna de l\'aplicació i els fitxers adjunts es traslladaran a la carpeta pública de l\'aplicació (Android/media/com.notallyxyz). En combinació amb aplicacions de sincronització de fitxers, això es pot utilitzar per sincronitzar les dades de NotallyX entre diversos dispositius.</string>
     <string name="database">Base de dades</string>
     <string name="database_dump_created">Còpia de seguretat bruta de la base de dades creada a \'\'\'%1$s</string>
     <string name="date">Data</string>
@@ -321,7 +321,7 @@
     <string name="plain_text_files_help">Per importar les teves notes des de fitxers de text pla o markdown (un sol fitxer o una carpeta), fes clic a Importa. Cada fitxer s\'importa com una nota separada i el nom del fitxer es converteix en el títol de la nota. Si el contingut de text comença amb sintaxi de llista (p. ex. Markdown \'- [x]\', sintaxi NotallyX \'[✓]\' o \'*\', \'-\'), es convertirà en una nota de llista.</string>
     <string name="play">Reproduir</string>
     <string name="please_grant_notally_alarm">Si us plau, atorga a NotallyX l\'autorització per enviar recordatoris.</string>
-    <string name="please_grant_notally_audio">Si us plau, atorga a NotallyX el permís per gravar àudio. Les gravacions mai no surten del teu dispositiu.</string>
+    <string name="please_grant_notally_audio">Si us plau, atorga a NotallyXYZ el permís per gravar àudio. Les gravacions només surten del teu dispositiu xifrades d\'extrem a extrem, quan la sincronització està activada.</string>
     <string name="please_grant_notally_notification">Per favor, atorga a NotallyX el permís per enviar notificacions.</string>
     <string name="please_grant_notally_notification_auto_backup">Si una còpia de seguretat automàtica falla, pots rebre una notificació si li dones permís a NotallyX per enviar notificacions.</string>
     <string name="previous">Anterior</string>
@@ -334,7 +334,7 @@
     <string name="redo">Refer</string>
     <string name="reimport_database">Reimporta DB</string>
     <string name="reimport_database_failed">La reimportació de la base de dades ha fallat</string>
-    <string name="reimport_database_message">Ara pots provar de reimportar la base de dades en brut. Això elimina la base de dades corrompuda actual (s\'emmagatzemarà una còpia de seguretat a \'Android/media/com.philkes.notallyx/logs\') i després intenta importar la base de dades en brut saltant-se les notes corrompudes si és possible.</string>
+    <string name="reimport_database_message">Ara pots provar de reimportar la base de dades en brut. Això elimina la base de dades corrompuda actual (s\'emmagatzemarà una còpia de seguretat a \'Android/media/com.notallyxyz/logs\') i després intenta importar la base de dades en brut saltant-se les notes corrompudes si és possible.</string>
     <string name="reminder_no_repetition">Sense repetició</string>
     <string name="reminders">Recordatoris</string>
     <string name="remove_link">Treure enllaç</string>

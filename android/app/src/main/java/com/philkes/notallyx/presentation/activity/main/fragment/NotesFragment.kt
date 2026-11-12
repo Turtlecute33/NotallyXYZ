@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
+import androidx.navigation.NavController
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -37,6 +38,7 @@ import com.philkes.notallyx.presentation.activity.note.reminders.RemindersActivi
 import com.philkes.notallyx.presentation.getQuantityString
 import com.philkes.notallyx.presentation.hideKeyboard
 import com.philkes.notallyx.presentation.movedToResId
+import com.philkes.notallyx.presentation.notesGridSpanCount
 import com.philkes.notallyx.presentation.repeatOnLifecycleScope
 import com.philkes.notallyx.presentation.showKeyboard
 import com.philkes.notallyx.presentation.view.main.BaseNoteAdapter
@@ -59,8 +61,15 @@ abstract class NotesFragment : Fragment(), ItemListener {
 
     internal val model: NotesFragmentViewModel by activityViewModel()
 
+    private var navController: NavController? = null
+    private var destinationListener: NavController.OnDestinationChangedListener? = null
+
     override fun onDestroyView() {
         super.onDestroyView()
+        // The NavController lives longer than this view: remove the listener, so it does not leak.
+        destinationListener?.let { navController?.removeOnDestinationChangedListener(it) }
+        destinationListener = null
+        navController = null
         binding = null
         notesAdapter = null
     }
@@ -205,7 +214,8 @@ abstract class NotesFragment : Fragment(), ItemListener {
         binding?.EnterSearchKeyword?.apply {
             setText(model.keyword)
             val navController = findNavController()
-            navController.addOnDestinationChangedListener { controller, destination, arguments ->
+            this@NotesFragment.navController = navController
+            val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
                 if (destination.id == R.id.Search) {
                     // Always show search bar in Search fragment
                     binding?.EnterSearchKeywordLayout?.visibility = View.VISIBLE
@@ -223,6 +233,8 @@ abstract class NotesFragment : Fragment(), ItemListener {
                     notesAdapter?.setSearchKeyword("")
                 }
             }
+            destinationListener = listener
+            navController.addOnDestinationChangedListener(listener)
             doAfterTextChanged { text ->
                 val isSearchFragment = navController.currentDestination?.id == R.id.Search
                 if (isSearchFragment) {
@@ -284,8 +296,10 @@ abstract class NotesFragment : Fragment(), ItemListener {
         notesAdapter?.registerAdapterDataObserver(
             object : RecyclerView.AdapterDataObserver() {
                 override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
-                    if (itemCount > 0) {
-                        binding?.MainListView?.scrollToPosition(positionStart)
+                    // Keep a new first note in view, but do not move a list the user scrolled.
+                    val list = binding?.MainListView ?: return
+                    if (itemCount > 0 && positionStart == 0 && !list.canScrollVertically(-1)) {
+                        list.scrollToPosition(0)
                     }
                 }
             }
@@ -337,7 +351,10 @@ abstract class NotesFragment : Fragment(), ItemListener {
     private fun setupRecyclerView() {
         binding?.MainListView?.layoutManager =
             if (model.preferences.notesView.value == NotesView.GRID) {
-                StaggeredGridLayoutManager(2, RecyclerView.VERTICAL)
+                StaggeredGridLayoutManager(
+                    requireContext().notesGridSpanCount,
+                    RecyclerView.VERTICAL,
+                )
             } else LinearLayoutManager(requireContext())
     }
 

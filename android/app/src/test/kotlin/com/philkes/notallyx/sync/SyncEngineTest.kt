@@ -111,6 +111,21 @@ class SyncEngineTest {
         return "http://127.0.0.1:${proxy.address.port}"
     }
 
+    /** A change as another client writes it, sealed with the account keys. */
+    private fun sealed(kind: String, id: String, base: Long, json: JSONObject) =
+        SyncApi.OutChange(
+            kind,
+            id,
+            base,
+            SyncCrypto.seal(keys.encKey, SyncCrypto.ad(kind, id), json.toString().toByteArray()),
+        )
+
+    private fun serverJson(api: SyncApi, id: String): JSONObject {
+        val change = api.changes(0).changes.single { it.id == id }
+        val plain = SyncCrypto.open(keys.encKey, SyncCrypto.ad(change.kind, id), change.data!!)
+        return JSONObject(plain.decodeToString())
+    }
+
     private fun JSONObject.forEachChange(block: (JSONObject) -> Unit) {
         val changes = getJSONArray("changes")
         for (i in 0 until changes.length()) block(changes.getJSONObject(i))
@@ -422,6 +437,78 @@ class SyncEngineTest {
             assertEquals("local 2", device.note("Note").body)
             assertEquals("remote 2", device.note("Note (conflict)").body)
         }
+    }
+
+    @Test
+    fun recordsThatThisAppCannotReadDoNotStopThePull() {
+        val api = SyncApi(url, keys.bearer)
+        val a = device()
+        a.insert(note("Good", "first"))
+        a.sync()
+        val b = device()
+        b.sync()
+        // Authentic, but an image without mimeType makes the converters throw.
+        val unreadable =
+            JSONObject("""{"v":1,"type":"NOTE","title":"Bad","images":[{"localName":"x.jpg"}]}""")
+        api.push(listOf(sealed("note", SyncCrypto.newRecordId(), 0, unreadable)))
+        runBlocking { a.dao.insert(a.note("Good").copy(body = "second")) }
+        a.sync()
+        b.sync()
+        assertEquals(listOf("Good"), b.notes().map { it.title })
+        assertEquals("second", b.note("Good").body)
+        assertEquals(api.changes(0).seq.toString(), SyncStore(b.db).getMeta(SyncEngine.META_CURSOR))
+
+        // An unreadable version of a known note: the local copy stays and is not written back.
+        val id = b.remoteId("Good")
+        val seq = api.changes(0).changes.single { it.id == id }.seq
+        val pushed = api.push(listOf(sealed("note", id, seq, unreadable.put("title", "Good"))))
+        b.sync()
+        assertEquals("second", b.note("Good").body)
+        assertEquals(pushed.single().seq, api.changes(0).changes.single { it.id == id }.seq)
+        // A later local edit is written over it.
+        runBlocking { b.dao.insert(b.note("Good").copy(body = "third")) }
+        b.sync()
+        assertEquals("third", serverJson(api, id).getString("body"))
+    }
+
+    @Test
+    fun aRemoteLabelChangeBeatsALocalDeletion() {
+        val a = device()
+        runBlocking { a.labels.insert(Label("Work", 1)) }
+        a.sync()
+        val b = device()
+        b.sync()
+        runBlocking {
+            a.labels.update(Label("Work", 7))
+            b.labels.delete("Work")
+        }
+        a.sync()
+        b.sync()
+        a.sync()
+        for (device in listOf(a, b)) {
+            assertEquals(7, SyncStore(device.db).getLabel("Work")?.order)
+            assertEquals(0, SyncStore(device.db).outboxSize())
+        }
+    }
+
+    @Test
+    fun unknownTopLevelFieldsAreWrittenBack() {
+        val api = SyncApi(url, keys.bearer)
+        val id = SyncCrypto.newRecordId()
+        val payload =
+            JSONObject(
+                """{"v":1,"type":"NOTE","title":"Future","body":"old","future":{"a":[1,2]},"later":"x"}"""
+            )
+        api.push(listOf(sealed("note", id, 0, payload)))
+        val b = device()
+        b.sync()
+        assertEquals(0, SyncStore(b.db).outboxSize())
+        runBlocking { b.dao.insert(b.note("Future").copy(body = "new")) }
+        b.sync()
+        val json = serverJson(api, id)
+        assertEquals("new", json.getString("body"))
+        assertEquals("""{"a":[1,2]}""", json.getJSONObject("future").toString())
+        assertEquals("x", json.getString("later"))
     }
 
     @Test

@@ -113,7 +113,7 @@
     <string name="daily">Tous les jours</string>
     <string name="dark">Sombre</string>
     <string name="data_in_public">Stocker les données sur le dossier public</string>
-    <string name="data_in_public_message">En activant cette option, la base de données interne de l\'application et les fichiers joints seront déplacés dans le dossier public de l\'application (Android/media/com.philkes.notallyx). En combinaison avec des applications de synchronisation de fichiers, cela peut être utilisé pour synchroniser les données de NotallyX entre plusieurs appareils.</string>
+    <string name="data_in_public_message">En activant cette option, la base de données interne de l\'application et les fichiers joints seront déplacés dans le dossier public de l\'application (Android/media/com.notallyxyz). En combinaison avec des applications de synchronisation de fichiers, cela peut être utilisé pour synchroniser les données de NotallyX entre plusieurs appareils.</string>
     <string name="database">Base de données</string>
     <string name="database_dump_created">Sauvegarde brute de la base de données créée dans « %1$s»</string>
     <string name="date">Date</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">Pour importer vos notes à partir de fichiers (un seul fichier ou dossier) texte bruts, cliquez sur \"Importer\". Chaque fichier est importé comme une note séparée, le nom du fichier devient le titre de la note. Si le contenu du texte commence par une syntaxe de liste (par exemple, Markdown ‘- [x]’, syntaxe NotallyX ‘[✓]’, ou ‘*’, ‘-’), il sera converti en une note sous forme de liste.</string>
     <string name="play">Lecture</string>
     <string name="please_grant_notally_alarm">Veuillez autoriser NotallyX à envoyer des rappels</string>
-    <string name="please_grant_notally_audio">Veuillez accorder à NotallyX l\'autorisation d\'enregistrer de l\'audio. Les enregistrements ne quittent jamais votre appareil.</string>
+    <string name="please_grant_notally_audio">Veuillez accorder à NotallyXYZ l\'autorisation d\'enregistrer de l\'audio. Les enregistrements ne quittent votre appareil que chiffrés de bout en bout, lorsque la synchronisation est activée.</string>
     <string name="please_grant_notally_notification">Veuillez autoriser NotallyX à envoyer des notifications</string>
     <string name="please_grant_notally_notification_auto_backup">Si une sauvegarde automatique échoue, vous pouvez recevoir une notification en accordant à NotallyX l\'autorisation d\'envoyer des notifications</string>
     <string name="previous">Précédent</string>
@@ -331,7 +331,7 @@
     <string name="redo">Rétablir</string>
     <string name="reimport_database">Réimporter la base de données</string>
     <string name="reimport_database_failed">Échec de la réimportation de la base de données</string>
-    <string name="reimport_database_message">Vous pouvez désormais essayer de réimporter la base de données brute. Cette opération supprime la base de données corrompue actuelle (une sauvegarde sera conservée dans le répertoire « Android/media/com.philkes.notallyx/logs ») puis tente d\'importer la base de données brute en ignorant, si possible, les notes corrompues.</string>
+    <string name="reimport_database_message">Vous pouvez désormais essayer de réimporter la base de données brute. Cette opération supprime la base de données corrompue actuelle (une sauvegarde sera conservée dans le répertoire « Android/media/com.notallyxyz/logs ») puis tente d\'importer la base de données brute en ignorant, si possible, les notes corrompues.</string>
     <string name="reminder_no_repetition">Aucune répétition</string>
     <string name="reminders">Rappels</string>
     <string name="remove_link">Supprimer le lien</string>

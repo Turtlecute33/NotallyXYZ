@@ -46,6 +46,15 @@ fun Context.createNotification(
                 setContentText(contentText)
                 setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
                 setGroup(group)
+                // The lock screen shows only the app name and the kind of notification.
+                setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                setPublicVersion(
+                    NotificationCompat.Builder(this@createNotification, channelId)
+                        .setSmallIcon(iconResId)
+                        .setContentTitle(getString(R.string.app_name))
+                        .setContentText(subtext)
+                        .build()
+                )
                 val openIntent = getOpenNotePendingIntent(note)
                 setContentIntent(openIntent)
                 addAction(R.drawable.visibility, getString(R.string.open_note), openIntent)

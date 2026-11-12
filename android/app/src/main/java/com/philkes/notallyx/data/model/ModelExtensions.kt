@@ -20,6 +20,7 @@ import com.philkes.notallyx.presentation.viewmodel.edit.NoteModel
 import com.philkes.notallyx.utils.decodeToBitmap
 import com.philkes.notallyx.utils.getFileName
 import com.philkes.notallyx.utils.getMimeType
+import com.philkes.notallyx.utils.isFileOrOwnProviderUri
 import com.philkes.notallyx.utils.log
 import java.io.File
 import java.text.DateFormat
@@ -627,26 +628,32 @@ data class SharedNote(
 )
 
 fun Intent.generateBaseNote(context: ContextWrapper): SharedNote {
-    val title = getStringExtra(Intent.EXTRA_SUBJECT) ?: data?.let { context.getFileName(it) } ?: ""
+    // Never read this app's own files on behalf of another app.
+    val dataUri = data?.takeUnless { context.isFileOrOwnProviderUri(it) }
+    if (dataUri == null && data != null) context.showToast(R.string.cant_load_file)
+    val title =
+        getStringExtra(Intent.EXTRA_SUBJECT) ?: dataUri?.let { context.getFileName(it) } ?: ""
     val intentFiles =
         IntentCompat.getParcelableArrayListExtra(this, Intent.EXTRA_STREAM, Uri::class.java)
             ?: IntentCompat.getParcelableExtra(this, Intent.EXTRA_STREAM, Uri::class.java)?.let {
                 listOf(it)
             }
     val text =
-        (data?.let { uri ->
-                context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                    try {
-                        inputStream.bufferedReader().readText()
-                    } catch (e: Exception) {
-                        context.log(
-                            tag = "",
-                            msg = "Reading text contents from intent failed",
-                            throwable = e,
-                        )
-                        null
+        (dataUri?.let { uri ->
+                runCatching { context.contentResolver.openInputStream(uri) }
+                    .getOrNull()
+                    ?.use { inputStream ->
+                        try {
+                            inputStream.bufferedReader().readText()
+                        } catch (e: Exception) {
+                            context.log(
+                                tag = "",
+                                msg = "Reading text contents from intent failed",
+                                throwable = e,
+                            )
+                            null
+                        }
                     }
-                }
                     ?: run {
                         context.showToast(R.string.cant_load_file)
                         null

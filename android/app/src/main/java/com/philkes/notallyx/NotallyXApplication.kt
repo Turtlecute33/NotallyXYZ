@@ -1,12 +1,16 @@
 package com.philkes.notallyx
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.app.Application
 import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.Process
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -28,6 +32,7 @@ import com.philkes.notallyx.presentation.viewmodel.preference.withPrevious
 import com.philkes.notallyx.presentation.widget.WidgetProvider
 import com.philkes.notallyx.sync.SyncManager
 import com.philkes.notallyx.utils.AutoRemoveDeletedNotesWorker
+import com.philkes.notallyx.utils.ErrorActivity
 import com.philkes.notallyx.utils.PidCrashDataCollector
 import com.philkes.notallyx.utils.PinnedNotificationManager
 import com.philkes.notallyx.utils.backup.AUTO_BACKUP_WORK_NAME
@@ -63,6 +68,10 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
     private lateinit var preferences: NotallyXPreferences
     private var unlockReceiver: UnlockReceiver? = null
     private var startedActivities = 0
+    private var syncInProcess = false
+    private val handler = Handler(Looper.getMainLooper())
+    /** Rotation, theme changes and system pickers stop all activities for a moment. */
+    private val toBackground = Runnable { SyncManager.get(this).setForeground(false) }
 
     val locked = MutableStateFlow(true)
 
@@ -70,12 +79,15 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
         super.onCreate()
         if (GlobalContext.getOrNull() == null) {
             startKoin {
-                androidLogger(Level.DEBUG)
+                androidLogger(if (BuildConfig.DEBUG) Level.DEBUG else Level.ERROR)
                 androidContext(this@NotallyXApplication)
                 modules(appModules)
             }
         }
-        CaocConfig.Builder.create().customCrashDataCollector(PidCrashDataCollector()).apply()
+        CaocConfig.Builder.create()
+            .errorActivity(ErrorActivity::class.java)
+            .customCrashDataCollector(PidCrashDataCollector())
+            .apply()
         registerActivityLifecycleCallbacks(this)
         preferences = NotallyXPreferences.getInstance(this)
         if (preferences.useDynamicColors.value) {
@@ -85,7 +97,9 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
         } else {
             setTheme(R.style.AppTheme)
         }
-        if (isTestRunner()) return
+        // The crash screen has its own process: it must not open the database or sync.
+        if (isTestRunner() || !isMainProcess()) return
+        syncInProcess = true
         restorePinnedNotifications()
         SyncManager.get(this).start()
 
@@ -209,6 +223,17 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
         }
     }
 
+    private fun isMainProcess(): Boolean {
+        val name =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Application.getProcessName()
+            else
+                (getSystemService(ACTIVITY_SERVICE) as? ActivityManager)
+                    ?.runningAppProcesses
+                    ?.firstOrNull { it.pid == Process.myPid() }
+                    ?.processName
+        return name == null || name == packageName
+    }
+
     private fun folderChanged(folderBefore: String?, folderAfter: String): Boolean {
         if (folderBefore == null || folderAfter == EMPTY_PATH) {
             return false
@@ -313,7 +338,9 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
     }
 
     override fun onActivityStarted(activity: Activity) {
-        if (++startedActivities == 1 && !isTestRunner()) SyncManager.get(this).setForeground(true)
+        if (!syncInProcess) return
+        handler.removeCallbacks(toBackground)
+        if (++startedActivities == 1) SyncManager.get(this).setForeground(true)
     }
 
     override fun onActivityResumed(activity: Activity) {}
@@ -321,7 +348,8 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
     override fun onActivityPaused(activity: Activity) {}
 
     override fun onActivityStopped(activity: Activity) {
-        if (--startedActivities == 0 && !isTestRunner()) SyncManager.get(this).setForeground(false)
+        if (!syncInProcess) return
+        if (--startedActivities == 0) handler.postDelayed(toBackground, 1_000L)
     }
 
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}

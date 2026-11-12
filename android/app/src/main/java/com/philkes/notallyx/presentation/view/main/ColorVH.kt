@@ -33,7 +33,14 @@ class ColorVH(private val binding: RecyclerColorBinding, listener: ItemListener)
         val controlsColor = context.getContrastFontColor(value)
         binding.apply {
             CardView.apply {
-                contentDescription = color
+                contentDescription =
+                    when (color) {
+                        BaseNote.COLOR_DEFAULT -> context.getString(R.string.text_default)
+                        BaseNote.COLOR_NEW -> context.getString(R.string.new_color)
+                        else -> "${context.getString(R.string.color)} $color"
+                    }
+                // Only for accessibility: the checked icon and foreground are off in the layout.
+                isChecked = isSelected
                 setCardBackgroundColor(value)
                 if (color == BaseNote.COLOR_DEFAULT) {
                     setBackgroundResource(R.drawable.dashed_background)

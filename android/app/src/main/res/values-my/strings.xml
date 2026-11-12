@@ -113,7 +113,7 @@
     <string name="daily">နေ့တိုင်း</string>
     <string name="dark">အ​​မှောင်</string>
     <string name="data_in_public">ဒေတာကို အများပြည်သူ ဖိုလ်ဒါတွင် သိမ်းဆည်းပါ။</string>
-    <string name="data_in_public_message">ဤအင်္ဂါရပ်ကို ဖွင့်ထားခြင်းဖြင့် အက်ပ်၏ အတွင်းဒေတာဘေ့စ်နှင့် ပူးတွဲထားသော ဖိုင်များအားလုံးကို အက်ပ်၏ public ဖိုလ်ဒါ (Android/media/com.philkes.notallyx) သို့ ရွှေ့ပြောင်းသွားမည်ဖြစ်သည်။ ဖိုင်ညှိနှိုင်းအက်ပ်များနှင့် တွဲဖက်အသုံးပြုခြင်းဖြင့် NotallyX ဒေတာများကို စက်ပစ္စည်းများအကြား ညှိနှိုင်းနိုင်ပါသည်။</string>
+    <string name="data_in_public_message">ဤအင်္ဂါရပ်ကို ဖွင့်ထားခြင်းဖြင့် အက်ပ်၏ အတွင်းဒေတာဘေ့စ်နှင့် ပူးတွဲထားသော ဖိုင်များအားလုံးကို အက်ပ်၏ public ဖိုလ်ဒါ (Android/media/com.notallyxyz) သို့ ရွှေ့ပြောင်းသွားမည်ဖြစ်သည်။ ဖိုင်ညှိနှိုင်းအက်ပ်များနှင့် တွဲဖက်အသုံးပြုခြင်းဖြင့် NotallyX ဒေတာများကို စက်ပစ္စည်းများအကြား ညှိနှိုင်းနိုင်ပါသည်။</string>
     <string name="database">ဒေတာဘေ့စ်</string>
     <string name="database_dump_created">Raw ဒေတာဘေ့စ် dump ကို \'%1$s\' တွင် ဖန်တီးထားသည်။</string>
     <string name="date">နေ့ရက်</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">markdown/plain text ဖိုင်များ (တစ်ခုတည်းသော ဖိုင် သို့မဟုတ် ဖိုလ်ဒါ) မှ သင့် Notes များကို တင်သွင်းရန် Import ကို နှိပ်ပါ။ ဖိုင်တိုင်းကို သီးခြား မှတ်စုအသစ်အဖြစ် တင်သွင်းပြီး ဖိုင်အမည်ကို မှတ်စုခေါင်းစဉ်အဖြစ် သတ်မှတ်ပေးပါသည်။ စာသားအကြောင်းအရာများကို စာရင်းသတ်မှတ်ပုံစံ (ဥပမာ Markdown \'- [x]\', NotallyX ပုံစံ \'[✓]\' သို့မဟုတ် \'*\', \'-\') ဖြင့် စတင်ပါက စာရင်းမှတ်စုအဖြစ် ပြောင်းလဲမည်။</string>
     <string name="play">ကစားပါ</string>
     <string name="please_grant_notally_alarm">NotallyX ကို သတိပေးချက်များ ပို့ခွင့်ပြုပါ။</string>
-    <string name="please_grant_notally_audio">NotallyX ကို အသံ မှတ်တမ်းတင်ခွင့်ပြုပါ။ မှတ်တမ်းများသည် သင့်စက်မှ မထွက်ပါ။</string>
+    <string name="please_grant_notally_audio">NotallyXYZ ကို အသံ မှတ်တမ်းတင်ခွင့်ပြုပါ။ ညှိနှိုင်းခြင်းကို ဖွင့်ထားမှသာ မှတ်တမ်းများသည် အစမှအဆုံး ကုဒ်ဝှက်ပြီး သင့်စက်မှ ထွက်ပါသည်။</string>
     <string name="please_grant_notally_notification">NotallyX ကို အသိပေးစာများ ပို့ခွင့်ပြုပါ။</string>
     <string name="please_grant_notally_notification_auto_backup">အလိုအလျောက် မိတ္တူသိမ်းဆည်းခြင်း မအောင်မြင်ပါက၊ သင် NotallyX ကို အသိပေးပို့ခွင့်ပြုထားလျှင် သင်သည် အသိပေးချက်တစ်ခု လက်ခံရရှိနိုင်ပါသည်။</string>
     <string name="previous">ယခင်</string>
@@ -331,7 +331,7 @@
     <string name="redo">ပြန်လုပ်</string>
     <string name="reimport_database">ပြန်တင် ဒေတာဘေ့စ်</string>
     <string name="reimport_database_failed">ဒေတာဘေ့စ် ပြန်တင်ရာတွင် မအောင်မြင်ပါ။</string>
-    <string name="reimport_database_message">ယခု သင်သည် raw ဒေတာဘေ့စ်ကို ပြန်လည်တင်သွင်းကြိုးစားနိုင်ပါပြီ။ ဤလုပ်ဆောင်ချက်သည် လက်ရှိ ပျက်စီးနေသော ဒေတာဘေ့စ်ကို ဖျက်ပစ်ပြီး (backup ကို \'Android/media/com.philkes.notallyx/logs\' တွင် သိမ်းဆည်းထားမည်)၊ ပြီးလျှင် ဖြစ်နိုင်ပါက ပျက်စီးနေသော မှတ်စုများကို ကျော်ကာ raw ဒေတာဘေ့စ်ကို တင်သွင်းရန် ကြိုးစားပါမည်။</string>
+    <string name="reimport_database_message">ယခု သင်သည် raw ဒေတာဘေ့စ်ကို ပြန်လည်တင်သွင်းကြိုးစားနိုင်ပါပြီ။ ဤလုပ်ဆောင်ချက်သည် လက်ရှိ ပျက်စီးနေသော ဒေတာဘေ့စ်ကို ဖျက်ပစ်ပြီး (backup ကို \'Android/media/com.notallyxyz/logs\' တွင် သိမ်းဆည်းထားမည်)၊ ပြီးလျှင် ဖြစ်နိုင်ပါက ပျက်စီးနေသော မှတ်စုများကို ကျော်ကာ raw ဒေတာဘေ့စ်ကို တင်သွင်းရန် ကြိုးစားပါမည်။</string>
     <string name="reminder_no_repetition">ထပ်မထပ်ပါ</string>
     <string name="reminders">သတိပေးချက်များ</string>
     <string name="remove_link">လင့်ခ် ဖယ်ရှားပါ</string>

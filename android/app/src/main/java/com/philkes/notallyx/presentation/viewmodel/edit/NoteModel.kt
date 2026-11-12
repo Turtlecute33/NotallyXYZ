@@ -54,6 +54,7 @@ import com.philkes.notallyx.utils.getCurrentAudioDirectory
 import com.philkes.notallyx.utils.getCurrentFilesDirectory
 import com.philkes.notallyx.utils.getCurrentImagesDirectory
 import com.philkes.notallyx.utils.getTempAudioFile
+import com.philkes.notallyx.utils.isFileOrOwnProviderUri
 import com.philkes.notallyx.utils.scheduleReminder
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -78,6 +79,9 @@ open class NoteModel(
     val textSize: TextSizeSp = preferences.textSizeNoteEditor.value
 
     var isNewNote = true
+
+    /** True once the content of the launch intent (share, label) is in this note. */
+    var intentHandled = false
 
     var type = Type.NOTE
 
@@ -182,7 +186,9 @@ open class NoteModel(
         addFiles(uris, filesRoot!!, FileType.ANY)
     }
 
-    private fun addFiles(uris: Array<Uri>, directory: File, fileType: FileType) {
+    private fun addFiles(allUris: Array<Uri>, directory: File, fileType: FileType) {
+        // Never copy this app's own files into a note on behalf of another app.
+        val uris = allUris.filterNot { app.isFileOrOwnProviderUri(it) }
         val errorWhileRenaming =
             if (fileType == FileType.IMAGE) {
                 R.string.error_while_renaming_image
@@ -336,6 +342,8 @@ open class NoteModel(
         return withContext(Dispatchers.IO) {
             val note = getBaseNote()
             val id = baseNoteDao?.insertSafe(app, note) ?: throw DatabaseNotConnectedException()
+            // A note that was not in the database yet keeps its new id, so later saves update it.
+            if (this@NoteModel.id == 0L) this@NoteModel.id = id
             if (checkBackupOnSave) {
                 checkBackupOnSave(note)
             }
@@ -542,15 +550,19 @@ open class NoteModel(
         saveNote(checkBackupOnSave = false)
     }
 
-    suspend fun refreshOriginalNote() {
-        if (id == 0L) return
-        val baseNote =
-            withContext(Dispatchers.IO) {
-                baseNoteDao?.get(id) ?: throw DatabaseNotConnectedException()
-            }
-        if (baseNote == null) return
+    /**
+     * Reloads [originalNote] and [reminders] from the database.
+     *
+     * @return true if the stored note changed in more than its reminders
+     */
+    suspend fun refreshOriginalNote(): Boolean {
+        if (id == 0L) return false
+        val dao = baseNoteDao ?: throw DatabaseNotConnectedException()
+        val baseNote = withContext(Dispatchers.IO) { dao.get(id) } ?: return false
+        val previous = originalNote
         originalNote = baseNote.deepCopy()
         reminders.value = baseNote.reminders
+        return previous != null && baseNote.copy(reminders = previous.reminders) != previous
     }
 
     enum class FileType {

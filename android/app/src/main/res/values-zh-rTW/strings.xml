@@ -113,7 +113,7 @@
     <string name="daily">每天</string>
     <string name="dark">深色</string>
     <string name="data_in_public">將資料儲存在公共資料夾中</string>
-    <string name="data_in_public_message">啟用此功能，應用程式的內部資料庫和附件將被移至應用程式的公開資料夾（Android/media/com.philkes.notallyx）中。與檔案同步應用程式組合，這可用於同步多個裝置之間的資料。</string>
+    <string name="data_in_public_message">啟用此功能，應用程式的內部資料庫和附件將被移至應用程式的公開資料夾（Android/media/com.notallyxyz）中。與檔案同步應用程式組合，這可用於同步多個裝置之間的資料。</string>
     <string name="database">資料庫</string>
     <string name="database_dump_created">原始資料庫轉儲檔建立於 \'%1$s\'</string>
     <string name="date">日期</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">若要從 Markdown／純文字檔案（單一檔案或資料夾）匯入您的筆記，請點擊「匯入」。每個檔案都會被匯入為一則獨立的筆記，且檔案名稱將成為該筆記的標題。 若文字內容以清單語法開頭（例如：Markdown 的「- [x]」、NotallyX 語法的「[✓]」，或「*」、「-」），則會轉換為清單筆記。</string>
     <string name="play">播放</string>
     <string name="please_grant_notally_alarm">請授權 NotallyX 來傳送提醒</string>
-    <string name="please_grant_notally_audio">請授予 NotallyX 錄製音訊的權限。錄音永遠不會離開你的設備</string>
+    <string name="please_grant_notally_audio">請授予 NotallyXYZ 錄製音訊的權限。僅在開啟同步時，錄音才會以端對端加密的形式離開你的裝置</string>
     <string name="please_grant_notally_notification">請授予 NotallyX 傳送通知的權限</string>
     <string name="please_grant_notally_notification_auto_backup">如果自動備份失敗，您將收到通知（如果您授予 NotallyX 發送通知的權限）</string>
     <string name="previous">先前的</string>
@@ -331,7 +331,7 @@
     <string name="redo">重做</string>
     <string name="reimport_database">重新匯入資料庫</string>
     <string name="reimport_database_failed">重新匯入資料庫失敗</string>
-    <string name="reimport_database_message">現在您可以嘗試重新匯入原始資料庫。此操作會刪除當前已損毀的資料庫（備份檔將儲存於 \'Android/media/com.philkes.notallyx/logs\' 目錄中），並在可能的情況下跳過損毀的筆記，嘗試匯入原始資料庫。</string>
+    <string name="reimport_database_message">現在您可以嘗試重新匯入原始資料庫。此操作會刪除當前已損毀的資料庫（備份檔將儲存於 \'Android/media/com.notallyxyz/logs\' 目錄中），並在可能的情況下跳過損毀的筆記，嘗試匯入原始資料庫。</string>
     <string name="reminder_no_repetition">不重複</string>
     <string name="reminders">提醒</string>
     <string name="remove_link">移除連結</string>

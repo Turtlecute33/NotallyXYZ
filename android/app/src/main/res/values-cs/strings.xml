@@ -121,7 +121,7 @@
     <string name="daily">Denně</string>
     <string name="dark">Tmavé</string>
     <string name="data_in_public">Uložit data do veřejné složky</string>
-    <string name="data_in_public_message">Pokud tuto možnost povolíte, interní databáze aplikace a připojené soubory budou přesunuty do veřejné složky aplikace (Android/media/com.philkes.notallyx). V kombinaci s aplikacemi pro synchronizaci souborů to může být použito k synchronizaci dat NotallyX mezi více zařízeními.</string>
+    <string name="data_in_public_message">Pokud tuto možnost povolíte, interní databáze aplikace a připojené soubory budou přesunuty do veřejné složky aplikace (Android/media/com.notallyxyz). V kombinaci s aplikacemi pro synchronizaci souborů to může být použito k synchronizaci dat NotallyX mezi více zařízeními.</string>
     <string name="database">Databáze</string>
     <string name="database_dump_created">Surový výpis databáze vytvořený v \'%1$s\'</string>
     <string name="date">Datum</string>
@@ -342,7 +342,7 @@
     <string name="plain_text_files_help">Chcete-li importovat poznámky z textových souborů (jednotlivých souborů nebo složek), klikněte na tlačítko Importovat. Každý soubor se importuje jako samostatná poznámka, název souboru se stane názvem poznámky. Pokud textový obsah začíná syntaxí seznamu (např. syntaxí Markdown \'- [x]\', NotallyX \'[✓]\' nebo \'*\', \'-\'), bude převeden na poznámku Seznam.</string>
     <string name="play">Přehrát</string>
     <string name="please_grant_notally_alarm">Povolte prosím aplikaci NotallyX zasílání upomínky</string>
-    <string name="please_grant_notally_audio">Povolte prosím NotallyX nahrávání zvuku. Nahrávky nikdy neopustí vaše zařízení</string>
+    <string name="please_grant_notally_audio">Povolte prosím NotallyXYZ nahrávání zvuku. Nahrávky opouštějí vaše zařízení jen s koncovým šifrováním, když je zapnutá synchronizace</string>
     <string name="please_grant_notally_notification">Povolte prosím  NotallyX zasílat oznámení</string>
     <string name="please_grant_notally_notification_auto_backup">Pokud automatické zálohování selže, můžete obdržet oznámení, pokud NotallyX udělíte oprávnění k zasílání oznámení</string>
     <string name="previous">Předchozí</string>
@@ -355,7 +355,7 @@
     <string name="redo">Znovu</string>
     <string name="reimport_database">Znovu naimportovat databázi</string>
     <string name="reimport_database_failed">Reimport databáze se nezdařil</string>
-    <string name="reimport_database_message">Nyní můžete zkusit znovu naimportovat surovou databázi. Tím se smaže aktuální poškozená databáze (záloha bude uložena ve složce „Android/media/com.philkes.notallyx/logs“) a následně se pokusí naimportovat surovou databázi, přičemž se pokud možno přeskočí poškozené poznámky.</string>
+    <string name="reimport_database_message">Nyní můžete zkusit znovu naimportovat surovou databázi. Tím se smaže aktuální poškozená databáze (záloha bude uložena ve složce „Android/media/com.notallyxyz/logs“) a následně se pokusí naimportovat surovou databázi, přičemž se pokud možno přeskočí poškozené poznámky.</string>
     <string name="reminder_no_repetition">Bez opakování</string>
     <string name="reminders">Upomínky</string>
     <string name="remove_link">Odstranit odkaz</string>

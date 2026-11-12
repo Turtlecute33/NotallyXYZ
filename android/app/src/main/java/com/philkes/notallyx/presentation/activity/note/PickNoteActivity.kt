@@ -16,6 +16,7 @@ import com.philkes.notallyx.databinding.ActivityPickNoteBinding
 import com.philkes.notallyx.presentation.activity.LockedActivity
 import com.philkes.notallyx.presentation.collectIn
 import com.philkes.notallyx.presentation.createItemsFromNotes
+import com.philkes.notallyx.presentation.notesGridSpanCount
 import com.philkes.notallyx.presentation.view.main.BaseNoteAdapter
 import com.philkes.notallyx.presentation.view.main.BaseNoteVHPreferences
 import com.philkes.notallyx.presentation.view.main.createCallback
@@ -67,7 +68,7 @@ open class PickNoteActivity : LockedActivity<ActivityPickNoteBinding>(), ItemLis
             setHasFixedSize(true)
             layoutManager =
                 if (preferences.notesView.value == NotesView.GRID) {
-                    StaggeredGridLayoutManager(2, RecyclerView.VERTICAL)
+                    StaggeredGridLayoutManager(notesGridSpanCount, RecyclerView.VERTICAL)
                 } else LinearLayoutManager(this@PickNoteActivity)
         }
 

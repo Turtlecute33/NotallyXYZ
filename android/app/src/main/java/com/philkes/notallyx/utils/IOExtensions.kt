@@ -9,10 +9,12 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.net.toUri
+import com.philkes.notallyx.data.NotallyDatabase
 import com.philkes.notallyx.data.NotallyDatabase.Companion.DATABASE_NAME
 import com.philkes.notallyx.data.model.Attachment
 import com.philkes.notallyx.data.model.Audio
 import com.philkes.notallyx.data.model.BaseNote
+import com.philkes.notallyx.data.model.Converters
 import com.philkes.notallyx.data.model.FileAttachment
 import com.philkes.notallyx.data.model.isImage
 import com.philkes.notallyx.presentation.showToast
@@ -356,6 +358,12 @@ fun ContextWrapper.deleteAttachments(
     deleteAttachments(attachments, notes.map { it.id }.toLongArray(), progress)
 }
 
+/**
+ * Deletes the files of [attachments], except files that notes other than [ids] still use: conflict
+ * copies of sync and duplicated notes share the files of the original note.
+ *
+ * @param ids the notes that are deleted, or null.
+ */
 fun ContextWrapper.deleteAttachments(
     attachments: Collection<Attachment>,
     ids: LongArray? = null,
@@ -364,10 +372,21 @@ fun ContextWrapper.deleteAttachments(
     if (attachments.isNotEmpty()) {
         (progress as? MutableStateFlow<Progress?>)?.value =
             DeleteAttachmentProgress(0, attachments.size)
+        val inUse = attachmentsInUse(ids)
         val imageRoot = getExternalImagesDirectory()
         val audioRoot = getExternalAudioDirectory()
         val fileRoot = getExternalFilesDirectory()
         attachments.forEachIndexed { index, attachment ->
+            val name =
+                when (attachment) {
+                    is Audio -> attachment.name
+                    is FileAttachment -> attachment.localName
+                }
+            if (inUse == null || name in inUse) {
+                (progress as? MutableStateFlow<Progress?>)?.value =
+                    DeleteAttachmentProgress(index + 1, attachments.size)
+                return@forEachIndexed
+            }
             val file =
                 when (attachment) {
                     is Audio -> if (audioRoot != null) File(audioRoot, attachment.name) else null
@@ -389,6 +408,34 @@ fun ContextWrapper.deleteAttachments(
     }
     (progress as? MutableStateFlow<Progress?>)?.value = DeleteAttachmentProgress(inProgress = false)
 }
+
+/**
+ * Names of the attachment files that notes other than [excluded] use, in one query. Null if the
+ * database cannot tell: then no file may be deleted.
+ */
+private fun ContextWrapper.attachmentsInUse(excluded: LongArray?): Set<String>? =
+    try {
+        val database = NotallyDatabase.getDatabase(this).value
+        val skip = excluded?.toHashSet() ?: emptySet()
+        // Raw query: Room does not allow its queries on the main thread, some callers run there.
+        database
+            ?.openHelper
+            ?.readableDatabase
+            ?.query("SELECT id, images, files, audios FROM BaseNote")
+            ?.use { c ->
+                val names = HashSet<String>()
+                while (c.moveToNext()) {
+                    if (c.getLong(0) in skip) continue
+                    Converters.jsonToFiles(c.getString(1)).mapTo(names) { it.localName }
+                    Converters.jsonToFiles(c.getString(2)).mapTo(names) { it.localName }
+                    Converters.jsonToAudios(c.getString(3)).mapTo(names) { it.name }
+                }
+                names
+            }
+    } catch (e: Exception) {
+        Log.w(TAG, "Cannot check which attachments are in use: ${e.javaClass.simpleName}")
+        null
+    }
 
 fun Context.getBackupDir() = getEmptyFolder("backup")
 

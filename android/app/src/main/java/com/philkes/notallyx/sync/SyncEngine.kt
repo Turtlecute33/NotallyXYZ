@@ -39,8 +39,18 @@ class SyncEngine(
     private val dao = database.getBaseNoteDao()
     private val labelDao = database.getLabelDao()
 
-    /** A remote change whose data opened. [json] is null for an authentic deletion. */
-    private class Incoming(val change: SyncApi.RemoteChange, val json: JSONObject?)
+    /** Unlinked local notes by title, read once per pull for [findSameNote]. */
+    private var unlinkedByTitle: Map<String, List<Long>>? = null
+
+    /**
+     * A remote change whose data opened. [json] is null for an authentic deletion. [attachments]
+     * are the attachments of a note.
+     */
+    private class Incoming(
+        val change: SyncApi.RemoteChange,
+        val json: JSONObject?,
+        val attachments: List<Pair<String, String>> = emptyList(),
+    )
 
     private class Pending(
         val entry: SyncStore.OutboxEntry,
@@ -94,6 +104,7 @@ class SyncEngine(
 
     /** @return true if the server and this device have the same state afterwards. */
     suspend fun run(): Boolean {
+        deleteTempFiles()
         repeat(3) {
             pull()
             if (!push()) return true
@@ -104,6 +115,7 @@ class SyncEngine(
     // ---- Pull ----
 
     suspend fun pull() {
+        unlinkedByTitle = null
         applyDeferred()
         var cursor = store.getMeta(META_CURSOR)?.toLongOrNull() ?: 0L
         var appliedNotes = false
@@ -111,24 +123,33 @@ class SyncEngine(
             val page = api.changes(cursor)
             val incoming = ArrayList<Incoming>()
             val rejected = ArrayList<SyncApi.RemoteChange>()
-            page.changes.forEach { change ->
-                decrypt(change)?.let(incoming::add) ?: rejected.add(change)
+            val unreadable = ArrayList<SyncApi.RemoteChange>()
+            for (change in page.changes) {
+                val plain = open(change)
+                val item = plain?.let { read(change, it) }
+                when {
+                    plain == null -> rejected.add(change)
+                    item == null -> unreadable.add(change)
+                    else -> incoming.add(item)
+                }
             }
-            incoming.forEach {
-                if (it.change.kind == KIND_NOTE && it.json != null) download(it.json)
-            }
+            download(incoming.flatMap { it.attachments })
             val effects = Effects()
             database.withTransaction {
                 store.paused {
                     val linked = store.linkedNoteIds().toMutableSet()
                     incoming.forEach { item ->
                         when (item.change.kind) {
-                            KIND_NOTE ->
-                                applyNote(item, linked, effects).also { appliedNotes = true }
+                            KIND_NOTE -> {
+                                store.setMeta(UNREADABLE + item.change.id, null)
+                                applyNote(item, linked, effects)
+                                appliedNotes = true
+                            }
                             KIND_LABEL -> applyLabel(item)
                         }
                     }
                     rejected.forEach(::repair)
+                    unreadable.forEach(::skip)
                     store.setMeta(META_CURSOR, page.seq.toString())
                 }
             }
@@ -136,6 +157,7 @@ class SyncEngine(
             cursor = page.seq
         } while (page.more)
         if (appliedNotes) resolveLinks()
+        downloadMissing()
     }
 
     /**
@@ -155,12 +177,18 @@ class SyncEngine(
                 if (localId != null && localId in openNotes) return@mapNotNull null
                 val stored = JSONObject(value)
                 val json = stored.optJSONObject("json")
-                val change =
-                    SyncApi.RemoteChange(KIND_NOTE, id, stored.getLong("seq"), json == null, null)
-                Incoming(change, json) to key
+                val change = SyncApi.RemoteChange(KIND_NOTE, id, stored.getLong("seq"), null)
+                val attachments = if (json == null) emptyList() else attachmentsOf(json)
+                if (attachments == null) {
+                    // Kept aside by an older version of the app, which did not check it.
+                    store.setMeta(key, null)
+                    skip(change)
+                    return@mapNotNull null
+                }
+                Incoming(change, json, attachments) to key
             }
         if (ready.isEmpty()) return
-        ready.forEach { (item, _) -> item.json?.let { download(it) } }
+        download(ready.flatMap { it.first.attachments })
         val effects = Effects()
         database.withTransaction {
             store.paused {
@@ -175,20 +203,60 @@ class SyncEngine(
     }
 
     /**
-     * Opens the data of a change. A deletion counts only if its sealed payload says so: the
-     * `deleted` flag of the server is not authenticated. Returns null if the data is missing or
-     * does not open (forged deletion, wrong key, tampered data).
+     * Opens the data of a change. Returns null if the data is missing or does not open (forged
+     * deletion, wrong key, tampered data).
      */
-    private fun decrypt(change: SyncApi.RemoteChange): Incoming? {
+    private fun open(change: SyncApi.RemoteChange): ByteArray? {
         val data = change.data ?: return null
         return try {
-            val ad = SyncCrypto.ad(change.kind, change.id)
-            val json = JSONObject(SyncCrypto.open(keys.encKey, ad, data).decodeToString())
-            Incoming(change, if (NotePayload.isTombstone(json)) null else json)
+            SyncCrypto.open(keys.encKey, SyncCrypto.ad(change.kind, change.id), data)
         } catch (e: Exception) {
-            Log.w(TAG, "Skipping undecryptable ${change.kind} record", e)
+            Log.w(TAG, "Skipping undecryptable ${change.kind} record: ${e.javaClass.simpleName}")
             null
         }
+    }
+
+    /**
+     * Reads opened data. A deletion counts only if its sealed payload says so: the `deleted` flag
+     * of the server is not authenticated. Returns null if this app cannot read the data.
+     */
+    private fun read(change: SyncApi.RemoteChange, plain: ByteArray): Incoming? {
+        val json =
+            try {
+                JSONObject(plain.decodeToString())
+            } catch (e: Exception) {
+                Log.w(TAG, "Skipping unreadable ${change.kind} record: ${e.javaClass.simpleName}")
+                return null
+            }
+        return when {
+            NotePayload.isTombstone(json) -> Incoming(change, null)
+            change.kind != KIND_NOTE -> Incoming(change, json)
+            else -> attachmentsOf(json)?.let { Incoming(change, json, it) }
+        }
+    }
+
+    /**
+     * Decodes a remote note once before it is applied, so that a note that this app cannot read
+     * (for example an image without a type) cannot stop the pull. Null if it cannot be read.
+     */
+    private fun attachmentsOf(json: JSONObject): List<Pair<String, String>>? =
+        try {
+            NotePayload.attachments(NotePayload.decode(json, null) { null })
+        } catch (e: Exception) {
+            Log.w(TAG, "Skipping unreadable note record: ${e.javaClass.simpleName}")
+            null
+        }
+
+    /**
+     * An authentic change that this app cannot read is skipped, so that the cursor moves on. The
+     * local copy stays as it is and is not written over the change; a later local edit is. Blob
+     * cleanup waits while such a change is the newest version of a note, as it can use blobs.
+     */
+    private fun skip(change: SyncApi.RemoteChange) {
+        val record = store.recordByRemote(change.kind, change.id)
+        if (record != null && change.seq > record.seq)
+            store.putRecord(record.copy(seq = change.seq))
+        if (change.kind == KIND_NOTE) store.setMeta(UNREADABLE + change.id, change.seq.toString())
     }
 
     /**
@@ -215,7 +283,10 @@ class SyncEngine(
     private fun localIdOf(remoteId: String) =
         store.recordByRemote(KIND_NOTE, remoteId)?.localKey?.toLongOrNull()
 
-    private fun canonical(note: BaseNote) = NotePayload.encode(note, ::remoteIdOf)
+    private fun canonical(
+        note: BaseNote,
+        unknown: JSONObject? = remoteIdOf(note.id)?.let(store::getUnknownFields),
+    ) = NotePayload.encode(note, ::remoteIdOf, unknown)
 
     private suspend fun applyNote(item: Incoming, linked: MutableSet<Long>, effects: Effects) {
         val id = item.change.id
@@ -230,6 +301,7 @@ class SyncEngine(
         val local = localId?.let { dao.get(it) }
         val dirty = localId != null && store.isDirty(KIND_NOTE, localId.toString())
         val json = item.json
+        val unknown = json?.let(NotePayload::unknownFields)
 
         if (json == null) {
             when {
@@ -265,18 +337,18 @@ class SyncEngine(
                 }
             store.clearOutbox(KIND_NOTE, targetId.toString())
             linked.add(targetId)
-            putNoteRecord(id, targetId, item.change.seq, canonical(remote))
+            putNoteRecord(id, targetId, item.change.seq, canonical(remote, unknown), unknown)
             return
         }
 
         val remote = fitting(NotePayload.decode(json, local, ::localIdOf))
-        val remoteJson = canonical(remote)
+        val remoteJson = canonical(remote, unknown)
         if (!dirty) {
             if (differs(remote, local)) {
                 dao.insert(remote)
                 effects.updated(local, remote)
             }
-            putNoteRecord(id, local.id, item.change.seq, remoteJson)
+            putNoteRecord(id, local.id, item.change.seq, remoteJson, unknown)
             return
         }
 
@@ -300,7 +372,7 @@ class SyncEngine(
             effects.inserted(copy.copy(id = copyId))
         }
         // The remote version is the new merge base; the local result stays in the outbox.
-        putNoteRecord(id, local.id, item.change.seq, remoteJson)
+        putNoteRecord(id, local.id, item.change.seq, remoteJson, unknown)
     }
 
     private fun differs(a: BaseNote, b: BaseNote) =
@@ -315,7 +387,14 @@ class SyncEngine(
         )
     }
 
-    private fun putNoteRecord(remoteId: String, localId: Long, seq: Long, json: JSONObject) {
+    private fun putNoteRecord(
+        remoteId: String,
+        localId: Long,
+        seq: Long,
+        json: JSONObject,
+        unknown: JSONObject?,
+    ) {
+        store.setUnknownFields(remoteId, unknown)
         store.putRecord(
             SyncStore.Record(
                 KIND_NOTE,
@@ -330,15 +409,24 @@ class SyncEngine(
 
     /**
      * An unsynced local note with the same content and attachments, so that a first sync makes no
-     * duplicates. The remote version replaces it, so nothing of it may get lost.
+     * duplicates. The remote version replaces it, so nothing of it may get lost. A note that is
+     * open in the editor is not used: the next save of the editor would overwrite the remote one.
      */
-    private fun findSameNote(remote: BaseNote, linked: Set<Long>): BaseNote? =
-        dao.getByTitle(remote.title).firstOrNull {
-            it.id !in linked &&
+    private fun findSameNote(remote: BaseNote, linked: Set<Long>): BaseNote? {
+        val byTitle =
+            unlinkedByTitle ?: store.unlinkedNoteIdsByTitle(linked).also { unlinkedByTitle = it }
+        return byTitle[remote.title]
+            .orEmpty()
+            .asSequence()
+            .filter { it !in linked && it !in openNotes }
+            .mapNotNull { dao.get(it) }
+            .firstOrNull {
                 it.type == remote.type &&
-                contentOf(it) == contentOf(remote) &&
-                NotePayload.attachments(it).toSet() == NotePayload.attachments(remote).toSet()
-        }
+                    it.title == remote.title &&
+                    contentOf(it) == contentOf(remote) &&
+                    NotePayload.attachments(it).toSet() == NotePayload.attachments(remote).toSet()
+            }
+    }
 
     private fun contentOf(note: BaseNote) =
         (if (note.type == Type.NOTE) note.body else note.items.toText())
@@ -363,9 +451,12 @@ class SyncEngine(
         val value = if (json.isNull("value")) return else json.optString("value")
         if (SyncCrypto.labelId(keys.idKey, value) != id) return // id must match the content
         val order = json.optInt("order")
-        if (!store.isDirty(KIND_LABEL, value)) {
+        val exists = store.getLabel(value) != null
+        // A local change wins, but a remote change beats a local deletion that is not pushed yet.
+        if (!exists || !store.isDirty(KIND_LABEL, value)) {
             val label = Label(value, order)
-            if (store.getLabel(value) == null) labelDao.insert(label) else labelDao.update(label)
+            if (exists) labelDao.update(label) else labelDao.insert(label)
+            store.clearOutbox(KIND_LABEL, value)
         }
         store.putRecord(
             SyncStore.Record(
@@ -404,14 +495,17 @@ class SyncEngine(
             else -> app.getCurrentAudioDirectory()
         }
 
-    private fun download(json: JSONObject) {
-        val note = NotePayload.decode(json, null) { null }
-        NotePayload.attachments(note).forEach { (folder, name) ->
+    /**
+     * A blob that the server refuses or that does not open is skipped, not the sync: the next pull
+     * tries it again ([downloadMissing]). Network errors stop the sync.
+     */
+    private fun download(attachments: Collection<Pair<String, String>>) {
+        attachments.forEach { (folder, name) ->
             val existing = app.resolveAttachmentFile(folder, name)
             if (existing != null && existing.exists()) return@forEach
             val dir = directory(folder)
             val target = File(dir, name)
-            val temp = File(dir, ".sync-$name")
+            val temp = File(dir, TEMP_PREFIX + name)
             val id = SyncCrypto.blobId(keys.idKey, name)
             try {
                 val found =
@@ -425,13 +519,42 @@ class SyncEngine(
                             )
                         }
                     }
-                if (found && !temp.renameTo(target)) throw java.io.IOException("rename failed")
                 if (!found) Log.w(TAG, "Attachment not on server yet")
+                else if (!temp.renameTo(target)) Log.w(TAG, "Attachment could not be saved")
             } catch (e: java.security.GeneralSecurityException) {
-                Log.w(TAG, "Attachment does not open, skipped", e)
+                Log.w(TAG, "Attachment does not open, skipped: ${e.javaClass.simpleName}")
+            } catch (e: SyncApi.HttpException) {
+                Log.w(TAG, "Attachment download failed: HTTP ${e.code}")
             } finally {
                 temp.delete()
             }
+        }
+    }
+
+    /**
+     * Downloads attachments that notes use but that are missing here, for example after a failed
+     * download. Only blobs that the server has, at most [MAX_DOWNLOADS] per pull.
+     */
+    private suspend fun downloadMissing() {
+        val dirs = HashMap<String, File>()
+        val missing = HashMap<String, Pair<String, String>>()
+        referencedAttachments().forEach { attachment ->
+            val (folder, name) = attachment
+            if (File(dirs.getOrPut(folder) { directory(folder) }, name).exists()) return@forEach
+            if (app.resolveAttachmentFile(folder, name)?.exists() == true) return@forEach
+            missing[SyncCrypto.blobId(keys.idKey, name)] = attachment
+        }
+        if (missing.isEmpty()) return
+        val notOnServer = missing.keys.chunked(1000).flatMap { api.missingBlobs(it) }.toSet()
+        download(missing.filterKeys { it !in notOnServer }.values.take(MAX_DOWNLOADS))
+    }
+
+    /** Removes the partial downloads that an interrupted sync left behind. */
+    private fun deleteTempFiles() {
+        listOf(SUBFOLDER_IMAGES, SUBFOLDER_FILES, SUBFOLDER_AUDIOS).forEach { folder ->
+            directory(folder)
+                .listFiles { file -> file.name.startsWith(TEMP_PREFIX) }
+                ?.forEach { it.delete() }
         }
     }
 
@@ -571,7 +694,7 @@ class SyncEngine(
                 )
             return Pending(entry, change, record, null)
         }
-        val json = canonical(note)
+        val json = canonical(note, store.getUnknownFields(record.remoteId))
         val hash = hash(json)
         if (record.seq > 0 && record.hash == hash) {
             store.removeOutbox(entry)
@@ -659,9 +782,14 @@ class SyncEngine(
 
     // ---- Server cleanup ----
 
-    /** Deletes blobs that no note references and that are older than one day. */
+    /**
+     * Deletes blobs that no note references and that are older than one day. Not while remote
+     * versions wait (open notes, unreadable records): they can use blobs that no note uses here.
+     */
     suspend fun collectGarbage() {
         if (store.outboxSize() > 0) return
+        if (store.metaWithPrefix(DEFERRED).isNotEmpty()) return
+        if (store.metaWithPrefix(UNREADABLE).isNotEmpty()) return
         val referenced =
             referencedAttachments().map { SyncCrypto.blobId(keys.idKey, it.second) }.toSet()
         val dayAgo = System.currentTimeMillis() / 1000 - 24 * 3600
@@ -674,6 +802,9 @@ class SyncEngine(
         private const val TAG = "SyncEngine"
         const val META_CURSOR = "cursor"
         private const val DEFERRED = "deferred:"
+        private const val UNREADABLE = "unreadable:"
+        private const val TEMP_PREFIX = ".sync-"
+        private const val MAX_DOWNLOADS = 100
         private const val MAX_BATCH_BYTES = 8 shl 20
         const val CONFLICT_SUFFIX = " (conflict)"
 

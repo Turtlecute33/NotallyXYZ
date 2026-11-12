@@ -113,7 +113,7 @@
     <string name="daily">يومي</string>
     <string name="dark">داكن</string>
     <string name="data_in_public">تخزين البيانات في المجلد العام</string>
-    <string name="data_in_public_message">بتفعيل هذا الخيار، سيتم نقل قاعدة بيانات التطبيق الداخلية والملفات المرفقة إلى المجلد العام للتطبيق (Android/media/com.philkes.notallyx). وبالاقتران مع تطبيقات مزامنة الملفات، يمكن استخدام ذلك لمزامنة بيانات التطبيق بين عدة أجهزة.</string>
+    <string name="data_in_public_message">بتفعيل هذا الخيار، سيتم نقل قاعدة بيانات التطبيق الداخلية والملفات المرفقة إلى المجلد العام للتطبيق (Android/media/com.notallyxyz). وبالاقتران مع تطبيقات مزامنة الملفات، يمكن استخدام ذلك لمزامنة بيانات التطبيق بين عدة أجهزة.</string>
     <string name="database">قاعدة البيانات</string>
     <string name="database_dump_created">نسخة احتياطية أولية لقاعدة البيانات تم إنشاؤها في \'%1$s\'</string>
     <string name="date">التاريخ</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">لاستيراد ملاحظاتك من ملفات Markdown/نص عادي (ملف واحد أو مجلد)، اضغط على استيراد. يتم استيراد كل ملف كملاحظة مستقلة، ويصبح اسم الملف عنوانًا للملاحظة. إذا كان محتوى النص يبدأ بصيغة قائمة (مثل صيغة Markdown ‏’-[x]’، أو صيغة NotallyX ‏’[✓]’، أو ’*’، ’-’) فسيتم تحويله إلى ملاحظة قائمة.</string>
     <string name="play">تشغيل</string>
     <string name="please_grant_notally_alarm">يرجى منح NotallyX الإذن لإرسال التذكيرات</string>
-    <string name="please_grant_notally_audio">يرجى منح NotallyX الإذن لتسجيل الصوت. التسجيلات لا تغادر جهازك أبدًا</string>
+    <string name="please_grant_notally_audio">يرجى منح NotallyXYZ الإذن لتسجيل الصوت. لا تغادر التسجيلات جهازك إلا مشفّرة من طرف إلى طرف، عند تشغيل المزامنة</string>
     <string name="please_grant_notally_notification">يرجى منح NotallyX الإذن لإرسال الإشعارات</string>
     <string name="please_grant_notally_notification_auto_backup">في حال فشل النسخ الاحتياطي التلقائي، يمكنك تلقي إشعار عند منح التطبيق إذن الإشعارات</string>
     <string name="previous">السابق</string>
@@ -331,7 +331,7 @@
     <string name="redo">إعادة</string>
     <string name="reimport_database">إعادة استيراد قاعدة البيانات</string>
     <string name="reimport_database_failed">فشل إعادة استيراد قاعدة البيانات</string>
-    <string name="reimport_database_message">يمكنك الآن محاولة إعادة استيراد قاعدة البيانات الأولية. سيؤدي ذلك إلى حذف قاعدة البيانات التالفة الحالية (سيتم تخزين نسخة احتياطية في المجلد \'Android/media/com.philkes.notallyx/logs\') ثم محاولة استيراد قاعدة البيانات الأولية مع تخطي الملاحظات التالفة إن أمكن</string>
+    <string name="reimport_database_message">يمكنك الآن محاولة إعادة استيراد قاعدة البيانات الأولية. سيؤدي ذلك إلى حذف قاعدة البيانات التالفة الحالية (سيتم تخزين نسخة احتياطية في المجلد \'Android/media/com.notallyxyz/logs\') ثم محاولة استيراد قاعدة البيانات الأولية مع تخطي الملاحظات التالفة إن أمكن</string>
     <string name="reminder_no_repetition">بدون تكرار</string>
     <string name="reminders">التذكيرات</string>
     <string name="remove_link">إزالة الرابط</string>

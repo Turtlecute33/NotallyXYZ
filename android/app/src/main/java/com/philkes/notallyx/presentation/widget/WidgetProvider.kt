@@ -149,7 +149,7 @@ class WidgetProvider : AppWidgetProvider() {
 
         appWidgetIds.forEach { id ->
             val noteId = preferences.getWidgetData(id)
-            val noteType = preferences.getWidgetNoteType(id) ?: return
+            val noteType = preferences.getWidgetNoteType(id) ?: return@forEach
             updateWidget(
                 app,
                 appWidgetManager,

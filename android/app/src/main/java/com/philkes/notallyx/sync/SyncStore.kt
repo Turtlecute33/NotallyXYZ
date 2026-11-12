@@ -4,6 +4,7 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.philkes.notallyx.data.NotallyDatabase
 import com.philkes.notallyx.data.model.Label
+import org.json.JSONObject
 
 /**
  * Sync bookkeeping, stored in the notes database but unknown to Room, so that the Room schema stays
@@ -142,6 +143,15 @@ class SyncStore(private val database: NotallyDatabase) {
 
     fun deleteRecord(kind: String, remoteId: String) {
         db.execSQL("DELETE FROM $RECORD WHERE kind = ? AND remoteId = ?", arrayOf(kind, remoteId))
+        if (kind == KIND_NOTE) setUnknownFields(remoteId, null)
+    }
+
+    /** Top-level keys of the last remote version of a note that this app does not know. */
+    fun getUnknownFields(remoteId: String): JSONObject? =
+        getMeta(UNKNOWN_FIELDS + remoteId)?.let(::JSONObject)
+
+    fun setUnknownFields(remoteId: String, fields: JSONObject?) {
+        setMeta(UNKNOWN_FIELDS + remoteId, fields?.toString())
     }
 
     /** Local note ids that are already linked to a remote record. */
@@ -149,6 +159,17 @@ class SyncStore(private val database: NotallyDatabase) {
         db.query("SELECT localKey FROM $RECORD WHERE kind = 'note' AND localKey IS NOT NULL").use {
             c ->
             buildSet { while (c.moveToNext()) c.getString(0).toLongOrNull()?.let { add(it) } }
+        }
+
+    /** Ids of the notes that are not in [linked], by title. */
+    fun unlinkedNoteIdsByTitle(linked: Set<Long>): Map<String, List<Long>> =
+        db.query("SELECT id, title FROM BaseNote").use { c ->
+            val out = HashMap<String, MutableList<Long>>()
+            while (c.moveToNext()) {
+                val id = c.getLong(0)
+                if (id !in linked) out.getOrPut(c.getString(1) ?: "") { ArrayList() }.add(id)
+            }
+            out
         }
 
     fun noteIdsWithLinks(): List<Long> =
@@ -190,12 +211,20 @@ class SyncStore(private val database: NotallyDatabase) {
         const val PAUSE = "SyncPause"
         const val KIND_NOTE = "note"
         const val KIND_LABEL = "label"
+        private const val UNKNOWN_FIELDS = "unknown:"
 
         private const val NEXT_VER = "(SELECT IFNULL(MAX(ver), 0) + 1 FROM $OUTBOX)"
         private const val ACTIVE = "WHEN NOT EXISTS (SELECT 1 FROM $PAUSE)"
 
+        /**
+         * No INSERT OR REPLACE here: the conflict policy of the statement that fires a trigger
+         * replaces the one in the trigger (Room's @Update is UPDATE OR ABORT, @Insert can be OR
+         * IGNORE), so a key that is in the outbox already would fail or keep its old version.
+         */
         private fun enqueueSql(kind: String, key: String) =
-            "INSERT OR REPLACE INTO $OUTBOX(kind, localKey, ver) VALUES ('$kind', $key, $NEXT_VER);"
+            "UPDATE $OUTBOX SET ver = $NEXT_VER WHERE kind = '$kind' AND localKey = $key; " +
+                "INSERT INTO $OUTBOX(kind, localKey, ver) SELECT '$kind', $key, $NEXT_VER " +
+                "WHERE NOT EXISTS (SELECT 1 FROM $OUTBOX WHERE kind = '$kind' AND localKey = $key);"
 
         /** Creates the tables and triggers. Safe to run on every open. */
         fun create(db: SupportSQLiteDatabase) {
@@ -208,6 +237,8 @@ class SyncStore(private val database: NotallyDatabase) {
                     "localKey TEXT, seq INTEGER NOT NULL, hash TEXT, fields TEXT, " +
                     "PRIMARY KEY(kind, remoteId))"
             )
+            // The triggers read MAX(ver) on every note and label write.
+            db.execSQL("CREATE INDEX IF NOT EXISTS ${OUTBOX}Ver ON $OUTBOX(ver)")
             db.execSQL("CREATE INDEX IF NOT EXISTS ${RECORD}Local ON $RECORD(kind, localKey)")
             db.execSQL(
                 "CREATE TABLE IF NOT EXISTS $META (key TEXT PRIMARY KEY NOT NULL, value TEXT)"
@@ -232,7 +263,18 @@ class SyncStore(private val database: NotallyDatabase) {
                 )
             triggers.forEach { (nameAndEvent, body) ->
                 val (name, event) = nameAndEvent
-                db.execSQL("CREATE TRIGGER IF NOT EXISTS $name $event $ACTIVE BEGIN $body END")
+                val sql = "CREATE TRIGGER $name $event $ACTIVE BEGIN $body END"
+                val current =
+                    db.query(
+                            "SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+                            arrayOf(name),
+                        )
+                        .use { if (it.moveToFirst()) it.getString(0) else null }
+                // A trigger of an older version of the app is replaced.
+                if (current != sql) {
+                    db.execSQL("DROP TRIGGER IF EXISTS $name")
+                    db.execSQL(sql)
+                }
             }
         }
 

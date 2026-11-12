@@ -46,7 +46,6 @@ import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Direction
 import com.philkes.notallyx.R
-import com.philkes.notallyx.data.model.BaseNote
 import com.philkes.notallyx.data.model.Color
 import com.philkes.notallyx.data.model.toColorString
 import com.philkes.notallyx.presentation.activity.main.MainActivity
@@ -102,8 +101,9 @@ class EditActivityTest : UiTestBase() {
 
         R.string.tap_for_more_options.byContentDescription().perform(click())
         R.string.change_color.byText().perform(click())
-        R.id.CardView.byId(withContentDescription(BaseNote.COLOR_NEW)).perform(click())
-        R.id.CardView.byId(withContentDescription(Color.CORAL.toColorString())).perform(click())
+        R.id.CardView.byId(withContentDescription(R.string.new_color)).perform(click())
+        R.id.CardView.byId(withContentDescription(containsString(Color.CORAL.toColorString())))
+            .perform(click())
         R.string.save.byText(withId(android.R.id.button1)).perform(scrollTo(), click())
 
         R.string.tap_for_more_options.byContentDescription().perform(click())

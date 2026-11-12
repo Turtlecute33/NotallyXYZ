@@ -113,7 +113,7 @@
     <string name="daily">Naponta</string>
     <string name="dark">Sötét</string>
     <string name="data_in_public">Adatok tárolása a nyilvános mappában</string>
-    <string name="data_in_public_message">Ha ezt engedélyezed, az alkalmazás belső adatbázisa és a csatolt fájlok átkerülnek az alkalmazás nyilvános mappájába (Android/media/com.philkes.notallyx). Fájlszinkronizáló alkalmazásokkal együtt használva ez lehetővé teszi a NotallyX-adatok több eszköz közötti szinkronizálását.</string>
+    <string name="data_in_public_message">Ha ezt engedélyezed, az alkalmazás belső adatbázisa és a csatolt fájlok átkerülnek az alkalmazás nyilvános mappájába (Android/media/com.notallyxyz). Fájlszinkronizáló alkalmazásokkal együtt használva ez lehetővé teszi a NotallyX-adatok több eszköz közötti szinkronizálását.</string>
     <string name="database">Adatbázis</string>
     <string name="database_dump_created">A „\'%1$s\'” mappában létrehozott nyers adatbázis-kivonat</string>
     <string name="date">Dátum</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">Ahhoz, hogy a jegyzeteidet Markdown- vagy sima szöveges fájlokból (egy fájlból vagy mappából) importáld, kattints az „Importálás” gombra. Minden fájl külön jegyzetként kerül importálásra, a fájl neve pedig a jegyzet címévé válik. Ha a szöveg tartalma listaszintaxissal kezdődik (pl. Markdown „- [x]”, NotallyX szintaxis „[✓]”, vagy „*”, „-”), akkor a rendszer listajegyzetként konvertálja.</string>
     <string name="play">Lejátszás</string>
     <string name="please_grant_notally_alarm">Kérjük, engedélyezze a NotallyX számára az emlékeztetők küldését</string>
-    <string name="please_grant_notally_audio">Kérjük, engedélyezze a NotallyX számára a hangfelvétel készítését. A felvételek soha nem kerülnek ki a készülékéről.</string>
+    <string name="please_grant_notally_audio">Kérjük, engedélyezze a NotallyXYZ számára a hangfelvétel készítését. A felvételek csak végpontok közötti titkosítással hagyják el a készülékét, ha a szinkronizálás be van kapcsolva.</string>
     <string name="please_grant_notally_notification">Kérjük, engedélyezze a NotallyX számára az értesítések küldését</string>
     <string name="please_grant_notally_notification_auto_backup">Ha az automatikus biztonsági mentés sikertelen, értesítést kaphat, amennyiben engedélyezi a NotallyX számára az értesítések küldését.</string>
     <string name="previous">Előző</string>
@@ -331,7 +331,7 @@
     <string name="redo">Újra</string>
     <string name="reimport_database">Adatbázis újraimportálása</string>
     <string name="reimport_database_failed">Az adatbázis újbóli importálása sikertelen volt</string>
-    <string name="reimport_database_message">Most megpróbálhatod újraimportálni a nyers adatbázist. Ezzel törlődik a jelenlegi sérült adatbázis (a biztonsági másolat a „Android/media/com.philkes.notallyx/logs” mappában lesz elmentve), majd a program megpróbálja importálni a nyers adatbázist, amennyiben lehetséges, a sérült jegyzeteket kihagyva.</string>
+    <string name="reimport_database_message">Most megpróbálhatod újraimportálni a nyers adatbázist. Ezzel törlődik a jelenlegi sérült adatbázis (a biztonsági másolat a „Android/media/com.notallyxyz/logs” mappában lesz elmentve), majd a program megpróbálja importálni a nyers adatbázist, amennyiben lehetséges, a sérült jegyzeteket kihagyva.</string>
     <string name="reminder_no_repetition">Nincs ismétlés</string>
     <string name="reminders">Emlékeztetők</string>
     <string name="remove_link">Link eltávolítása</string>

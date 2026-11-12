@@ -14,13 +14,15 @@
         app:layout_constraintDimensionRatio="1:1"
         app:layout_constraintTop_toTopOf="parent"
         android:checkable="true"
+        app:cardForegroundColor="@android:color/transparent"
+        app:checkedIcon="@null"
         app:strokeWidth="1dp" >
 
         <ImageView
           android:id="@+id/CardIcon"
           android:layout_width="match_parent"
           android:layout_height="match_parent"
-          android:contentDescription="CardIcon"
+          android:contentDescription="@null"
           android:padding="18dp"
           android:layout_gravity="center"
           android:visibility="gone"

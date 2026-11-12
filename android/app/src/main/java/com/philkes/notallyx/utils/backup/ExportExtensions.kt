@@ -188,12 +188,12 @@ suspend fun ContextWrapper.autoBackupOnSave(
     return autoBackupOnSaveMutex.withLock {
         Log.d(
             TAG,
-            "Starting Auto Backup${savedNote?.let { " for Note id: ${it.id} title: ${it.title}" } ?: ""}...",
+            "Starting Auto Backup${savedNote?.let { " for Note id: ${it.id}" } ?: ""}...",
         )
         val folder =
             requireBackupFolder(
                 backupPath,
-                "Auto backup on note save (${savedNote?.let { "id: '${savedNote.id}, title: '${savedNote.title}'" }}) failed, because auto-backup path '$backupPath' is invalid",
+                "Auto backup on note save (${savedNote?.let { "id: '${savedNote.id}'" }}) failed, because auto-backup path '$backupPath' is invalid",
             ) ?: return@withLock
         try {
             var changedNote = savedNote
@@ -272,7 +272,7 @@ suspend fun ContextWrapper.autoBackupOnSave(
             try {
                 log(
                     TAG,
-                    "Auto backup on note save (${savedNote?.let { "id: '${savedNote.id}, title: '${savedNote.title}'" }}) failed",
+                    "Auto backup on note save (${savedNote?.let { "id: '${savedNote.id}'" }}) failed",
                     e,
                 )
             } catch (logException: Exception) {

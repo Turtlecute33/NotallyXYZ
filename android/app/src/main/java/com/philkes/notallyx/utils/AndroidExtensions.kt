@@ -71,6 +71,14 @@ fun <T> createObserverSkipFirst(observer: Observer<T>): Observer<T> {
     }
 }
 
+/**
+ * True for URIs that can point into this app's private storage: `file://` and the app's own
+ * FileProvider. Content from other apps must not use them.
+ */
+fun Context.isFileOrOwnProviderUri(uri: Uri) =
+    ContentResolver.SCHEME_FILE.equals(uri.scheme, ignoreCase = true) ||
+        uri.authority == "$packageName.provider"
+
 fun ClipboardManager.getLatestText(): CharSequence? {
     return primaryClip?.let { if (it.itemCount > 0) it.getItemAt(0)!!.text else null }
 }
@@ -478,7 +486,7 @@ fun Context.getOpenNotePendingIntent(noteId: Long, noteType: Type): PendingInten
         this,
         noteId.hashCode(),
         getOpenNoteIntent(noteId, noteType),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 }
 

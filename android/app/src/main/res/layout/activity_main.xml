@@ -15,9 +15,6 @@
             android:id="@+id/Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:contentDescription="Toolbar"
-            app:collapseContentDescription="ToolbarCollapse"
-            app:navigationContentDescription="ToolbarNavigation"
             app:contentInsetEnd="16dp">
 
         </com.google.android.material.appbar.MaterialToolbar>

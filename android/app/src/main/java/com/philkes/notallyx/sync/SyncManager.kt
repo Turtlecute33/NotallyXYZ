@@ -18,8 +18,12 @@ import com.philkes.notallyx.data.NotallyDatabase
 import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
 import com.philkes.notallyx.utils.log
 import java.io.IOException
+import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.SSLPeerUnverifiedException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,6 +39,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.json.JSONException
 
 /** Entry point of end-to-end encrypted sync. One instance per process. */
 class SyncManager private constructor(private val app: Application) {
@@ -45,20 +50,38 @@ class SyncManager private constructor(private val app: Application) {
         get() = mutableState.asStateFlow()
 
     private val mutableState = MutableStateFlow(State())
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope =
+        CoroutineScope(
+            SupervisorJob() +
+                Dispatchers.IO +
+                CoroutineExceptionHandler { _, e ->
+                    Log.w(TAG, "Sync task failed: ${e.javaClass.simpleName}")
+                }
+        )
     private val mutex = Mutex()
     private val openNotes = ConcurrentHashMap<Long, Int>()
     private var scheduled: Job? = null
+    /** A sync was requested that must run also without local changes, and has not run yet. */
+    @Volatile private var fullSyncPending = false
     private var liveJob: Job? = null
-    private var foreground = false
+    @Volatile private var foreground = false
     private var observedDatabase: NotallyDatabase? = null
+
+    /** The sync key, read once off the main thread (Keystore). Null until then, "" if none. */
+    @Volatile private var key: String? = null
+
+    /**
+     * Sync was set up, but the Keystore cannot give the key back. Sync is off until it is entered.
+     */
+    @Volatile
+    var keyUnreadable = false
+        private set
 
     private val preferences
         get() = NotallyXPreferences.getInstance(app)
 
     val isEnabled: Boolean
-        get() =
-            preferences.syncServerUrl.value.isNotEmpty() && preferences.syncKey.value.isNotEmpty()
+        get() = !key.isNullOrEmpty() && preferences.syncServerUrl.value.isNotEmpty()
 
     private val context: ContextWrapper
         get() = app
@@ -66,13 +89,18 @@ class SyncManager private constructor(private val app: Application) {
     private val observer =
         object : InvalidationTracker.Observer(arrayOf("BaseNote", "Label")) {
             override fun onInvalidated(tables: Set<String>) {
-                if (isEnabled && !mutex.isLocked)
-                    requestSync(LOCAL_CHANGE_DELAY_MS, onlyIfDirty = true)
+                // Also during a sync: a change made meanwhile must not wait for the next trigger.
+                if (isEnabled) requestSync(LOCAL_CHANGE_DELAY_MS, onlyIfDirty = true)
             }
         }
 
     /** Called once from [Application.onCreate]. */
     fun start() {
+        scope.launch {
+            loadKey()
+            updatePeriodicWork()
+            setForeground(foreground)
+        }
         scope.launch {
             NotallyDatabase.getDatabase(context).collect { database ->
                 observedDatabase?.invalidationTracker?.removeObserver(observer)
@@ -80,9 +108,27 @@ class SyncManager private constructor(private val app: Application) {
                 database?.invalidationTracker?.addObserver(observer)
             }
         }
-        updatePeriodicWork()
     }
 
+    /** Reads the key on first use. Call it off the main thread. */
+    private fun loadKey(): String {
+        key?.let {
+            return it
+        }
+        val value =
+            try {
+                preferences.syncKey.value
+            } catch (e: Exception) {
+                // For example a Keystore error. Sync stays off until the key is entered again.
+                Log.w(TAG, "Cannot read the sync key: ${e.javaClass.simpleName}")
+                keyUnreadable = preferences.syncServerUrl.value.isNotEmpty()
+                ""
+            }
+        key = value
+        return value
+    }
+
+    @Synchronized
     fun setForeground(value: Boolean) {
         foreground = value
         if (value && isEnabled) {
@@ -106,28 +152,34 @@ class SyncManager private constructor(private val app: Application) {
 
     fun requestSync(delayMs: Long = 0, onlyIfDirty: Boolean = false) {
         if (!isEnabled) return
+        // A new request replaces the waiting one, but does not make it smaller.
+        if (!onlyIfDirty) fullSyncPending = true
         scheduled?.cancel()
         scheduled = scope.launch {
             delay(delayMs)
-            if (onlyIfDirty) {
-                val database = NotallyDatabase.getDatabase(context).value ?: return@launch
-                if (SyncStore(database).outboxSize() == 0) return@launch
-            }
-            sync()
+            sync(onlyIfDirty)
         }
     }
 
-    /** @return true on success. */
-    suspend fun sync(): Boolean =
+    /**
+     * @param onlyIfDirty sync only if there are local changes. Checked after a running sync ends.
+     * @return true on success.
+     */
+    suspend fun sync(onlyIfDirty: Boolean = false): Boolean =
         withContext(Dispatchers.IO) {
-            if (!isEnabled) return@withContext false
+            if (loadKey().isEmpty() || !isEnabled) return@withContext false
             val database = NotallyDatabase.getDatabase(context).value ?: return@withContext false
             mutex.withLock {
+                if (onlyIfDirty && !fullSyncPending && SyncStore(database).outboxSize() == 0) {
+                    return@withLock true
+                }
+                fullSyncPending = false
                 // The server can have the push already. Record it also if the caller cancels.
                 withContext(NonCancellable) {
                     mutableState.value = State(running = true, error = mutableState.value.error)
                     try {
                         val engine = engine(database)
+                        // false: other devices kept writing, local changes wait. Not a success.
                         val consistent = engine.run()
                         val lastGc = SyncStore(database).getMeta(META_GC)?.toLongOrNull() ?: 0L
                         val now = System.currentTimeMillis()
@@ -135,13 +187,20 @@ class SyncManager private constructor(private val app: Application) {
                             engine.collectGarbage()
                             SyncStore(database).setMeta(META_GC, now.toString())
                         }
-                        preferences.syncLastSuccess.save(now)
-                        mutableState.value = State()
-                        true
+                        if (consistent) preferences.syncLastSuccess.save(now)
+                        mutableState.value = State(error = if (consistent) null else INCOMPLETE)
+                        consistent
                     } catch (e: Exception) {
-                        Log.w(TAG, "Sync failed", e)
-                        if (e !is IOException) context.log(TAG, msg = "Sync failed", throwable = e)
-                        mutableState.value = State(error = describe(e))
+                        // Only the class and the stack: a message can hold note content.
+                        Log.w(TAG, "Sync failed: ${e.javaClass.simpleName}")
+                        if (e !is IOException) {
+                            context.log(
+                                TAG,
+                                msg = "Sync failed: ${e.javaClass.name}",
+                                stackTrace = e.stackTrace.joinToString("\n") { "\tat $it" },
+                            )
+                        }
+                        mutableState.value = State(error = errorCode(e))
                         false
                     }
                 }
@@ -149,8 +208,7 @@ class SyncManager private constructor(private val app: Application) {
         }
 
     private fun engine(database: NotallyDatabase): SyncEngine {
-        val keys =
-            SyncCrypto.deriveKeys(requireNotNull(SyncCrypto.parseKey(preferences.syncKey.value)))
+        val keys = SyncCrypto.deriveKeys(requireNotNull(SyncCrypto.parseKey(loadKey())))
         val api = SyncApi(preferences.syncServerUrl.value, keys.bearer)
         return SyncEngine(context, database, api, keys, openNotes.keys)
     }
@@ -164,10 +222,7 @@ class SyncManager private constructor(private val app: Application) {
                 val database = NotallyDatabase.getDatabase(context).value ?: break
                 val cursor =
                     SyncStore(database).getMeta(SyncEngine.META_CURSOR)?.toLongOrNull() ?: 0L
-                val keys =
-                    SyncCrypto.deriveKeys(
-                        requireNotNull(SyncCrypto.parseKey(preferences.syncKey.value))
-                    )
+                val keys = SyncCrypto.deriveKeys(requireNotNull(SyncCrypto.parseKey(loadKey())))
                 val page =
                     SyncApi(preferences.syncServerUrl.value, keys.bearer)
                         .changes(cursor, 1, LIVE_WAIT_S)
@@ -186,16 +241,29 @@ class SyncManager private constructor(private val app: Application) {
 
     class SetupException(message: String) : Exception(message)
 
-    /** Creates an account on the server and returns the new sync key in display form. */
+    /** The account exists on the server, but sync could not start. Show [key] to the user. */
+    class KeyNotSavedException(val key: String, cause: Exception) : Exception(cause)
+
+    /**
+     * Creates an account on the server and returns the new sync key in display form.
+     *
+     * @throws KeyNotSavedException if the account exists but this device could not save the key.
+     */
     suspend fun createAccount(serverUrl: String, invite: String): String =
         withContext(Dispatchers.IO) {
             val url = checkUrl(serverUrl)
             val key = SyncCrypto.newSyncKey()
             val keys = SyncCrypto.deriveKeys(key)
-            SyncApi(url, keys.bearer).createAccount(invite.trim())
+            val api = SyncApi(url, keys.bearer)
+            // false: the account exists already, e.g. from a repeated request. Make sure it does.
+            if (!api.createAccount(invite.trim())) api.account()
             val display = SyncCrypto.formatKey(key)
             // The server has the account now. Save the key also if the caller cancels.
-            withContext(NonCancellable) { enable(url, display, keys) }
+            try {
+                withContext(NonCancellable) { enable(url, display, keys) }
+            } catch (e: Exception) {
+                throw KeyNotSavedException(display, e)
+            }
             display
         }
 
@@ -223,6 +291,8 @@ class SyncManager private constructor(private val app: Application) {
         }
         preferences.syncServerUrl.save(url)
         preferences.syncKey.save(display)
+        key = display
+        keyUnreadable = false
         updatePeriodicWork()
         setForeground(foreground)
         requestSync()
@@ -234,6 +304,7 @@ class SyncManager private constructor(private val app: Application) {
             liveJob?.cancel()
             mutex.withLock {
                 preferences.syncKey.save("")
+                key = ""
                 preferences.syncLastSuccess.save(0L)
                 NotallyDatabase.getDatabase(context).value?.let { SyncStore(it).resetLinks() }
                 mutableState.value = State()
@@ -250,8 +321,7 @@ class SyncManager private constructor(private val app: Application) {
     }
 
     private fun engineApi(): SyncApi {
-        val keys =
-            SyncCrypto.deriveKeys(requireNotNull(SyncCrypto.parseKey(preferences.syncKey.value)))
+        val keys = SyncCrypto.deriveKeys(requireNotNull(SyncCrypto.parseKey(loadKey())))
         return SyncApi(preferences.syncServerUrl.value, keys.bearer)
     }
 
@@ -287,21 +357,33 @@ class SyncManager private constructor(private val app: Application) {
         }
     }
 
-    private fun describe(e: Exception): String =
-        when (e) {
-            is SyncApi.HttpException ->
-                when (e.code) {
-                    401 -> "unauthorized"
-                    429 -> "rate_limited"
-                    507 -> "quota_exceeded"
-                    else -> e.error ?: "http_${e.code}"
-                }
-            is IOException -> "offline"
-            else -> e.javaClass.simpleName
-        }
-
     companion object {
         private const val TAG = "SyncManager"
+        const val INCOMPLETE = "incomplete"
+        private val SERVER_ERRORS =
+            setOf("invalid_invite", "signup_disabled", "accounts_limit", "cursor_ahead")
+
+        /** A short code for [e] that Settings shows as text. Never the message or the class. */
+        fun errorCode(e: Throwable): String =
+            when (e) {
+                is SetupException -> e.message ?: "error"
+                is KeyNotSavedException -> e.cause?.let(::errorCode) ?: "error"
+                is SyncApi.HttpException ->
+                    when (e.code) {
+                        in 300..399 -> "redirect"
+                        401 -> "unauthorized"
+                        429 -> "rate_limited"
+                        507 -> "quota_exceeded"
+                        else -> e.error?.takeIf { it in SERVER_ERRORS } ?: "http_${e.code}"
+                    }
+                is UnknownHostException -> "unknown_host"
+                is SSLHandshakeException,
+                is SSLPeerUnverifiedException -> "tls"
+                is IOException -> "offline"
+                is JSONException -> "bad_response"
+                else -> "error"
+            }
+
         private const val WORK_NAME = "com.notallyxyz.Sync"
         private const val META_ACCOUNT = "account"
         private const val META_GC = "gc"

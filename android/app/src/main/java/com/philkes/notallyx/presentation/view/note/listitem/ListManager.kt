@@ -1,6 +1,5 @@
 package com.philkes.notallyx.presentation.view.note.listitem
 
-import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.recyclerview.widget.RecyclerView
@@ -68,8 +67,6 @@ class ListManager(
         this.itemsChecked = itemsChecked
         this.checkedAdapter = adapterChecked
         nextItemId = this.items.size + (this.itemsChecked?.size() ?: 0)
-        Log.d(TAG, "initList:\n${this.items.toReadableString()}")
-        this.itemsChecked?.let { Log.d(TAG, "itemsChecked:\n${it.toReadableString()}") }
     }
 
     internal fun getState(selectedPos: Int? = null): ListState {
@@ -575,9 +572,5 @@ class ListManager(
     private fun Int.isValidPosition(forCheckedList: Boolean = false): Boolean {
         return this < 0 ||
             this > (if (forCheckedList) itemsChecked!!.lastIndex else items.lastIndex)
-    }
-
-    companion object {
-        private const val TAG = "ListManager"
     }
 }

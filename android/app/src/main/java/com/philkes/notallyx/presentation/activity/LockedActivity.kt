@@ -14,7 +14,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.viewbinding.ViewBinding
-import com.google.android.material.color.DynamicColors
 import com.philkes.notallyx.NotallyXApplication
 import com.philkes.notallyx.R
 import com.philkes.notallyx.presentation.setupProgressDialog
@@ -52,14 +51,11 @@ abstract class LockedActivity<T : ViewBinding> : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setupGlobalExceptionHandler()
+        installExceptionHandler()
         initViewModel()
         notallyXApplication = (application as NotallyXApplication)
-        if (preferences.useDynamicColors.value) {
-            if (DynamicColors.isDynamicColorAvailable()) {
-                DynamicColors.applyToActivitiesIfAvailable(notallyXApplication)
-            }
-        } else {
+        // Dynamic colors are applied by NotallyXApplication for all activities.
+        if (!preferences.useDynamicColors.value) {
             when (preferences.theme.value) {
                 Theme.SUPER_DARK -> theme.applyStyle(R.style.AppTheme_SuperDark, true)
                 else -> theme.applyStyle(R.style.AppTheme, true)
@@ -77,39 +73,25 @@ abstract class LockedActivity<T : ViewBinding> : AppCompatActivity() {
 
     open fun initViewModel() {}
 
-    private fun setupGlobalExceptionHandler() {
-        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            if (
-                throwable is SQLiteBlobTooBigException ||
-                    throwable.cause is SQLiteBlobTooBigException
-            ) {
-                lifecycleScope.launch {
-                    EXCEPTION_HANDLER_MUTEX.withLock {
-                        val time = System.currentTimeMillis()
-                        if (!isExceptionAlreadyBeingHandled(time)) {
-                            EXCEPTION_HANDLER_MUTEX_LAST_TIMESTAMP = time
-                            migrationProgress.setupProgressDialog(this@LockedActivity)
-                            setMigrationProgress(
-                                MigrationProgress(
-                                    R.string.migration_splitting_notes,
-                                    indeterminate = true,
-                                )
-                            )
-                            log(
-                                TAG,
-                                msg =
-                                    "SQLiteBlobTooBigException occurred, trying to fix broken notes...",
-                            )
-                            withContext(Dispatchers.IO) { application.splitOversizedNotes() }
-                            setMigrationProgress(
-                                MigrationProgress(R.string.migrating_data, inProgress = false)
-                            )
-                        }
-                    }
+    private fun splitOversizedNotes() {
+        lifecycleScope.launch {
+            EXCEPTION_HANDLER_MUTEX.withLock {
+                val time = System.currentTimeMillis()
+                if (!isExceptionAlreadyBeingHandled(time)) {
+                    EXCEPTION_HANDLER_MUTEX_LAST_TIMESTAMP = time
+                    migrationProgress.setupProgressDialog(this@LockedActivity)
+                    setMigrationProgress(
+                        MigrationProgress(R.string.migration_splitting_notes, indeterminate = true)
+                    )
+                    log(
+                        TAG,
+                        msg = "SQLiteBlobTooBigException occurred, trying to fix broken notes...",
+                    )
+                    withContext(Dispatchers.IO) { application.splitOversizedNotes() }
+                    setMigrationProgress(
+                        MigrationProgress(R.string.migrating_data, inProgress = false)
+                    )
                 }
-            } else {
-                previousHandler?.uncaughtException(thread, throwable)
             }
         }
     }
@@ -117,7 +99,21 @@ abstract class LockedActivity<T : ViewBinding> : AppCompatActivity() {
     private fun isExceptionAlreadyBeingHandled(time: Long): Boolean =
         EXCEPTION_HANDLER_MUTEX_LAST_TIMESTAMP?.let { it.secondsBetween(time) < 20 } ?: false
 
+    override fun onStart() {
+        super.onStart()
+        startedActivity = this
+    }
+
+    override fun onStop() {
+        if (startedActivity === this) startedActivity = null
+        super.onStop()
+    }
+
     override fun onResume() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // With the app lock on, Recents must not show a screenshot of the notes.
+            setRecentsScreenshotEnabled(!preferences.isLockEnabled)
+        }
         if (preferences.isLockEnabled) {
             if (hasToAuthenticateWithBiometric()) {
                 hide()
@@ -173,5 +169,31 @@ abstract class LockedActivity<T : ViewBinding> : AppCompatActivity() {
         private const val TAG = "LockedActivity"
         private val EXCEPTION_HANDLER_MUTEX = Mutex()
         private var EXCEPTION_HANDLER_MUTEX_LAST_TIMESTAMP: Long? = null
+
+        /** The activity between onStart and onStop. Cleared in onStop, so it does not leak. */
+        @Volatile private var startedActivity: LockedActivity<*>? = null
+        private var exceptionHandlerInstalled = false
+
+        /**
+         * Installs one process-wide handler that repairs oversized notes in the started activity.
+         * It keeps no activity reference of its own.
+         */
+        private fun installExceptionHandler() {
+            if (exceptionHandlerInstalled) return
+            exceptionHandlerInstalled = true
+            val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+            Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+                val activity = startedActivity
+                if (
+                    activity != null &&
+                        (throwable is SQLiteBlobTooBigException ||
+                            throwable.cause is SQLiteBlobTooBigException)
+                ) {
+                    activity.splitOversizedNotes()
+                } else {
+                    previousHandler?.uncaughtException(thread, throwable)
+                }
+            }
+        }
     }
 }

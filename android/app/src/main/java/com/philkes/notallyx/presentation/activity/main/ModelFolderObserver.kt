@@ -5,6 +5,7 @@ import android.view.MenuItem
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewModelScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.philkes.notallyx.R
@@ -265,10 +266,12 @@ class ModelFolderObserver(
                                         event: Int,
                                     ) {
                                         if (event != DISMISS_EVENT_ACTION) {
-                                            activity.deleteAttachments(
-                                                deletedNotes,
-                                                model.progress,
-                                            )
+                                            model.viewModelScope.launch(Dispatchers.IO) {
+                                                activity.deleteAttachments(
+                                                    deletedNotes,
+                                                    model.progress,
+                                                )
+                                            }
                                         }
                                     }
                                 }

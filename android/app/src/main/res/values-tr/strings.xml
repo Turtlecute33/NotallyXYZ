@@ -113,7 +113,7 @@
     <string name="daily">Günlük</string>
     <string name="dark">Koyu</string>
     <string name="data_in_public">Verileri ortak klasörde sakla</string>
-    <string name="data_in_public_message">Bu özelliği etkinleştirdiğinizde, uygulamanın dahili veritabanı ve ekli dosyalar uygulamanın genel klasörüne (Android/media/com.philkes.notallyx) taşınacaktır. Dosya senkronizasyon uygulamalarıyla birlikte kullanıldığında, bu özellik NotallyX verilerini birden fazla cihaz arasında senkronize etmek için kullanılabilir.</string>
+    <string name="data_in_public_message">Bu özelliği etkinleştirdiğinizde, uygulamanın dahili veritabanı ve ekli dosyalar uygulamanın genel klasörüne (Android/media/com.notallyxyz) taşınacaktır. Dosya senkronizasyon uygulamalarıyla birlikte kullanıldığında, bu özellik NotallyX verilerini birden fazla cihaz arasında senkronize etmek için kullanılabilir.</string>
     <string name="database">Veritabanı</string>
     <string name="database_dump_created">\'%1$s\' içinde oluşturulan ham veritabanı dökümü</string>
     <string name="date">Tarih</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">Markdown/düz metin dosyalarından (tek bir dosya veya klasör) notlarınızı içe aktarmak için “İçe Aktar” düğmesine tıklayın. Her dosya ayrı bir not olarak içe aktarılır ve dosyanın adı notun başlığı olur. Metin içeriği liste sözdizimiyle başlıyorsa (örn. Markdown ’- [x]’, NotallyX sözdizimi ’[✓]’ veya ’*’, ’-’), bu içerik bir Liste notuna dönüştürülür.</string>
     <string name="play">Oyna</string>
     <string name="please_grant_notally_alarm">Lütfen NotallyX’e hatırlatma gönderme izni verin</string>
-    <string name="please_grant_notally_audio">Lütfen NotallyX’e ses kaydetme izni verin. Kayıtlar hiçbir zaman cihazınızdan dışarı çıkmaz</string>
+    <string name="please_grant_notally_audio">Lütfen NotallyXYZ’ye ses kaydetme izni verin. Kayıtlar cihazınızdan yalnızca uçtan uca şifrelenmiş olarak, eşitleme açıkken çıkar</string>
     <string name="please_grant_notally_notification">Lütfen NotallyX’e bildirim gönderme izni verin</string>
     <string name="please_grant_notally_notification_auto_backup">Otomatik yedekleme işlemi başarısız olursa, NotallyX’e bildirim gönderme izni verdiğiniz takdirde bir bildirim alabilirsiniz</string>
     <string name="previous">Önceki</string>
@@ -331,7 +331,7 @@
     <string name="redo">Tekrarla</string>
     <string name="reimport_database">Veritabanını Yeniden İçe Aktar</string>
     <string name="reimport_database_failed">Veritabanının yeniden içe aktarılması başarısız oldu</string>
-    <string name="reimport_database_message">Artık ham veritabanını yeniden içe aktarmayı deneyebilirsiniz. Bu işlem, mevcut bozuk veritabanını siler (bir yedek, \'Android/media/com.philkes.notallyx/logs\' dizininde saklanacaktır) ve ardından mümkünse bozuk notları atlayarak ham veritabanını içe aktarmaya çalışır.</string>
+    <string name="reimport_database_message">Artık ham veritabanını yeniden içe aktarmayı deneyebilirsiniz. Bu işlem, mevcut bozuk veritabanını siler (bir yedek, \'Android/media/com.notallyxyz/logs\' dizininde saklanacaktır) ve ardından mümkünse bozuk notları atlayarak ham veritabanını içe aktarmaya çalışır.</string>
     <string name="reminder_no_repetition">Tekrar yok</string>
     <string name="reminders">Hatırlatmalar</string>
     <string name="remove_link">Bağlantıyı Kaldır</string>

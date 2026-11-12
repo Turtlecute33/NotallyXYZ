@@ -29,6 +29,7 @@
         android:localeConfig="@xml/locales"
         android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/notallyx_round"
+        android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
         <provider
@@ -85,13 +86,10 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="file" android:mimeType="text/*" />
                 <data android:scheme="content" android:mimeType="text/*" />
 
-                <data android:scheme="file" android:mimeType="application/json" />
                 <data android:scheme="content" android:mimeType="application/json" />
 
-                <data android:scheme="file" android:mimeType="application/xml" />
                 <data android:scheme="content" android:mimeType="application/xml" />
             </intent-filter>
         </activity>
@@ -107,13 +105,10 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="file" android:mimeType="text/*" />
                 <data android:scheme="content" android:mimeType="text/*" />
 
-                <data android:scheme="file" android:mimeType="application/json" />
                 <data android:scheme="content" android:mimeType="application/json" />
 
-                <data android:scheme="file" android:mimeType="application/xml" />
                 <data android:scheme="content" android:mimeType="application/xml" />
             </intent-filter>
         </activity>
@@ -149,15 +144,12 @@
             android:exported="false">
         </activity>
 
+        <!-- Not exported: CustomActivityOnCrash finds it through the filter inside this package. -->
         <activity
           android:name=".utils.ErrorActivity"
-          android:exported="true"
+          android:exported="false"
           android:label="@string/unknown_error"
-          android:process=":error_activity">
-            <intent-filter>
-            <action android:name="cat.ereza.customactivityoncrash.ERROR" />
-            </intent-filter>
-        </activity>
+          android:process=":error_activity" />
 
         <receiver
             android:name=".presentation.widget.WidgetProvider"

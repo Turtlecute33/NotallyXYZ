@@ -1,6 +1,5 @@
 package com.philkes.notallyx.utils.changehistory
 
-import android.util.Log
 import kotlin.IllegalStateException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,7 +45,6 @@ class ChangeHistory(
         }
         updateStackPointer(newPointer)
         val makeListAction = changeStack[stackPointer.value]
-        Log.d(TAG, "redo: $makeListAction")
         makeListAction.redo()
     }
 
@@ -61,7 +59,6 @@ class ChangeHistory(
             throw ChangeHistoryException("There is no Change to undo!}")
         }
         val makeListAction = changeStack[stackPointer.value]
-        Log.d(TAG, "undo: $makeListAction")
         makeListAction.undo()
         updateStackPointer(stackPointer.value - 1)
     }
@@ -99,10 +96,7 @@ class ChangeHistory(
 
     inner class ChangeHistoryException(message: String) :
         IllegalStateException(
-            "$message\nstackPointer: ${stackPointer.value}\nchangeStack:\n${changeStack.joinToString("\n")}"
+            // Only the kinds of changes: their values are note content and go to the log file.
+            "$message\nstackPointer: ${stackPointer.value}\nchangeStack:\n${changeStack.joinToString("\n") { it.javaClass.simpleName }}"
         )
-
-    companion object {
-        private const val TAG = "ChangeHistory"
-    }
 }

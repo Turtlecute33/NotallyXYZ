@@ -113,7 +113,7 @@
     <string name="daily">Täglich</string>
     <string name="dark">Dunkel</string>
     <string name="data_in_public">Daten in öffentlichen Ordner auslagern</string>
-    <string name="data_in_public_message">Wird dies aktiviert, werden die app-interne Datenbank und angehängte Dateien in einen öffentlichen Ordner ausgelagert (Android/media/com.philkes.notallyx). In Kombination mit Datei-Synchronisations Apps kann dies genutzt werden um NotallyX Daten zwischen mehrere Geräte zu synchronisieren.</string>
+    <string name="data_in_public_message">Wird dies aktiviert, werden die app-interne Datenbank und angehängte Dateien in einen öffentlichen Ordner ausgelagert (Android/media/com.notallyxyz). In Kombination mit Datei-Synchronisations Apps kann dies genutzt werden um NotallyX Daten zwischen mehrere Geräte zu synchronisieren.</string>
     <string name="database">Datenbank</string>
     <string name="database_dump_created">Roher Datenbank Dump in \'%1$s\' erstellt</string>
     <string name="date">Datum</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">Um deine Text-Notizen (einzele Datei oder Ordner) zu importieren, klicke Import.\n\nJede Datei wird als einzelne Notiz importiert, der Dateiname wird zum Notiz-Titel. Sollte der Textinhalt mit einer List-Syntax beginnen (z.B. Markdown ’- [x]’, NotallyX syntax ’[✓]’, or ’*’, ’-’), wird die Datei als List-Notiz importiert.</string>
     <string name="play">Start</string>
     <string name="please_grant_notally_alarm">Bitte erlaube NotallyX Erinnerungen zu schicken</string>
-    <string name="please_grant_notally_audio">Bitte gib NotallyX die Berechtigung Sprachnotizen zu erstellen. Die Aufnahmen verlassen niemals dein Gerät.</string>
+    <string name="please_grant_notally_audio">Bitte gib NotallyXYZ die Berechtigung Sprachnotizen zu erstellen. Die Aufnahmen verlassen dein Gerät nur Ende-zu-Ende-verschlüsselt, wenn die Synchronisierung an ist.</string>
     <string name="please_grant_notally_notification">Bitte erlaube NotallyX Benachrichtigungen zu schicken</string>
     <string name="please_grant_notally_notification_auto_backup">Wenn ein autom. Backup fehlschlägt kann eine Benachrichtigung geschickt werden, wenn du NotallyX erlaubst Benachrichtigungen zu schicken</string>
     <string name="previous">Vorherige</string>
@@ -331,7 +331,7 @@
     <string name="redo">Rückgängig</string>
     <string name="reimport_database">Datenbank Reimport</string>
     <string name="reimport_database_failed">Datenbank Reimport fehlgeschlagen</string>
-    <string name="reimport_database_message">Du kannst jetzt versuchen, die Rohdatenbank erneut zu importieren. Dabei wird die aktuelle beschädigte Datenbank gelöscht (eine Sicherung wird unter „Android/media/com.philkes.notallyx/logs“ gespeichert). Anschließend wird versucht, die Rohdatenbank zu importieren, wobei beschädigte Notizen nach Möglichkeit übersprungen werden.</string>
+    <string name="reimport_database_message">Du kannst jetzt versuchen, die Rohdatenbank erneut zu importieren. Dabei wird die aktuelle beschädigte Datenbank gelöscht (eine Sicherung wird unter „Android/media/com.notallyxyz/logs“ gespeichert). Anschließend wird versucht, die Rohdatenbank zu importieren, wobei beschädigte Notizen nach Möglichkeit übersprungen werden.</string>
     <string name="reminder_no_repetition">Keine Wiederholung</string>
     <string name="reminders">Erinnerungen</string>
     <string name="remove_link">Link entfernen</string>

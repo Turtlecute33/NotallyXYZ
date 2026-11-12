@@ -60,7 +60,7 @@ interface BaseNoteDao {
         if (truncated) {
             context.log(
                 TAG,
-                "Note (id: ${note.id}, title: '${note.title}') is too big to insert. Truncating to ${note.body.length} characters (was: ${baseNote.body.length})",
+                "Note (id: ${note.id}) is too big to insert. Truncating to ${note.body.length} characters (was: ${baseNote.body.length})",
             )
             context.showToast(
                 context.getString(

@@ -75,6 +75,24 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
     private lateinit var exportNotesActivityResultLauncher: ActivityResultLauncher<Intent>
 
     private var isStartViewFragment = false
+
+    /**
+     * Back from another view goes to the start view. Enabled only when the default handling does
+     * something else, so that back at the start view goes home with the predictive animation.
+     */
+    private val startViewBackCallback =
+        object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                if (notallyFragmentModel.actionMode.enabled.value) {
+                    return
+                }
+                if (!isStartViewFragment && !skipStartViewOnBack()) {
+                    navigateToStartView()
+                } else {
+                    finish()
+                }
+            }
+        }
     private val actionModeCancelCallback =
         object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -131,24 +149,7 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
             }
         }
 
-        onBackPressedDispatcher.addCallback(
-            this,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    if (notallyFragmentModel.actionMode.enabled.value) {
-                        return
-                    }
-                    if (
-                        !isStartViewFragment &&
-                            !intent.getBooleanExtra(EXTRA_SKIP_START_VIEW_ON_BACK, false)
-                    ) {
-                        navigateToStartView()
-                    } else {
-                        finish()
-                    }
-                }
-            },
-        )
+        onBackPressedDispatcher.addCallback(this, startViewBackCallback)
         onBackPressedDispatcher.addCallback(this, actionModeCancelCallback)
 
         mainActivityViewModel.progress.setupProgressDialog(this)
@@ -241,18 +242,33 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val navHostFragment = binding.NavHostFragment
         ViewCompat.setOnApplyWindowInsetsListener(binding.RelativeLayout) { view, insets ->
-            val systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            // Also the side insets: the navigation bar in landscape and display cutouts.
+            val systemBarsInsets =
+                insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+                )
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val endInset =
+                if (view.layoutDirection == View.LAYOUT_DIRECTION_RTL) systemBarsInsets.left
+                else systemBarsInsets.right
 
             // Apply padding to the main content views
             // Top margin for the Toolbar to avoid being under the status bar
             binding.Toolbar.apply {
-                (layoutParams as ViewGroup.MarginLayoutParams).topMargin = systemBarsInsets.top
+                (layoutParams as ViewGroup.MarginLayoutParams).apply {
+                    topMargin = systemBarsInsets.top
+                    leftMargin = systemBarsInsets.left
+                    rightMargin = systemBarsInsets.right
+                }
                 requestLayout()
             }
 
             binding.ActionMode.apply {
-                (layoutParams as ViewGroup.MarginLayoutParams).topMargin = systemBarsInsets.top
+                (layoutParams as ViewGroup.MarginLayoutParams).apply {
+                    topMargin = systemBarsInsets.top
+                    leftMargin = systemBarsInsets.left
+                    rightMargin = systemBarsInsets.right
+                }
                 requestLayout()
             }
 
@@ -266,7 +282,11 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
             binding.TakeNote.apply {
                 val marginLayoutParams = layoutParams as ViewGroup.MarginLayoutParams
                 marginLayoutParams.bottomMargin = 16.dp + systemBarsInsets.bottom + imeInsets.bottom
-                marginLayoutParams.marginEnd = 16.dp
+                marginLayoutParams.marginEnd = 16.dp + endInset
+                requestLayout()
+            }
+            binding.MakeList.apply {
+                (layoutParams as ViewGroup.MarginLayoutParams).marginEnd = 16.dp + endInset
                 requestLayout()
             }
 
@@ -279,9 +299,9 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
             // this padding to that scrollable view instead for better behavior.
             navHostFragment.apply {
                 setPadding(
-                    paddingLeft,
+                    systemBarsInsets.left,
                     paddingTop,
-                    paddingRight,
+                    systemBarsInsets.right,
                     systemBarsInsets.bottom + imeInsets.bottom,
                 )
             }
@@ -302,7 +322,20 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
 
     private fun navigateToStartView() {
         val (id, bundle) = getStartViewNavigation()
-        navController.navigate(id, bundle)
+        // The start view is the only entry, so back from it leaves the app.
+        navController.navigate(
+            id,
+            bundle,
+            navOptions { popUpTo(navController.graph.id) { inclusive = true } },
+        )
+    }
+
+    private fun skipStartViewOnBack() = intent.getBooleanExtra(EXTRA_SKIP_START_VIEW_ON_BACK, false)
+
+    private fun updateStartViewBackCallback() {
+        startViewBackCallback.isEnabled =
+            (!isStartViewFragment && !skipStartViewOnBack()) ||
+                navController.previousBackStackEntry != null
     }
 
     private fun setupFAB() {
@@ -557,6 +590,7 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
                 }
             }
             isStartViewFragment = isStartViewFragment(destination.id, bundle)
+            updateStartViewBackCallback()
         }
     }
 

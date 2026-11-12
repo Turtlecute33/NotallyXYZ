@@ -115,7 +115,7 @@
     <string name="daily">Dnevno</string>
     <string name="dark">Temno</string>
     <string name="data_in_public">Shranjevanje podatkov v javni mapi</string>
-    <string name="data_in_public_message">Če to omogočite, se bodo notranja baza podatkov aplikacije in priložene datoteke preselile v javno mapo aplikacije (Android/media/com.philkes.notallyx). V kombinaciji z aplikacijami za sinhronizacijo datotek se to lahko uporabi za sinhronizacijo podatkov NotallyX med več napravami.</string>
+    <string name="data_in_public_message">Če to omogočite, se bodo notranja baza podatkov aplikacije in priložene datoteke preselile v javno mapo aplikacije (Android/media/com.notallyxyz). V kombinaciji z aplikacijami za sinhronizacijo datotek se to lahko uporabi za sinhronizacijo podatkov NotallyX med več napravami.</string>
     <string name="database">Podatkovna baza</string>
     <string name="database_dump_created">Izpis surove baze podatkov, ustvarjen v »«%1$s</string>
     <string name="date">Datum</string>
@@ -320,7 +320,7 @@
     <string name="plain_text_files_help">Če želite uvoziti svoje zapiske iz datotek v formatu Markdown ali navadnega besedila (posamezna datoteka ali mapa), kliknite »Uvozi«. Vsaka datoteka se uvozi kot ločen zapisek, ime datoteke pa postane naslov zapiska. Če se besedilna vsebina začne s sintakso seznama (npr. Markdown »- [x]«, sintaksa NotallyX »[✓]« ali »*«, »-«), bo pretvorjena v opombo »Seznam«.</string>
     <string name="play">Igraj</string>
     <string name="please_grant_notally_alarm">Prosimo, dovolite aplikaciji NotallyX, da pošilja opomnike</string>
-    <string name="please_grant_notally_audio">Prosimo, dodelite aplikaciji NotallyX dovoljenje za snemanje zvoka. Posnetki nikoli ne zapustijo vaše naprave.</string>
+    <string name="please_grant_notally_audio">Prosimo, dodelite aplikaciji NotallyXYZ dovoljenje za snemanje zvoka. Posnetki zapustijo vašo napravo le šifrirani od konca do konca, ko je sinhronizacija vklopljena.</string>
     <string name="please_grant_notally_notification">Prosimo, dodelite aplikaciji NotallyX dovoljenje za pošiljanje obvestil</string>
     <string name="please_grant_notally_notification_auto_backup">Če samodejno varnostno kopiranje ni uspešno, lahko prejmete obvestilo, če aplikaciji NotallyX dodelite dovoljenje za pošiljanje obvestil</string>
     <string name="previous">Prejšnja</string>
@@ -333,7 +333,7 @@
     <string name="redo">Ponovi</string>
     <string name="reimport_database">Ponovni uvoz baze podatkov</string>
     <string name="reimport_database_failed">Ponovni uvoz baze podatkov ni uspel</string>
-    <string name="reimport_database_message">Zdaj lahko poskusite ponovno uvoziti surovo bazo podatkov. Pri tem se izbriše trenutna poškodovana baza podatkov (varnostna kopija bo shranjena v mapi »Android/media/com.philkes.notallyx/logs«), nato pa se poskuša uvoziti surova baza podatkov, pri čemer se po možnosti preskočijo poškodovane beležke.</string>
+    <string name="reimport_database_message">Zdaj lahko poskusite ponovno uvoziti surovo bazo podatkov. Pri tem se izbriše trenutna poškodovana baza podatkov (varnostna kopija bo shranjena v mapi »Android/media/com.notallyxyz/logs«), nato pa se poskuša uvoziti surova baza podatkov, pri čemer se po možnosti preskočijo poškodovane beležke.</string>
     <string name="reminder_no_repetition">Brez ponavljanja</string>
     <string name="reminders">Opomniki</string>
     <string name="remove_link">Odstrani povezavo</string>

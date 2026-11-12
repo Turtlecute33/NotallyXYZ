@@ -18,17 +18,15 @@ class SyncApi(serverUrl: String, private val bearer: String) {
     class HttpException(val code: Int, val error: String?) :
         IOException("HTTP $code ${error ?: ""}")
 
-    class RemoteChange(
-        val kind: String,
-        val id: String,
-        val seq: Long,
-        val deleted: Boolean,
-        val data: ByteArray?,
-    )
+    /** The `deleted` flag of the server is not read: only a sealed tombstone is a deletion. */
+    class RemoteChange(val kind: String, val id: String, val seq: Long, val data: ByteArray?)
 
     class Page(val changes: List<RemoteChange>, val seq: Long, val more: Boolean)
 
-    /** A deletion also carries [data]: the sealed tombstone (PROTOCOL.md, section 5). */
+    /**
+     * A deletion carries the sealed tombstone as [data] (PROTOCOL.md, section 5). [deleted] is only
+     * for this device; the request does not send it.
+     */
     class OutChange(
         val kind: String,
         val id: String,
@@ -65,7 +63,6 @@ class SyncApi(serverUrl: String, private val bearer: String) {
                     c.getString("kind"),
                     c.getString("id"),
                     c.getLong("seq"),
-                    c.optBoolean("deleted"),
                     c.optString("data")
                         .takeIf { it.isNotEmpty() }
                         ?.let { Base64.decode(it, Base64.DEFAULT) },
@@ -77,14 +74,13 @@ class SyncApi(serverUrl: String, private val bearer: String) {
     fun push(changes: List<OutChange>): List<Result> {
         val array = JSONArray()
         changes.forEach { c ->
-            val o =
+            array.put(
                 JSONObject()
                     .put("kind", c.kind)
                     .put("id", c.id)
                     .put("base", c.base)
                     .put("data", Base64.encodeToString(c.data, Base64.NO_WRAP))
-            if (c.deleted) o.put("deleted", true)
-            array.put(o)
+            )
         }
         val results = request("POST", "/changes", JSONObject().put("changes", array))
         val out = results.getJSONArray("results")

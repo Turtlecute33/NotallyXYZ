@@ -113,7 +113,7 @@
     <string name="daily">Zilnic</string>
     <string name="dark">Întunecată</string>
     <string name="data_in_public">Stocarea datelor într-un dosar public</string>
-    <string name="data_in_public_message">Prin activarea acestei opțiuni, baza de date internă a aplicației și fișierele atașate vor fi mutate în dosarul public al aplicației (Android/media/com.philkes.notallyx). În combinație cu aplicațiile de sincronizare a fișierelor, aceasta poate fi utilizată pentru a sincroniza datele NotallyX între mai multe dispozitive.</string>
+    <string name="data_in_public_message">Prin activarea acestei opțiuni, baza de date internă a aplicației și fișierele atașate vor fi mutate în dosarul public al aplicației (Android/media/com.notallyxyz). În combinație cu aplicațiile de sincronizare a fișierelor, aceasta poate fi utilizată pentru a sincroniza datele NotallyX între mai multe dispozitive.</string>
     <string name="database">Baza de date</string>
     <string name="database_dump_created">Copie brută a bazei de date creată în %1$s„”</string>
     <string name="date">Data</string>
@@ -318,7 +318,7 @@
     <string name="plain_text_files_help">Pentru a importa notele din fișiere cu text simplu (un singur fișier sau dosar), clic pe Import. Fiecare fișier este importat ca o notă separată, iar numele fișierului devine titlul notei. Dacă conținutul textului începe cu sintaxa de listă (de exemplu, Markdown „- [x]”, sintaxa NotallyX „[✓]” sau „*”, „-”), acesta va fi convertit într-o notă de tip listă.</string>
     <string name="play">Redă</string>
     <string name="please_grant_notally_alarm">Permite NotallyX să trimită memento-uri.</string>
-    <string name="please_grant_notally_audio">Acordă NotallyX permisiunea de a înregistra audio. Înregistrările nu părăsesc niciodată dispozitivul</string>
+    <string name="please_grant_notally_audio">Acordă NotallyXYZ permisiunea de a înregistra audio. Înregistrările părăsesc dispozitivul doar criptate end-to-end, când sincronizarea este activată</string>
     <string name="please_grant_notally_notification">Acordă NotallyX permisiunea de a trimite notificări.</string>
     <string name="please_grant_notally_notification_auto_backup">Dacă o copie de rezervă automată eșuează, poți primi o notificare, dacă acorzi permisiunea lui NotallyX de a trimite notificări.</string>
     <string name="previous">Anterior</string>
@@ -331,7 +331,7 @@
     <string name="redo">Repetă</string>
     <string name="reimport_database">Reimportare bază de date</string>
     <string name="reimport_database_failed">Reimportarea bazei de date a eșuat</string>
-    <string name="reimport_database_message">Acum poți încerca să reimportezi baza de date brută. Această operațiune șterge baza de date curentă coruptă (o copie de rezervă va fi stocată în „Android/media/com.philkes.notallyx/logs”) și apoi încearcă să importe baza de date brută, omisând notele corupte, dacă este posibil</string>
+    <string name="reimport_database_message">Acum poți încerca să reimportezi baza de date brută. Această operațiune șterge baza de date curentă coruptă (o copie de rezervă va fi stocată în „Android/media/com.notallyxyz/logs”) și apoi încearcă să importe baza de date brută, omisând notele corupte, dacă este posibil</string>
     <string name="reminder_no_repetition">Fără repetare</string>
     <string name="reminders">Memento-uri</string>
     <string name="remove_link">Elimină link-ul</string>

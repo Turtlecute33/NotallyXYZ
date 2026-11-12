@@ -9,6 +9,7 @@
 
     <TextView
       android:id="@+id/Message"
+      android:labelFor="@id/InputText"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
@@ -31,8 +32,7 @@
           android:layout_gravity="center_horizontal"
           android:singleLine="true"
           android:scrollHorizontally="true"
-          android:textSize="16sp"
-          android:contentDescription="Input"/>
+          android:textSize="16sp" />
 
     </com.google.android.material.textfield.TextInputLayout>
 

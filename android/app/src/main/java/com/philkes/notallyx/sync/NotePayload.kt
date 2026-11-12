@@ -20,11 +20,36 @@ object NotePayload {
 
     /** Fields that are merged as one unit. If both sides changed them, a conflict copy is made. */
     private val CONTENT = listOf("type", "title", "body", "spans", "items")
+    /** The top-level keys that [encode] writes. */
+    private val KNOWN =
+        CONTENT +
+            listOf(
+                "v",
+                "folder",
+                "color",
+                "pinned",
+                "timestamp",
+                "modifiedTimestamp",
+                "labels",
+                "images",
+                "files",
+                "audios",
+                "reminders",
+                "viewMode",
+            )
     private const val NOTE_URL = "note://"
     private val HEX_ID = Regex("^[0-9a-f]{32}$")
 
-    /** @param remoteIdOf maps a local note id to its record id, null if unknown. */
-    fun encode(note: BaseNote, remoteIdOf: (Long) -> String?): JSONObject {
+    /**
+     * @param remoteIdOf maps a local note id to its record id, null if unknown.
+     * @param unknown top-level keys of the last remote version that this app does not know. They
+     *   are written again unchanged (PROTOCOL.md, section 5).
+     */
+    fun encode(
+        note: BaseNote,
+        remoteIdOf: (Long) -> String?,
+        unknown: JSONObject? = null,
+    ): JSONObject {
         val spans =
             note.spans.map { span ->
                 val url = span.linkData
@@ -36,7 +61,9 @@ object NotePayload {
         for (i in 0 until reminders.length()) reminders
             .getJSONObject(i)
             .remove("isNotificationVisible")
-        return JSONObject()
+        val json = JSONObject()
+        unknown?.keys()?.forEach { key -> if (key !in KNOWN) json.put(key, unknown.get(key)) }
+        return json
             .put("v", 1)
             .put("type", note.type.name)
             .put("folder", note.folder.name)
@@ -96,6 +123,16 @@ object NotePayload {
             viewMode = NoteViewMode.valueOfOrDefault(json.string("viewMode")),
             isPinnedToStatus = local?.isPinnedToStatus ?: false,
         )
+    }
+
+    /** The top-level keys of [payload] that this app does not know; null if there are none. */
+    fun unknownFields(payload: JSONObject): JSONObject? {
+        val out = JSONObject()
+        payload.keys().forEach { key ->
+            val value = payload.opt(key)
+            if (key !in KNOWN && value != null && value != JSONObject.NULL) out.put(key, value)
+        }
+        return out.takeIf { it.length() > 0 }
     }
 
     /**

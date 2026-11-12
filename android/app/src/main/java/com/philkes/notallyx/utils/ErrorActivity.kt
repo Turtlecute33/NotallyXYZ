@@ -31,7 +31,6 @@ import com.philkes.notallyx.presentation.view.misc.Progress
 import com.philkes.notallyx.presentation.viewmodel.ExportMimeType
 import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
 import com.philkes.notallyx.utils.backup.FILE_TIMESTAMP_FORMAT
-import com.philkes.notallyx.utils.backup.backupDatabaseFiles
 import com.philkes.notallyx.utils.backup.copyDatabase
 import com.philkes.notallyx.utils.backup.exportAsZip
 import com.philkes.notallyx.utils.backup.exportRawDatabase
@@ -52,7 +51,6 @@ class ErrorActivity : AppCompatActivity() {
 
     private lateinit var exportBackupActivityResultLauncher: ActivityResultLauncher<Intent>
     private lateinit var exportDatabaseActivityResultLauncher: ActivityResultLauncher<Intent>
-    private var backupPath: File? = null
     private var appLogs: File? = null
     private val backupProgress = MutableStateFlow<Progress?>(null)
 
@@ -79,34 +77,6 @@ class ErrorActivity : AppCompatActivity() {
             setupExportBackup(binding, stacktrace)
         }
         val now = Date()
-        lifecycleScope.launch(
-            CoroutineExceptionHandler { _, throwable ->
-                log(TAG, msg = "Creating crash database dump failed", throwable = throwable)
-            }
-        ) {
-            backupPath =
-                withContext(Dispatchers.IO) { application.backupDatabaseFiles(now) }
-                    ?.also { dumpFolder ->
-                        binding.CrashLogsInfo.apply {
-                            visibility = View.VISIBLE
-                            setOnClickListener { view ->
-                                // Show popup dialog with backup location details
-                                MaterialAlertDialogBuilder(this@ErrorActivity)
-                                    .setMessage(
-                                        getString(
-                                            R.string.database_dump_created,
-                                            dumpFolder.absolutePath,
-                                        )
-                                    )
-                                    .setPositiveButton(android.R.string.ok, null)
-                                    .setNeutralButton(R.string.copy) { _, _ ->
-                                        copyToClipBoard(dumpFolder.absolutePath)
-                                    }
-                                    .show()
-                            }
-                        }
-                    }
-        }
         lifecycleScope.launch(
             CoroutineExceptionHandler { _, throwable ->
                 log(TAG, msg = "Creating crash logs dump failed", throwable = throwable)
@@ -264,11 +234,7 @@ class ErrorActivity : AppCompatActivity() {
                                 showErrorDialog(
                                     exportException,
                                     R.string.auto_backup_failed,
-                                    getString(
-                                        R.string.crash_export_raw_backup_failed,
-                                        backupPath ?: "null",
-                                        getString(report_bug),
-                                    ),
+                                    getString(crash_export_backup_failed, getString(report_bug)),
                                 )
                                 return@launch
                             }

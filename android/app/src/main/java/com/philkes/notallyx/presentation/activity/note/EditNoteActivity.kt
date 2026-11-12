@@ -46,6 +46,15 @@ class EditNoteActivity : EditActivity(Type.NOTE) {
 
     private var searchResultIndices: List<Pair<Int, Int>>? = null
 
+    /** True while the bottom bar shows the text formatting tools. */
+    private var formattingMenuShown = false
+
+    override fun interceptsBack() = super.interceptsBack() || formattingMenuShown
+
+    override fun handleBack() {
+        if (isInSearchMode()) endSearch() else initBottomMenu()
+    }
+
     override fun configureUI() {
         binding.EnterTitle.setOnNextAction { binding.EnterBody.requestFocus() }
 
@@ -168,6 +177,8 @@ class EditNoteActivity : EditActivity(Type.NOTE) {
 
     override fun initBottomMenu() {
         super.initBottomMenu()
+        formattingMenuShown = false
+        updateBackCallback()
         binding.BottomAppBarCenter.visibility = VISIBLE
         binding.BottomAppBarLeft.apply {
             removeAllViews()
@@ -186,6 +197,8 @@ class EditNoteActivity : EditActivity(Type.NOTE) {
     }
 
     private fun initBottomTextFormattingMenu() {
+        formattingMenuShown = true
+        updateBackCallback()
         binding.BottomAppBarCenter.visibility = GONE
         val extractColor = colorInt
         binding.BottomAppBarRight.apply {
