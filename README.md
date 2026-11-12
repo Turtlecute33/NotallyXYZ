@@ -66,34 +66,43 @@ data on the server cannot be decrypted.
   cannot change a record or swap two records without detection.
 - **Sealed deletions**: a deletion is also encrypted. If the server, or a person with the access
   token, makes up a deletion, the devices ignore it and upload their copy again.
-- **Padded sizes**: the ciphertext is padded (Padmé, at most 12 % more), so the server does not
-  see the exact length of a note.
+- **Padded sizes**: the ciphertext is padded (Padmé, at most 12 % more, at least 256 bytes), so
+  the server does not see the exact length of a note.
 - **No password on the server**: the devices derive an access token from the key. The server
   keeps only the SHA-256 hash of this token.
 - **HTTPS only.** The Android app trusts only system CAs: a CA that you or an admin add is not
   trusted. Plain HTTP works only for a local test server.
-- **Key storage**: the Android Keystore, the macOS Keychain (this device only), and Secret Service
-  or the Windows Credential Manager on the desktop.
+- **Key storage**: the Android Keystore, the macOS login Keychain, and Secret Service or the
+  Windows Credential Manager on the desktop. If a Linux desktop has no Secret Service, the key
+  goes to a file that only your user can read; the app moves it to the keyring when one is
+  available.
+- **Attachments from other devices**: the desktop app opens only images, audio, video, PDF and
+  text files in another app. It can only save other files, and on Windows it marks them as
+  downloaded from the internet.
 - **Encrypted local cache** on macOS, Linux and Windows: records stay sealed on disk, as on the
-  server. The apps decrypt notes only in memory.
+  server. The apps decrypt notes only in memory, with two exceptions: a reminder notification
+  shows the note title, and the system can keep it; and an attachment that you open is written
+  as a plain temporary file until the app quits.
 - **Same crypto on all clients**: each client must pass the test vectors in
   [`server/testvectors.json`](server/testvectors.json).
 - **Hardened server**: a `scratch` image, a non-root user, a read-only file system and no Linux
   capabilities.
 
-The server can still delete your data, hold back changes, or send an older version of a record
-again. Keep a local backup on one device. The Android app makes automatic backups.
+The server, or a person with the access token, can still delete your data, hold back changes,
+or send an older version of a record again. An older version can undo an edit, bring back a
+deleted note, or repeat an old deletion. Keep a local backup on one device. The Android app makes
+automatic backups.
 
 ## Privacy
 
 - No analytics, no crash reports to a server, no ads, no Google Play Services.
 - The apps connect only to your sync server. With sync off, the Android app makes no network
   connections.
-- The server keeps no IP addresses and writes no access logs. It sees random ids, padded sizes,
-  the time of each change and the IP address of each request.
+- The server writes no logs with IP addresses and no access logs. It sees random ids, padded
+  sizes, the time of each change and the IP address of each request. For rate limiting, it keeps
+  the IP addresses of failed requests in memory for at most 15 minutes.
 - No cookies and no HTTP cache in the sync clients. The desktop app loads no web fonts.
-- No cloud backup: on Android, the database and the settings stay out of cloud backup and device
-  transfer.
+- No cloud backup: on Android, all app data stays out of cloud backup and device transfer.
 - **Export**: [`nxyz-export`](server/cmd/nxyz-export) downloads and decrypts all data of an
   account, for a backup or a move to another app.
 
@@ -175,9 +184,16 @@ dependencies.
   changed the record after that version, the server rejects the write. The device then reads the
   new version, merges and tries again.
 - **Merge**: a three-way merge against the last synced version. The title, the text and the list
-  items are one unit. Labels and attachments merge as a union, and nothing is discarded.
-- **Attachments**: a device uploads an attachment before the first note that uses it. After a
-  full sync, a device can remove attachments that no note uses and that are older than 24 hours.
+  items are one unit. Labels and attachments merge as a union, and nothing is discarded. At the
+  first sync, a device links a local note to a note on the server only if the type, title,
+  content (with the checked state of list items) and attachment names are the same.
+- **Attachments**: a device uploads an attachment before the first note that uses it. Before it
+  sends a note, it asks the server which attachments of the note are missing and uploads them
+  again. After a full sync, a device can remove attachments that no note uses and that are older
+  than 24 hours.
+- **Restored server**: if the server has older data than a device, for example after the restore
+  of a backup, the device stops syncing and shows an error. Refer to
+  [server/README.md](server/README.md).
 
 The full specification is in [server/PROTOCOL.md](server/PROTOCOL.md).
 
