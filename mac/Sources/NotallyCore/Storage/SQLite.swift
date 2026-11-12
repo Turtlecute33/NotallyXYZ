@@ -25,6 +25,7 @@ final class SQLite {
         guard sqlite3_open_v2(path, &db, flags, nil) == SQLITE_OK else {
             let msg = db.map { String(cString: sqlite3_errmsg($0)) } ?? "open failed"
             sqlite3_close(db)
+            db = nil  // deinit closes it otherwise a second time
             throw SQLiteError.open(msg)
         }
         // secure_delete overwrites deleted content; WAL keeps writes cheap.

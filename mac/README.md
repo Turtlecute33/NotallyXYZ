@@ -69,12 +69,19 @@ store it in a password manager.
 The tests check the crypto against `testvectors.json` from the server repo, and run
 end-to-end sync against a real server on `127.0.0.1:8788`: account, notes, labels, blobs,
 conflicts, field merge, deletes, echo suppression, notes open in an editor, first-pull
-linking.
+linking, a server restored from an older backup.
 
 ## Security and privacy
 
-- The sync key stays in the Keychain (this device only). Notes are encrypted with
+- The sync key is in the login Keychain, protected by your login password. It does not go to
+  iCloud Keychain, but Time Machine and Migration Assistant copy it with the login Keychain (the
+  "this device only" Keychain needs an app signed with an Apple Team ID). Notes are encrypted with
   AES-256-GCM before they leave the Mac; the server sees only random ids and padded ciphertext.
+- A copied sync key stays on this Mac (no Universal Clipboard) and is removed from the clipboard
+  after 60 seconds. While the key is visible, the app asks macOS to leave its window out of
+  screenshots and screen sharing (not every capture tool honors this).
+- Reminder notifications show only the note title. macOS keeps notifications on disk in plain
+  text.
 - The local cache keeps the records and attachments exactly as sealed on the server. Notes are
   decrypted only in memory. Opening a file in another app writes a plaintext copy to a private
   temporary folder that is deleted on quit.

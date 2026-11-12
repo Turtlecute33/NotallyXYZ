@@ -58,9 +58,9 @@ struct SidebarView: View {
         .alert("Rename label", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("Name", text: $newName)
             Button("Rename") {
-                if let old = renaming {
-                    model.store?.renameLabel(old, to: newName)
-                    if model.destination == .label(old) { model.destination = .label(newName) }
+                let new = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let old = renaming, model.store?.renameLabel(old, to: new) == true, model.destination == .label(old) {
+                    model.destination = .label(new)
                 }
             }
             Button("Cancel", role: .cancel) {}

@@ -110,7 +110,9 @@ struct SetupView: View {
     }
 }
 
-/// Shows a secret in monospace with a copy button. The clipboard entry is marked concealed.
+/// Shows a secret in monospace with a copy button. The clipboard entry is marked concealed, stays
+/// on this Mac (no Universal Clipboard) and is cleared after 60 s. While the secret is visible, its
+/// window asks to be left out of screenshots and screen sharing.
 struct KeyBox: View {
     let text: String
     @State private var copied = false
@@ -123,13 +125,32 @@ struct KeyBox: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button(copied ? "Copied" : "Copy") {
                 let pb = NSPasteboard.general
-                pb.clearContents()
+                let count = pb.prepareForNewContents(with: .currentHostOnly)
                 pb.setString(text, forType: .string)
                 pb.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
                 copied = true
+                Task {
+                    try? await Task.sleep(for: .seconds(60))
+                    if NSPasteboard.general.changeCount == count { NSPasteboard.general.clearContents() }
+                }
             }
         }
         .padding(10)
         .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+        .background(NoCapture())
     }
+}
+
+/// Sets `sharingType = .none` on its window while it is in the window.
+private struct NoCapture: NSViewRepresentable {
+    final class Guard: NSView {
+        override func viewWillMove(toWindow newWindow: NSWindow?) {
+            window?.sharingType = .readOnly
+            newWindow?.sharingType = .none
+            super.viewWillMove(toWindow: newWindow)
+        }
+    }
+
+    func makeNSView(context: Context) -> Guard { Guard() }
+    func updateNSView(_ view: Guard, context: Context) {}
 }

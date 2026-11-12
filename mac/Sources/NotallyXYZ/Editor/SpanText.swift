@@ -14,8 +14,10 @@ enum SpanText {
     /// Editor text size: 14 pt scaled by the text size setting.
     static var fontSize: CGFloat { 14 * TextSize.current.scale }
 
-    /// Read-only preview for cards.
-    static func attributed(_ body: String, _ spans: [Span]) -> AttributedString {
+    /// Read-only preview for cards: the first `limit` UTF-16 units, more than a card shows.
+    static func attributed(_ body: String, _ spans: [Span], limit: Int = 1500) -> AttributedString {
+        let full = body as NSString
+        let body = full.length > limit ? full.substring(to: full.rangeOfComposedCharacterSequence(at: limit).location) : body
         let ns = NSMutableAttributedString(string: body)
         apply(spans, to: ns)
         var out = AttributedString(body)

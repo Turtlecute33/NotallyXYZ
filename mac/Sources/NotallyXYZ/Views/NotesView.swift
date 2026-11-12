@@ -6,6 +6,7 @@ struct NotesView: View {
     @Environment(AppModel.self) private var model
     @FocusState private var searchFocused: Bool
     @State private var confirmEmptyBin = false
+    @State private var deletingForever: String?
 
     var body: some View {
         @Bindable var model = model
@@ -45,6 +46,13 @@ struct NotesView: View {
         .onChange(of: model.searchFocusRequest) { searchFocused = true }
         .confirmationDialog("Delete all notes in the bin forever?", isPresented: $confirmEmptyBin) {
             Button("Empty Bin", role: .destructive) { model.store?.emptyBin() }
+        }
+        .confirmationDialog("Delete this note forever?",
+                            isPresented: Binding(get: { deletingForever != nil }, set: { if !$0 { deletingForever = nil } }),
+                            presenting: deletingForever) { id in
+            Button("Delete Forever", role: .destructive) { model.store?.deleteForever(id) }
+        } message: { _ in
+            Text("It is deleted on all devices. This cannot be undone.")
         }
     }
 
@@ -102,9 +110,9 @@ struct NotesView: View {
     @ViewBuilder
     private func cards(_ notes: [Note]) -> some View {
         let content = ForEach(notes) { note in
-            NoteCard(note: note, sortBy: model.sortBy)
-                .onTapGesture { model.path = [note.id] }
-                .contextMenu { NoteMenu(note: note) }
+            Button { model.path = [note.id] } label: { NoteCard(note: note, sortBy: model.sortBy) }
+                .buttonStyle(.plain)
+                .contextMenu { NoteMenu(note: note) { deletingForever = note.id } }
         }
         if model.gridView {
             MasonryLayout(minColumnWidth: Theme.cardMinWidth, spacing: Theme.spacing) { content }
@@ -153,7 +161,8 @@ struct NotesView: View {
             }
         }
         if destination == .reminders {
-            return notes.sorted { ($0.nextReminder ?? .distantFuture) < ($1.nextReminder ?? .distantFuture) }
+            // The next reminder of each note once, not in every comparison.
+            return notes.map { ($0, $0.nextReminder ?? .distantFuture) }.sorted { $0.1 < $1.1 }.map(\.0)
         }
         let asc = model.sortAscending
         return notes.sorted { a, b in

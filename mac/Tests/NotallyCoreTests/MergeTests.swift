@@ -35,6 +35,34 @@ import Testing
         #expect(untitled.conflictCopy?.title == "(conflict)")
     }
 
+    @Test func conflictCopyIsNotPinnedAndHasNoReminders() {
+        let reminder = Reminder(id: 0, dateTime: 5, repetition: nil)
+        let base = note { $0.pinned = true; $0.reminders = [reminder] }
+        let r = NoteMerge.merge(base: base, local: note { $0.pinned = true; $0.reminders = [reminder]; $0.body = "mine" },
+                                remote: note { $0.pinned = true; $0.reminders = [reminder]; $0.body = "theirs" })
+        #expect(r.note.pinned && r.note.reminders == [reminder])
+        #expect(r.conflictCopy?.body == "theirs")
+        #expect(r.conflictCopy?.pinned == false && r.conflictCopy?.reminders == [])
+    }
+
+    @Test func twinNeedsSameContentAndAttachments() {
+        let audio = note { $0.title = ""; $0.body = ""; $0.audios = [Audio(name: "memo.m4a", duration: 3, timestamp: 1)] }
+        let photo = note {
+            $0.title = ""; $0.body = ""
+            $0.images = [FileAttachment(localName: "p.jpg", originalName: "p.jpg", mimeType: "image/jpeg")]
+        }
+        #expect(!NoteMerge.isTwin(audio, photo))
+        #expect(NoteMerge.isTwin(photo, note { $0.title = ""; $0.body = ""; $0.images = photo.images; $0.color = "#FFCC80" }))
+        let list = note { $0.type = .list; $0.body = ""; $0.items = [ListItem(body: "Milk"), ListItem(body: "Eggs")] }
+        var checked = list
+        checked.items[1].checked = true
+        #expect(!NoteMerge.isTwin(list, checked))
+        var reordered = list
+        reordered.items.reverse()
+        #expect(!NoteMerge.isTwin(list, reordered))
+        #expect(NoteMerge.isTwin(list, list))
+    }
+
     @Test func bothChangeMetadata() {
         let base = note()
         let img = { (n: String) in FileAttachment(localName: n, originalName: n, mimeType: "image/png") }

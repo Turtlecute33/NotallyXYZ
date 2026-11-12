@@ -19,9 +19,11 @@ import Testing
         let store = try NoteStore(directory: dir, keys: keys)
         let images = (try? FileManager.default.contentsOfDirectory(atPath: Self.env["NXYZ_SEED_IMAGES"] ?? ""))?
             .sorted().map { URL(fileURLWithPath: Self.env["NXYZ_SEED_IMAGES"]!).appendingPathComponent($0) } ?? []
-        func image(_ i: Int) -> FileAttachment? {
-            images.indices.contains(i) ? try? store.importAttachment(from: images[i], mimeType: "image/jpeg") : nil
+        func image(_ i: Int) async -> FileAttachment? {
+            images.indices.contains(i) ? try? await store.importAttachment(from: images[i], mimeType: "image/jpeg") : nil
         }
+        let vacation = [await image(0), await image(1), await image(2)].compactMap { $0 }
+        let photos = [await image(3), await image(1)].compactMap { $0 }
 
         for label in ["Todo", "Travel", "Work"] { store.createLabel(label) }
         let day: Int64 = 86_400_000
@@ -67,7 +69,7 @@ import Testing
         add(.note, "Vacation", color: "#D3BFDB", ago: 4) { n in
             n.labels = ["Travel"]
             n.body = "Here are some places I'd like to visit this summer:\n- Beach Resort in Maldives\n- Mountain Hiking in Switzerland\n- City Tour in Tokyo"
-            n.images = [image(0), image(1), image(2)].compactMap { $0 }
+            n.images = vacation
             n.reminders = [Reminder(id: 0, dateTime: Note.now() + 3 * day, repetition: nil)]
         }
         add(.list, "Dinner Bucketlist", color: "#F5E2DC", ago: 12) { n in
@@ -105,7 +107,7 @@ import Testing
             n.body = "200 g flour\n2 eggs\n300 ml milk\n1 tbsp sugar\nPinch of salt\n\nMix, rest 20 minutes, fry in butter."
         }
         add(.note, "Photo dump", ago: 3) { n in
-            n.images = [image(3), image(1)].compactMap { $0 }
+            n.images = photos
             n.body = "Weekend at the lake."
         }
         add(.note, "Quote", color: "#E2F6D3", ago: 15) { n in

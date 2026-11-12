@@ -59,7 +59,7 @@ struct SettingsView: View {
                     HStack {
                         VStack(alignment: .leading) {
                             Text("Delete all data on the server")
-                            Text("Removes all notes and attachments from the server for every device.")
+                            Text("Removes all notes and attachments from the server for every device, and from this Mac.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
@@ -87,7 +87,7 @@ struct SettingsView: View {
                 }
             }
         } message: {
-            Text("This cannot be undone. Other devices keep only their local copies.")
+            Text("This cannot be undone. The notes and the sync key on this Mac are deleted too. Other devices keep only their local copies.")
         }
     }
 

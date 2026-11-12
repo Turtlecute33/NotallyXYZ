@@ -184,6 +184,8 @@ struct RichTextEditor: NSViewRepresentable {
             guard let view else { return }
             let selection = view.selectedRanges
             view.textStorage?.setAttributedString(SpanText.editable(body, spans))
+            // The undo steps refer to the old text: an undo would put back stale text.
+            view.undoManager?.removeAllActions()
             if (selection.last?.rangeValue.upperBound ?? 0) <= (body as NSString).length { view.selectedRanges = selection }
             view.invalidateIntrinsicContentSize()
         }

@@ -126,16 +126,18 @@ struct LabelChips: View {
     }
 }
 
-/// Context menu actions of a note (overview and editor).
+/// Context menu actions of a note in the overview.
 struct NoteMenu: View {
     let note: Note
+    /// Asks first: a menu cannot show the confirmation itself.
+    let onDeleteForever: () -> Void
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         if note.folder == .deleted {
             Button("Restore") { move(.notes) }
-            Button("Delete Forever", role: .destructive) { model.store?.deleteForever(note.id) }
+            Button("Delete Forever…", role: .destructive, action: onDeleteForever)
         } else {
             Button("Open in New Window") { openWindow(id: "note", value: note.id) }
             Divider()

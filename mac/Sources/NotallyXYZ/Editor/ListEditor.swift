@@ -17,7 +17,7 @@ struct ListEditor: View {
     var body: some View {
         let split = firstChecked
         Section {
-            ForEach(Array(items.indices.prefix(split)), id: \.self) { row($0) }
+            ForEach(Array(items.enumerated().prefix(split)), id: \.element.id) { row($0.offset) }
                 .onMove { move($0, $1, offset: 0) }
                 .moveDisabled(!editable)
             if editable {
@@ -31,7 +31,7 @@ struct ListEditor: View {
         }
         if split < items.count {
             Section("\(items.count - split) checked") {
-                ForEach(Array(items.indices.suffix(from: split)), id: \.self) { row($0) }
+                ForEach(Array(items.enumerated().dropFirst(split)), id: \.element.id) { row($0.offset) }
                     .onMove { move($0, $1, offset: split) }
                     .moveDisabled(!editable)
             }
@@ -43,7 +43,7 @@ struct ListEditor: View {
         if index < items.count {
             let item = items[index]
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Toggle("", isOn: Binding(get: { item.checked }, set: { toggle(index, $0) }))
+                Toggle(item.body, isOn: Binding(get: { item.checked }, set: { toggle(index, $0) }))
                     .toggleStyle(.checkbox)
                     .labelsHidden()
                     .disabled(!editable)
@@ -59,6 +59,7 @@ struct ListEditor: View {
                     Button { remove(index) } label: { Image(systemName: "trash") }
                         .buttonStyle(.borderless)
                         .help("Delete item")
+                        .accessibilityLabel("Delete item")
                 }
             }
             .padding(.leading, item.isChild ? 28 : 0)

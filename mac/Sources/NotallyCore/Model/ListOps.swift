@@ -30,6 +30,15 @@ public enum ListOps {
         return out
     }
 
+    /// What the editor saves, or nil if there is nothing to save. A list is normalized (empty
+    /// items removed) only after an edit, so that opening and closing it does not rewrite it.
+    public static func toSave(_ note: Note, since saved: Note?, autoSort: Bool) -> Note? {
+        guard note != saved else { return nil }
+        var n = note
+        if n.type == .list { n.items = normalized(n.items.filter { !$0.body.isEmpty }, autoSort: autoSort) }
+        return n == saved ? nil : n
+    }
+
     /// A parent with children is checked exactly when all children are checked.
     static func fixParentChecked(_ group: [ListItem]) -> [ListItem] {
         guard group.count > 1 else { return group }

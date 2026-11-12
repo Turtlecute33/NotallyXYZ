@@ -21,6 +21,7 @@ struct NoteEditor: View {
     @State private var linkText = ""
     @State private var editingLink = false
     @State private var confirmDeleteChecked = false
+    @State private var confirmDeleteForever = false
     @FocusState private var titleFocused: Bool
 
     var body: some View {
@@ -42,6 +43,7 @@ struct NoteEditor: View {
             model.store?.editorOpened(id)
             note = model.note(id)
             lastSaved = note
+            mergeRemote()
         }
         .onDisappear {
             flush()
@@ -56,6 +58,7 @@ struct NoteEditor: View {
                 lastSaved = remote
             }
         }
+        .onChange(of: model.store?.waiting.contains(id) == true) { _, waits in if waits { mergeRemote() } }
         .sheet(isPresented: $showReminders) { RemindersSheet(note: binding(\.reminders, content: false)) }
         .fileImporter(isPresented: Binding(get: { importing != nil }, set: { if !$0 { importing = nil } }),
                       allowedContentTypes: importing == .image ? [.image] : [.item],
@@ -71,6 +74,14 @@ struct NoteEditor: View {
         // There is no undo for list changes, so ask before the bulk delete.
         .confirmationDialog("Delete checked items?", isPresented: $confirmDeleteChecked) {
             Button("Delete", role: .destructive) { update(content: true) { ListOps.deleteChecked(&$0.items) } }
+        }
+        .confirmationDialog("Delete this note forever?", isPresented: $confirmDeleteForever) {
+            Button("Delete Forever", role: .destructive) {
+                model.store?.deleteForever(id)
+                close()
+            }
+        } message: {
+            Text("It is deleted on all devices. This cannot be undone.")
         }
     }
 
@@ -160,10 +171,7 @@ struct NoteEditor: View {
         ToolbarItemGroup(placement: .primaryAction) {
             if note.folder == .deleted {
                 Button("Restore", systemImage: "arrow.uturn.backward") { move(.notes) }
-                Button("Delete Forever", systemImage: "trash.slash") {
-                    model.store?.deleteForever(id)
-                    close()
-                }
+                Button("Delete Forever", systemImage: "trash.slash") { confirmDeleteForever = true }
             } else {
                 Button(note.pinned ? "Unpin" : "Pin", systemImage: note.pinned ? "pin.fill" : "pin") {
                     update(content: false) { $0.pinned.toggle() }
@@ -216,6 +224,7 @@ struct NoteEditor: View {
     private func update(content: Bool, _ change: (inout Note) -> Void) {
         guard var n = note else { return }
         change(&n)
+        guard n != note else { return }
         if content { n.modifiedTimestamp = Note.now() }
         note = n
         saveTask?.cancel()
@@ -223,15 +232,14 @@ struct NoteEditor: View {
             try? await Task.sleep(for: .milliseconds(content ? 700 : 0))
             guard !Task.isCancelled else { return }
             flush()
+            mergeRemote()
         }
     }
 
     private func flush() {
         saveTask?.cancel()
         saveTask = nil
-        guard var n = note else { return }
-        if n.type == .list { n.items = ListOps.normalized(n.items.filter { !$0.body.isEmpty }, autoSort: model.autoSortChecked) }
-        guard n != lastSaved else { return }
+        guard let note, let n = ListOps.toSave(note, since: lastSaved, autoSort: model.autoSortChecked) else { return }
         model.save(n)
         // After a save that did not work, lastSaved stays, so the next flush tries again.
         if model.note(id) == n {
@@ -240,6 +248,17 @@ struct NoteEditor: View {
         } else {
             saveError = model.store?.saveError
         }
+    }
+
+    /// A remote version of this note waits in the store while there are unsaved changes. Without any,
+    /// merge it now and show the result, so that the edits of an open note sync within seconds.
+    private func mergeRemote() {
+        guard saveTask == nil, let store = model.store, store.waiting.contains(id), let note,
+              ListOps.toSave(note, since: lastSaved, autoSort: model.autoSortChecked) == nil else { return }
+        store.mergeWaiting(id)
+        guard !store.waiting.contains(id) else { return }  // open in another window too, or failed
+        self.note = model.note(id)
+        lastSaved = self.note
     }
 
     private func setAll(_ n: inout Note, _ checked: Bool) {
@@ -270,15 +289,17 @@ struct NoteEditor: View {
 
     private func attach(_ urls: [URL], _ kind: NoteStore.AttachmentKind) {
         guard let store = model.store else { return }
-        var added: [FileAttachment] = []
-        for url in urls {
-            let access = url.startAccessingSecurityScopedResource()
-            defer { if access { url.stopAccessingSecurityScopedResource() } }
-            let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
-            if let a = try? store.importAttachment(from: url, mimeType: mime) { added.append(a) }
-        }
-        update(content: false) { n in
-            if kind == .image { n.images += added } else { n.files += added }
+        Task {
+            var added: [FileAttachment] = []
+            for url in urls {
+                let access = url.startAccessingSecurityScopedResource()
+                defer { if access { url.stopAccessingSecurityScopedResource() } }
+                let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+                if let a = try? await store.importAttachment(from: url, mimeType: mime) { added.append(a) }
+            }
+            update(content: false) { n in
+                if kind == .image { n.images += added } else { n.files += added }
+            }
         }
     }
 

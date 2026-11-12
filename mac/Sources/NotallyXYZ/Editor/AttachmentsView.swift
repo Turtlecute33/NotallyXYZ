@@ -14,28 +14,34 @@ struct AttachmentsView: View {
             if !note.images.isEmpty {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
                     ForEach(note.images, id: \.localName) { image in
-                        Thumbnail(localName: image.localName, maxPixels: 480)
-                            .frame(height: 120)
-                            .clipShape(.rect(cornerRadius: 12, style: .continuous))
-                            .contentShape(Rectangle())
-                            .onTapGesture { viewing = image }
-                            .contextMenu { menu(image) }
+                        Button { viewing = image } label: {
+                            Thumbnail(localName: image.localName, maxPixels: 480)
+                                .frame(height: 120)
+                                .clipShape(.rect(cornerRadius: 12, style: .continuous))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(image.originalName)
+                        .contextMenu { menu(image) }
                     }
                 }
             }
             ForEach(note.files, id: \.localName) { file in
-                HStack {
-                    Image(systemName: "doc")
-                    Text(file.originalName).lineLimit(1)
-                    Spacer()
-                    if model.store?.hasAttachment(file.localName) == false {
-                        Image(systemName: "icloud.and.arrow.down").foregroundStyle(.secondary).help("Not downloaded yet")
+                Button { open(file) } label: {
+                    HStack {
+                        Image(systemName: "doc")
+                        Text(file.originalName).lineLimit(1)
+                        Spacer()
+                        if model.store?.hasAttachment(file.localName) == false {
+                            Image(systemName: "icloud.and.arrow.down").foregroundStyle(.secondary).help("Not downloaded yet")
+                                .accessibilityLabel("Not downloaded yet")
+                        }
                     }
+                    .padding(8)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(.secondary.opacity(0.4)))
+                    .contentShape(Rectangle())
                 }
-                .padding(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(.secondary.opacity(0.4)))
-                .contentShape(Rectangle())
-                .onTapGesture { open(file) }
+                .buttonStyle(.plain)
                 .contextMenu { menu(file) }
             }
             ForEach(note.audios, id: \.name) { audio in
@@ -93,6 +99,7 @@ struct AudioRow: View {
         HStack {
             Button { toggle() } label: { Image(systemName: playing ? "pause.circle.fill" : "play.circle.fill").font(.title2) }
                 .buttonStyle(.borderless)
+                .accessibilityLabel(playing ? "Pause" : "Play")
             Text("Audio recording")
             Spacer()
             if let ms = audio.duration {
@@ -106,11 +113,15 @@ struct AudioRow: View {
 
     private func toggle() {
         if playing { player?.pause(); playing = false; return }
-        if player == nil, let data = model.store?.attachmentData(audio.name) { player = try? AVAudioPlayer(data: data) }
-        guard let player else { NSSound.beep(); return }
-        player.play()
         playing = true
         Task {
+            // Decrypted off the main actor. Checked again after the wait: a second tap may have loaded it.
+            if player == nil, let data = await model.store?.attachmentData(audio.name), player == nil {
+                player = try? AVAudioPlayer(data: data)
+            }
+            guard let player else { NSSound.beep(); playing = false; return }
+            guard playing else { return }  // paused while it loaded
+            player.play()
             while player.isPlaying { try? await Task.sleep(for: .milliseconds(300)) }
             playing = false
         }

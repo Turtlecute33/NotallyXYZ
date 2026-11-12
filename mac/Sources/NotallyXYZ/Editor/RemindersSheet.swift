@@ -29,6 +29,7 @@ struct RemindersSheet: View {
                                 Image(systemName: "trash")
                             }
                             .buttonStyle(.borderless)
+                            .accessibilityLabel("Delete reminder")
                         }
                     }
                 }

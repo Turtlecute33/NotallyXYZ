@@ -216,8 +216,9 @@ final class AppModel {
 
     /// Removes the local cache and the key. Notes stay on the server and other devices.
     func disconnect() {
-        engine?.stopLive()
+        engine?.stop()
         engine = nil
+        reminderTask?.cancel()
         store = nil
         drafts = [:]
         path = []
@@ -226,6 +227,7 @@ final class AppModel {
         ReminderScheduler.removeAll()
     }
 
+    /// Deletes the account on the server, then disconnects: the notes on this Mac are deleted too.
     func deleteServerData() async throws {
         try await engine?.api.deleteAccount()
         disconnect()
@@ -292,12 +294,16 @@ final class AppModel {
 
     func resignedActive() { engine?.stopLive() }
 
+    /// After changes, and again before the scheduled notifications run out (at most 1 hour).
     private func scheduleReminders() {
         reminderTask?.cancel()
         reminderTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1))
-            guard !Task.isCancelled, let notes = self?.store?.notes.values else { return }
-            ReminderScheduler.reschedule(Array(notes))
+            while !Task.isCancelled, let notes = self?.store?.notes.values {
+                let last = ReminderScheduler.reschedule(Array(notes))
+                let wait = min(max((last?.timeIntervalSinceNow ?? .infinity) - 60, 60), 3600)
+                try? await Task.sleep(for: .seconds(wait))
+            }
         }
     }
 }

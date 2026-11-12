@@ -102,8 +102,10 @@ final class LocalStore {
     }
 
     /// Stores a local change. The server seq stays as the base for the next push.
+    /// A deletion of a record that the server never had (seq 0) only drops the row.
     func putLocal(kind: String, id: String, sealed: Data?) throws {
         let current = try record(kind: kind, id: id)
+        if sealed == nil && (current?.seq ?? 0) == 0 { return try deleteRow(kind: kind, id: id) }
         try put(Record(kind: kind, id: id, seq: current?.seq ?? 0, sealed: sealed, deleted: sealed == nil,
                        dirty: nextDirty(), base: current?.base))
     }
@@ -116,6 +118,10 @@ final class LocalStore {
                    [.int(seq), base, .text(kind), .text(id), .int(dirty)])
         if db.changes == 0 {
             try db.run("UPDATE records SET seq=?, base=? WHERE kind=? AND id=?", [.int(seq), base, .text(kind), .text(id)])
+        }
+        // Deleted while its first push was on the way (putLocal dropped the row): push the deletion.
+        if db.changes == 0 {
+            try put(Record(kind: kind, id: id, seq: seq, sealed: nil, deleted: true, dirty: nextDirty(), base: pushed))
         }
     }
 

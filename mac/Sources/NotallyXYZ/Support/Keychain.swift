@@ -1,7 +1,10 @@
 import Foundation
 import Security
 
-/// Stores the 32-byte sync key in the login Keychain, this device only.
+/// Stores the 32-byte sync key in the Keychain, never in iCloud Keychain. The data protection
+/// keychain (this device only) needs an app signed with a Team ID; the self-signed app falls back to
+/// the login keychain. There the key is protected by the login password, `ThisDeviceOnly` has no
+/// effect, and Time Machine and Migration Assistant copy it with the login keychain.
 enum Keychain {
     private static let service = "NotallyXYZ sync key"
     static let defaultAccount = "default"
@@ -22,6 +25,7 @@ enum Keychain {
             var q = baseQuery(dataProtection: dataProtection, account: account)
             q[kSecValueData as String] = key
             q[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            q[kSecAttrSynchronizable as String] = false
             q[kSecAttrLabel as String] = "NotallyXYZ sync key"
             let status = SecItemAdd(q as CFDictionary, nil)
             if status == errSecSuccess { return true }

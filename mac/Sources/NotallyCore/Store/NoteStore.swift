@@ -7,7 +7,9 @@ public final class NoteStore {
     public internal(set) var notes: [String: Note] = [:]
     public internal(set) var labels: [String: Label] = [:]
     /// Why the last save failed; nil after a save that worked. Shown to the user.
-    public private(set) var saveError: String?
+    public internal(set) var saveError: String?
+    /// Notes whose remote version waits for the editor to have no unsaved changes (`mergeWaiting`).
+    public internal(set) var waiting: Set<String> = []
     /// Called after every local change (sync scheduling, reminders).
     @ObservationIgnored public var onLocalChange: (() -> Void)?
     /// Called after notes changed for any reason (reminders).
@@ -77,16 +79,27 @@ public final class NoteStore {
             saveError = "Could not save: the text is longer than \(Self.maxBodyLength) characters."
             return
         }
+        guard write(kind: "note", id: note.id, try sealNote(note)) else { return }
+        notes[note.id] = note
+        for name in note.labels where labels[keys.labelID(name)] == nil { createLabel(name) }
+        changed()
+    }
+
+    /// Stores a local change. Memory changes only after this returns true; else the error is shown.
+    private func write(kind: String, id: String, _ sealed: @autoclosure () throws -> Data?) -> Bool {
         do {
-            try local.putLocal(kind: "note", id: note.id, sealed: try sealNote(note))
-            notes[note.id] = note
-            for name in note.labels where labels[keys.labelID(name)] == nil { createLabel(name) }
+            try local.putLocal(kind: kind, id: id, sealed: sealed())
             saveError = nil
-            changed()
+            return true
         } catch {
-            NSLog("NotallyXYZ: save failed: \(error)")
-            saveError = "Could not save: \(error.localizedDescription)"
+            fail(error)
+            return false
         }
+    }
+
+    func fail(_ error: Error) {
+        NSLog("NotallyXYZ: save failed: \(error)")
+        saveError = "Could not save: \(error.localizedDescription)"
     }
 
     public func create(_ type: NoteType, color: String = NoteColor.defaultValue, labels: [String] = []) -> Note {
@@ -97,8 +110,7 @@ public final class NoteStore {
     }
 
     public func deleteForever(_ id: String) {
-        guard notes[id] != nil else { return }
-        try? local.putLocal(kind: "note", id: id, sealed: nil)
+        guard notes[id] != nil, write(kind: "note", id: id, nil) else { return }
         notes[id] = nil
         changed()
     }
@@ -132,19 +144,21 @@ public final class NoteStore {
         let id = keys.labelID(value)
         guard labels[id] == nil else { return }
         let label = Label(id: id, value: value, order: (labels.values.map(\.order).max() ?? -1) + 1)
-        try? local.putLocal(kind: "label", id: id, sealed: try sealLabel(label))
+        guard write(kind: "label", id: id, try sealLabel(label)) else { return }
         labels[id] = label
         onLocalChange?()
     }
 
-    /// Like NotallyX `CommonDao.updateLabel`: renames the label in every note.
-    public func renameLabel(_ old: String, to new: String) {
+    /// Like NotallyX `CommonDao.updateLabel`: renames the label in every note. Returns false if
+    /// nothing was renamed.
+    @discardableResult
+    public func renameLabel(_ old: String, to new: String) -> Bool {
         let new = new.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !new.isEmpty, old != new, let oldLabel = labels[keys.labelID(old)] else { return }
+        guard !new.isEmpty, old != new, let oldLabel = labels[keys.labelID(old)] else { return false }
         let id = keys.labelID(new)
         if labels[id] == nil {
             let label = Label(id: id, value: new, order: oldLabel.order)
-            try? local.putLocal(kind: "label", id: id, sealed: try sealLabel(label))
+            guard write(kind: "label", id: id, try sealLabel(label)) else { return false }
             labels[id] = label
         }
         removeLabelRecord(oldLabel.id)
@@ -154,6 +168,7 @@ public final class NoteStore {
             save(note)
         }
         onLocalChange?()
+        return true
     }
 
     /// Like NotallyX `CommonDao.deleteLabel`: removes the label from every note.
@@ -167,19 +182,20 @@ public final class NoteStore {
     }
 
     private func removeLabelRecord(_ id: String) {
-        guard labels[id] != nil else { return }
-        try? local.putLocal(kind: "label", id: id, sealed: nil)
+        guard labels[id] != nil, write(kind: "label", id: id, nil) else { return }
         labels[id] = nil
     }
 
     // MARK: Attachments
 
+    // Encryption and decryption of files run off the main actor.
+
     /// Copies a file into the sealed blob cache. Returns the new attachment (UUID name like Android).
-    public func importAttachment(from url: URL, mimeType: String) throws -> FileAttachment {
+    public func importAttachment(from url: URL, mimeType: String) async throws -> FileAttachment {
         let ext = url.pathExtension.isEmpty ? "" : ".\(url.pathExtension.lowercased())"
         let localName = UUID().uuidString.lowercased() + ext
-        let blobID = keys.blobID(localName)
-        try Seal.sealFile(from: url, to: local.blobURL(blobID), key: keys.encKey, ad: Seal.ad("blob", blobID))
+        let blobID = keys.blobID(localName), target = local.blobURL(blobID), key = keys.encKey
+        try await Task.detached { try Seal.sealFile(from: url, to: target, key: key, ad: Seal.ad("blob", blobID)) }.value
         try local.addBlob(blobID, uploaded: false)
         return FileAttachment(localName: localName, originalName: url.lastPathComponent, mimeType: mimeType)
     }
@@ -187,16 +203,18 @@ public final class NoteStore {
     public func hasAttachment(_ localName: String) -> Bool { local.hasBlob(keys.blobID(localName)) }
 
     /// Decrypted attachment bytes, or nil if not downloaded yet.
-    public func attachmentData(_ localName: String) -> Data? {
-        let id = keys.blobID(localName)
-        guard let sealed = try? Data(contentsOf: local.blobURL(id)) else { return nil }
-        return try? Seal.open(sealed, key: keys.encKey, ad: Seal.ad("blob", id))
+    public func attachmentData(_ localName: String) async -> Data? {
+        let id = keys.blobID(localName), source = local.blobURL(id), key = keys.encKey
+        return await Task.detached {
+            guard let sealed = try? Data(contentsOf: source) else { return nil }
+            return try? Seal.open(sealed, key: key, ad: Seal.ad("blob", id))
+        }.value
     }
 
     /// Writes the plaintext attachment to `target` (for opening in another app).
-    public func exportAttachment(_ localName: String, to target: URL) throws {
-        let id = keys.blobID(localName)
-        try Seal.openFile(from: local.blobURL(id), to: target, key: keys.encKey, ad: Seal.ad("blob", id))
+    public func exportAttachment(_ localName: String, to target: URL) async throws {
+        let id = keys.blobID(localName), source = local.blobURL(id), key = keys.encKey
+        try await Task.detached { try Seal.openFile(from: source, to: target, key: key, ad: Seal.ad("blob", id)) }.value
     }
 
     var referencedBlobIDs: Set<String> {

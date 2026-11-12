@@ -8,6 +8,8 @@ public enum APIError: Error, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
+        case .http(409, "cursor_ahead"):
+            return "The server has older data than this Mac. It may have been restored from a backup. See the server README."
         case .insecureURL: return "The server address must start with https:// (http:// only for localhost)."
         case .unauthorized: return "The server does not know this sync key."
         case .http(let status, let code): return "Server error \(status)\(code.isEmpty ? "" : ": \(code)")."
@@ -16,11 +18,11 @@ public enum APIError: Error, Equatable, LocalizedError {
     }
 }
 
+/// The `deleted` flag of the server is not read: only a sealed tombstone in `data` is a deletion.
 public struct RemoteChange: Decodable, Sendable {
     public let kind: String
     public let id: String
     public let seq: Int64
-    public let deleted: Bool
     public let data: Data?
 }
 
@@ -30,12 +32,11 @@ public struct ChangesPage: Decodable, Sendable {
     public let more: Bool
 }
 
-/// A deletion also carries `data`: the sealed tombstone (PROTOCOL.md §5).
+/// A deletion is only the sealed tombstone in `data` (PROTOCOL.md §5); `deleted` is not sent.
 public struct OutgoingChange: Encodable, Sendable {
     public let kind: String
     public let id: String
     public let base: Int64
-    public let deleted: Bool
     public let data: Data
 }
 
@@ -171,15 +172,22 @@ public final class APIClient: Sendable {
     /// Largest blob that this client keeps. It is fixed, because the server could report any limit.
     static let maxBlobDownload = 1 << 30
 
-    /// Downloads into `target` (written only on success).
-    public func getBlob(id: String, to target: URL) async throws {
+    /// Downloads into `target`, written only when complete and accepted by `verify`. A blob over
+    /// the size limit is refused as soon as its Content-Length or its received bytes show it.
+    public func getBlob(id: String, to target: URL, verify: @Sendable (URL) throws -> Void) async throws {
         var req = try request("GET", "v1/blobs/\(id)")
         req.timeoutInterval = 1800
-        let (temp, response) = try await session.download(for: req)
+        let (temp, response): (URL, URLResponse)
+        do {
+            (temp, response) = try await session.download(for: req, delegate: SizeLimit())
+        } catch URLError.cancelled where !Task.isCancelled {
+            throw APIError.badResponse  // stopped by SizeLimit
+        }
         defer { try? FileManager.default.removeItem(at: temp) }
         try check(response, Data())
         let size = try temp.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         guard size <= Self.maxBlobDownload else { throw APIError.badResponse }
+        try verify(temp)
         try? FileManager.default.removeItem(at: target)
         try FileManager.default.moveItem(at: temp, to: target)
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: target.path)
@@ -192,6 +200,18 @@ public final class APIClient: Sendable {
 
     public func deleteBlob(id: String) async throws {
         try await send(try request("DELETE", "v1/blobs/\(id)"))
+    }
+}
+
+/// Cancels a download whose announced or received size is over `APIClient.maxBlobDownload`.
+private final class SizeLimit: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private var observation: NSKeyValueObservation?  // set once, before any byte arrives
+
+    func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
+        observation = task.observe(\.countOfBytesReceived) { task, _ in
+            let limit = Int64(APIClient.maxBlobDownload)
+            if task.countOfBytesReceived > limit || task.countOfBytesExpectedToReceive > limit { task.cancel() }
+        }
     }
 }
 

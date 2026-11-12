@@ -18,6 +18,7 @@ extension NoteStore {
     func applyRemote(_ changes: [RemoteChange], cursor: Int64) throws -> Int {
         var ops: [MemoryOp] = []
         var conflicts = 0
+        var held: Set<String> = []
         try local.transaction {
             var unsynced = try local.unsyncedNoteIDs()
             for change in changes where ["note", "label"].contains(change.kind) && Self.isValidID(change.id) {
@@ -34,9 +35,10 @@ extension NoteStore {
                     continue
                 }
                 let sealed = Payload.isTombstone(plain) ? nil : data
-                // The editor would overwrite it: keep it aside until the editor closes.
+                // The editor would overwrite it: keep it aside until the editor has no unsaved changes.
                 if change.kind == "note" && openEditors[change.id] != nil {
                     try local.putPending(.init(id: change.id, seq: change.seq, sealed: sealed))
+                    held.insert(change.id)
                     continue
                 }
                 conflicts += try apply(kind: change.kind, id: change.id, seq: change.seq, sealed: sealed, row: row,
@@ -44,6 +46,7 @@ extension NoteStore {
             }
             try local.setCursor(cursor)
         }
+        waiting.formUnion(held)
         finish(ops, conflicts: conflicts)
         return conflicts
     }
@@ -111,7 +114,7 @@ extension NoteStore {
         var mine: Note? = dirty && row?.deleted == false ? notes[id] : nil
         var base: Note? = row?.base.flatMap { try? Seal.open($0, key: keys.encKey, ad: Seal.ad("note", id)) }
             .flatMap { Payload.decodeNote(id: id, $0) }
-        if row == nil, let twin = unsynced.first(where: { notes[$0].map { NoteMerge.sameText($0, remote) } ?? false }) {
+        if row == nil, let twin = unsynced.first(where: { notes[$0].map { NoteMerge.isTwin($0, remote) } ?? false }) {
             unsynced.remove(twin)
             try local.deleteRow(kind: "note", id: twin)
             ops.append(.removeNote(twin))
@@ -140,14 +143,22 @@ extension NoteStore {
 
     // MARK: Editors
 
-    /// Remote changes of an open note wait until the editor closes.
+    /// Remote changes of an open note wait until the editor has no unsaved changes (`mergeWaiting`)
+    /// or closes.
     public func editorOpened(_ id: String) { openEditors[id, default: 0] += 1 }
 
     public func editorClosed(_ id: String) {
         // Another window still shows the note: keep the remote changes back.
         if let count = openEditors[id], count > 1 { openEditors[id] = count - 1; return }
         openEditors[id] = nil
-        try? applyPending(id)
+        mergeWaiting(id)
+    }
+
+    /// The editor calls this when it has no unsaved changes: the waiting remote version is merged now,
+    /// so that the edits of an open note sync. With the note open in more than one window, it waits.
+    public func mergeWaiting(_ id: String) {
+        guard (openEditors[id] ?? 0) <= 1 else { return }
+        do { try applyPending(id) } catch { fail(error) }
     }
 
     func applyPending(_ id: String) throws {
@@ -161,6 +172,7 @@ extension NoteStore {
             conflicts = try apply(kind: "note", id: id, seq: pending.seq, sealed: pending.sealed, row: row,
                                   unsynced: &unsynced, ops: &ops)
         }
+        waiting.remove(id)
         finish(ops, conflicts: conflicts)
         if !ops.isEmpty { onLocalChange?() }
     }

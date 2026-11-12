@@ -3,7 +3,8 @@ import ImageIO
 import NotallyCore
 import SwiftUI
 
-/// Decrypted images live only in memory, downscaled, in a bounded cache.
+/// Decrypted images live only in memory, downscaled, in a bounded cache. Decryption and decoding
+/// run off the main actor.
 @MainActor
 enum ImageCache {
     private static let cache: NSCache<NSString, NSImage> = {
@@ -12,20 +13,24 @@ enum ImageCache {
         return c
     }()
 
-    static func image(_ localName: String, maxPixels: Int, store: NoteStore) -> NSImage? {
+    static func image(_ localName: String, maxPixels: Int, store: NoteStore) async -> NSImage? {
         let key = "\(localName)@\(maxPixels)" as NSString
         if let hit = cache.object(forKey: key) { return hit }
-        guard let data = store.attachmentData(localName),
-              let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        guard let data = await store.attachmentData(localName),
+              let cg = await Task.detached(operation: { thumbnail(data, maxPixels: maxPixels) }).value else { return nil }
+        let image = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+        cache.setObject(image, forKey: key, cost: cg.bytesPerRow * cg.height)
+        return image
+    }
+
+    private nonisolated static func thumbnail(_ data: Data, maxPixels: Int) -> CGImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixels,
         ]
-        guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-        let image = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-        cache.setObject(image, forKey: key, cost: cg.bytesPerRow * cg.height)
-        return image
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 }
 
@@ -60,7 +65,7 @@ struct Thumbnail: View {
         }
         .task(id: "\(localName)-\(model.engine?.lastSync?.timeIntervalSince1970 ?? 0)") {
             guard image == nil, let store = model.store else { return }
-            image = ImageCache.image(localName, maxPixels: maxPixels, store: store)
+            image = await ImageCache.image(localName, maxPixels: maxPixels, store: store)
             missing = image == nil
         }
     }

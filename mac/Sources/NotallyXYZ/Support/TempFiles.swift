@@ -18,19 +18,21 @@ enum TempFiles {
 
     @MainActor
     static func open(_ attachment: FileAttachment, store: NoteStore) {
-        do {
-            let dir = directory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-            let name = Payload.isSafeFileName(attachment.originalName) ? attachment.originalName : attachment.localName
-            let target = dir.appendingPathComponent(name)
-            try store.exportAttachment(attachment.localName, to: target)
-            if risky.contains(target.pathExtension.lowercased()) {
-                NSWorkspace.shared.activateFileViewerSelecting([target])
-            } else {
-                NSWorkspace.shared.open(target)
+        Task {
+            do {
+                let dir = directory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+                let name = Payload.isSafeFileName(attachment.originalName) ? attachment.originalName : attachment.localName
+                let target = dir.appendingPathComponent(name)
+                try await store.exportAttachment(attachment.localName, to: target)
+                if risky.contains(target.pathExtension.lowercased()) {
+                    NSWorkspace.shared.activateFileViewerSelecting([target])
+                } else {
+                    NSWorkspace.shared.open(target)
+                }
+            } catch {
+                NSSound.beep()
             }
-        } catch {
-            NSSound.beep()
         }
     }
 

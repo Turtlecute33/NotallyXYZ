@@ -54,6 +54,34 @@ import Testing
         #expect(del.map(\.body) == ["B"])
     }
 
+    @Test func listIsNotRewrittenWithoutEdits() throws {
+        // As Android may store it: checked item first, no order, an empty item.
+        let json = #"{"type":"LIST","title":"L","items":[{"body":"Done","checked":true},{"body":""},{"body":"Open"}]}"#
+        let stored = try #require(Payload.decodeNote(id: "x", Data(json.utf8)))
+        #expect(ListOps.toSave(stored, since: stored, autoSort: true) == nil)  // opened and closed
+        var edited = stored
+        edited.title = "L2"
+        let saved = try #require(ListOps.toSave(edited, since: stored, autoSort: true))
+        #expect(saved.items.map(\.body) == ["Open", "Done"] && saved.items.map(\.order) == [0, 1])
+        // The editor still shows its own version (with the empty item): nothing more to save.
+        #expect(ListOps.toSave(edited, since: saved, autoSort: true) == nil)
+    }
+
+    @Test func repetitionJumpMatchesStepping() {
+        let cal = Calendar(identifier: .gregorian)
+        let start = cal.date(from: DateComponents(year: 2019, month: 3, day: 5, hour: 7, minute: 30))!
+        let from = cal.date(from: DateComponents(year: 2026, month: 11, day: 12, hour: 12))!
+        for (unit, component) in [(RepetitionUnit.days, Calendar.Component.day), (.weeks, .weekOfYear)] {
+            for value in [1, 3] {
+                let r = Reminder(id: 0, dateTime: Int64(start.timeIntervalSince1970 * 1000),
+                                 repetition: Repetition(value: value, unit: unit))
+                var stepped = start
+                while stepped <= from { stepped = cal.date(byAdding: component, value: value, to: stepped)! }
+                #expect(r.nextNotification(after: from, calendar: cal) == stepped)
+            }
+        }
+    }
+
     @Test func repetition() {
         let cal = Calendar(identifier: .gregorian)
         let start = cal.date(from: DateComponents(year: 2026, month: 1, day: 31, hour: 9))!

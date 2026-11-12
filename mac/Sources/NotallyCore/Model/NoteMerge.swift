@@ -3,7 +3,7 @@ import Foundation
 /// Three-way merge of a note, field by field, with the same rules as the Android client so that
 /// both converge:
 /// - content {type, title, body, spans, items} is one unit. Changed on both sides → keep local,
-///   and the remote version becomes a new note titled "<title> (conflict)".
+///   and the remote version becomes a new note titled "<title> (conflict)", not pinned, no reminders.
 /// - other fields: changed on one side → take it; on both → local wins, except
 ///   modifiedTimestamp = max and labels/images/files/audios = union.
 public enum NoteMerge {
@@ -30,9 +30,12 @@ public enum NoteMerge {
                 out.spans = remote.spans
                 out.items = remote.items
             } else if remoteChanged {
+                // Like Android: else each reminder fires twice.
                 var c = remote
                 c.id = Data.randomID()
                 c.title = conflictTitle(remote.title)
+                c.pinned = false
+                c.reminders = []
                 copy = c
             }
         }
@@ -71,9 +74,15 @@ public enum NoteMerge {
         return Result(note: out, conflictCopy: copy)
     }
 
-    /// Same title, type and content text, for linking an unsynced note on the first pull.
-    public static func sameText(_ a: Note, _ b: Note) -> Bool {
-        guard a.type == b.type, a.title == b.title else { return false }
-        return a.type == .note ? a.body == b.body : a.items.map(\.body) == b.items.map(\.body)
+    /// Same type, title, content (list: item bodies and checked state, in order) and attachment
+    /// names, for linking an unsynced note on the first pull (PROTOCOL.md §7).
+    public static func isTwin(_ a: Note, _ b: Note) -> Bool {
+        guard a.type == b.type, a.title == b.title,
+              Set(a.images.map(\.localName)) == Set(b.images.map(\.localName)),
+              Set(a.files.map(\.localName)) == Set(b.files.map(\.localName)),
+              Set(a.audios.map(\.name)) == Set(b.audios.map(\.name)) else { return false }
+        return a.type == .note
+            ? a.body == b.body
+            : a.items.elementsEqual(b.items) { $0.body == $1.body && $0.checked == $1.checked }
     }
 }

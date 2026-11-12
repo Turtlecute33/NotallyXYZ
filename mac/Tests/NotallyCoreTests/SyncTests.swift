@@ -45,7 +45,7 @@ struct SyncTests {
         let file = a.dir.appendingPathComponent("photo.jpg")
         let photo = Data((0..<100_000).map { UInt8(truncatingIfNeeded: $0 &* 13) })
         try photo.write(to: file)
-        text.images = [try a.store.importAttachment(from: file, mimeType: "image/jpeg")]
+        text.images = [try await a.store.importAttachment(from: file, mimeType: "image/jpeg")]
         a.store.save(text)
         var list = a.store.create(.list)
         list.title = "Groceries"
@@ -60,7 +60,7 @@ struct SyncTests {
         #expect(b.store.notes[text.id]?.spans == text.spans)
         #expect(b.store.notes[text.id]?.labels == ["Work"])
         #expect(b.store.notes[list.id]?.items.map(\.body) == ["Milk", "Oat"])
-        #expect(b.store.attachmentData(text.images[0].localName) == photo)
+        #expect(await b.store.attachmentData(text.images[0].localName) == photo)
 
         // Concurrent edits of the same note: B keeps its version, A's becomes a conflict copy.
         var fromA = a.store.notes[text.id]!
@@ -110,7 +110,7 @@ struct SyncTests {
         defer { try? FileManager.default.removeItem(at: c.dir) }
         try await sync(c)
         #expect(Set(c.store.notes.keys) == Set(b.store.notes.keys))
-        #expect(c.store.attachmentData(text.images[0].localName) == photo)
+        #expect(await c.store.attachmentData(text.images[0].localName) == photo)
 
         // The local cache never contains plaintext.
         let cache = try Data(contentsOf: b.dir.appendingPathComponent("cache.sqlite"))

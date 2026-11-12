@@ -29,11 +29,17 @@ extension Reminder {
         case .years: component = .year
         }
         var next = start
-        // Minutes and hours have a fixed length: jump close to `from` first.
+        // Jump close to `from` first. Minutes and hours have a fixed length; days and weeks are
+        // counted in calendar units. Months and years step one period at a time like Android, which
+        // keeps a day that a short month cut (31 → 28 → 28).
         if rep.unit == .minutes || rep.unit == .hours {
             let step = Double(rep.value) * (rep.unit == .minutes ? 60 : 3600)
             let skip = Int(from.timeIntervalSince(start) / step) - 1
             if skip > 0 { next = start.addingTimeInterval(Double(skip) * step) }
+        } else if rep.unit == .days || rep.unit == .weeks,
+                  let passed = calendar.dateComponents([component], from: start, to: from).value(for: component) {
+            let skip = passed / rep.value - 1
+            if skip > 0, let jumped = calendar.date(byAdding: component, value: skip * rep.value, to: start) { next = jumped }
         }
         for _ in 0..<100_000 {
             guard let candidate = calendar.date(byAdding: component, value: rep.value, to: next) else { return nil }

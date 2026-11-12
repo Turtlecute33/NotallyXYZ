@@ -49,7 +49,7 @@ struct ColorPickerView: View {
         VStack(alignment: .leading, spacing: 12) {
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(30), spacing: 10), count: 6), spacing: 10) {
                 ForEach(NoteColor.presets, id: \.hex) { preset in
-                    swatch(preset.hex).help(preset.name)
+                    swatch(preset.hex).help(preset.name).accessibilityLabel(preset.name)
                 }
             }
             ColorPicker("Custom color", selection: Binding(get: { custom }, set: { new in
@@ -65,15 +65,18 @@ struct ColorPickerView: View {
 
     private func swatch(_ hex: String) -> some View {
         let selected = color.caseInsensitiveCompare(hex) == .orderedSame
-        return Circle()
-            .fill(Theme.color(hex) ?? Color(nsColor: .textBackgroundColor))
-            .overlay(Circle().stroke(Color(nsColor: .separatorColor)))
-            .overlay {
-                if selected { Image(systemName: "checkmark").font(.caption.bold()).foregroundStyle(Theme.darkText) }
-                else if hex == NoteColor.defaultValue { Image(systemName: "drop").font(.caption).foregroundStyle(.secondary) }
-            }
-            .frame(width: 30, height: 30)
-            .contentShape(Circle())
-            .onTapGesture { color = hex }
+        return Button { color = hex } label: {
+            Circle()
+                .fill(Theme.color(hex) ?? Color(nsColor: .textBackgroundColor))
+                .overlay(Circle().stroke(Color(nsColor: .separatorColor)))
+                .overlay {
+                    if selected { Image(systemName: "checkmark").font(.caption.bold()).foregroundStyle(Theme.darkText) }
+                    else if hex == NoteColor.defaultValue { Image(systemName: "drop").font(.caption).foregroundStyle(.secondary) }
+                }
+                .frame(width: 30, height: 30)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

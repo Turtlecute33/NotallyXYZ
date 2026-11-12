@@ -180,6 +180,16 @@ public enum Seal {
         }
     }
 
+    /// Throws unless the sealed file opens. Writes nothing.
+    public static func checkFile(_ source: URL, key: SymmetricKey, ad: Data) throws {
+        let length = try FileManager.default.attributesOfItem(atPath: source.path)[.size] as? Int ?? 0
+        let input = try FileHandle(forReadingFrom: source)
+        defer { try? input.close() }
+        try openStream(sealedLength: length, key: key, ad: ad, read: { n in
+            try input.read(upToCount: n) ?? Data()
+        }, write: { _ in })
+    }
+
     static func createPrivateFile(_ url: URL) throws -> FileHandle {
         try? FileManager.default.removeItem(at: url)
         guard FileManager.default.createFile(atPath: url.path, contents: nil, attributes: [.posixPermissions: 0o600]) else {

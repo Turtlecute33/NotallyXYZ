@@ -25,5 +25,6 @@ struct FormattingBar: View {
         Button(action: action) { Image(systemName: symbol).frame(width: 30, height: 26) }
             .buttonStyle(.borderless)
             .help(help)
+            .accessibilityLabel(help)
     }
 }
