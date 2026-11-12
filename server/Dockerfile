@@ -1,10 +1,12 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.27-alpine AS build
+# The build runs on the build host and cross-compiles, so no emulation is needed.
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
+ARG TARGETOS TARGETARCH
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 COPY *.go ./
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -buildid=" -o /out/notallyxyz-server . \
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -buildid=" -o /out/notallyxyz-server . \
  && mkdir -p /out/data
 
 # Final image: one static binary, no shell, no package manager.

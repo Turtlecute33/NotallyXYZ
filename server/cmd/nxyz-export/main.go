@@ -10,25 +10,28 @@ package main
 import (
 	"bufio"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"notallyxyz-server/seal"
 )
 
 type change struct {
-	Kind    string `json:"kind"`
-	ID      string `json:"id"`
-	Seq     uint64 `json:"seq"`
-	Deleted bool   `json:"deleted"`
-	Data    []byte `json:"data"`
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+	Data []byte `json:"data"`
 }
 
 func main() {
@@ -38,6 +41,10 @@ func main() {
 	if *server == "" {
 		fmt.Fprintln(os.Stderr, "usage: nxyz-export -server URL [-out DIR] < key")
 		os.Exit(2)
+	}
+	if u, err := url.Parse(*server); err != nil || u.Host == "" ||
+		u.Scheme != "https" && !(u.Scheme == "http" && loopback(u.Hostname())) {
+		fail(errors.New("the server URL must start with https:// (http:// only for localhost)"))
 	}
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil && err != io.EOF {
@@ -68,7 +75,10 @@ func main() {
 			fail(err)
 		}
 		for _, ch := range page.Changes {
-			if ch.Deleted {
+			// The server can send anything: the id becomes a file name, and only the
+			// sealed data says if a change is a deletion.
+			if !validID(ch.ID) {
+				skipped++
 				continue
 			}
 			plain, err := seal.Open(keys.EncKey, seal.AD(ch.Kind, ch.ID), ch.Data)
@@ -76,10 +86,11 @@ func main() {
 				skipped++
 				continue
 			}
-			var tombstone struct {
-				Deleted bool `json:"deleted"`
+			var p struct {
+				Deleted bool   `json:"deleted"`
+				Value   string `json:"value"`
 			}
-			if json.Unmarshal(plain, &tombstone) == nil && tombstone.Deleted {
+			if json.Unmarshal(plain, &p) == nil && p.Deleted {
 				continue
 			}
 			switch ch.Kind {
@@ -90,6 +101,10 @@ func main() {
 				}
 				blobNames = append(blobNames, attachmentNames(plain)...)
 			case "label":
+				if seal.LabelID(keys.IDKey, p.Value) != ch.ID {
+					skipped++
+					continue
+				}
 				labels = append(labels, plain)
 			}
 		}
@@ -120,7 +135,7 @@ func main() {
 		}
 		files++
 	}
-	fmt.Printf("%d notes, %d labels, %d attachments, %d records not decryptable\n", notes, len(labels), files, skipped)
+	fmt.Printf("%d notes, %d labels, %d attachments, %d records rejected (not decryptable or invalid)\n", notes, len(labels), files, skipped)
 }
 
 func attachmentNames(note []byte) []string {
@@ -143,7 +158,18 @@ func attachmentNames(note []byte) []string {
 }
 
 func safeName(name string) bool {
-	return name != "" && len(name) <= 255 && !strings.HasPrefix(name, ".") && !strings.ContainsAny(name, "/\\\x00")
+	return name != "" && len(name) <= 255 && !strings.HasPrefix(name, ".") &&
+		!strings.ContainsAny(name, "/\\") && !strings.ContainsFunc(name, unicode.IsControl)
+}
+
+func validID(id string) bool {
+	_, err := hex.DecodeString(id)
+	return err == nil && len(id) == 32 && strings.ToLower(id) == id
+}
+
+func loopback(host string) bool {
+	ip := net.ParseIP(host)
+	return host == "localhost" || ip != nil && ip.IsLoopback()
 }
 
 type client struct{ base, token string }

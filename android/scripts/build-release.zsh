@@ -10,7 +10,7 @@ ORG_GRADLE_PROJECT_RELEASE_STORE_FILE=$keystore \
 ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD=$password \
 ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS=notallyxyz \
 ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD=$password \
-  ./gradlew --console=plain assembleRelease "$@"
+  ./gradlew --no-daemon --console=plain assembleRelease "$@"
 apk=(app/build/outputs/apk/release/*.apk)
 "$HOME/Library/Android/sdk/build-tools/$(ls $HOME/Library/Android/sdk/build-tools | sort -V | tail -1)/apksigner" verify --print-certs $apk | grep -i 'SHA-256'
 echo "APK: $PWD/$apk"

@@ -89,6 +89,8 @@ func main() {
 		Addr:              cfg.listen,
 		Handler:           newAPI(cfg, store).routes(),
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       ioTimeout,
+		WriteTimeout:      ioTimeout,
 		IdleTimeout:       90 * time.Second,
 		MaxHeaderBytes:    16 << 10,
 	}

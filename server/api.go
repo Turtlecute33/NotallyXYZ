@@ -1,15 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -22,12 +25,15 @@ const (
 	maxPageBytes     = 8 << 20
 	maxChangesPerReq = 1000
 	maxWait          = 60
+	ioTimeout        = 2 * time.Minute // ReadTimeout and WriteTimeout. Long poll and blobs extend them.
+	maxHeavy         = 4               // requests that hold a page of changes in memory at one time
 )
 
 type api struct {
 	cfg     config
 	store   *Store
 	limiter *limiter
+	heavy   chan struct{}
 }
 
 type ctxKey int
@@ -38,8 +44,20 @@ const (
 )
 
 func newAPI(cfg config, store *Store) *api {
-	return &api{cfg: cfg, store: store, limiter: newLimiter(30, 15*time.Minute)}
+	return &api{cfg: cfg, store: store, limiter: newLimiter(30, 15*time.Minute), heavy: make(chan struct{}, maxHeavy)}
 }
+
+// acquire waits for a slot for memory-heavy work. It reports false if the request ends first.
+func (a *api) acquire(r *http.Request) bool {
+	select {
+	case a.heavy <- struct{}{}:
+		return true
+	case <-r.Context().Done():
+		return false
+	}
+}
+
+func (a *api) release() { <-a.heavy }
 
 func (a *api) routes() http.Handler {
 	mux := http.NewServeMux()
@@ -89,6 +107,8 @@ func (a *api) internalError(w http.ResponseWriter, op string, err error) {
 		writeError(w, http.StatusInsufficientStorage, "quota_exceeded")
 	case errors.Is(err, errNotFound):
 		writeError(w, http.StatusNotFound, "not_found")
+	case errors.Is(err, errCursorAhead):
+		writeError(w, http.StatusConflict, "cursor_ahead")
 	default:
 		log.Printf("%s: %v", op, err)
 		writeError(w, http.StatusInternalServerError, "internal")
@@ -96,18 +116,28 @@ func (a *api) internalError(w http.ResponseWriter, op string, err error) {
 }
 
 // clientIP is used only for the in-memory failure counter. It is never logged or stored.
+// An IPv6 address counts as its /64 network, because one host can use all of it.
 func (a *api) clientIP(r *http.Request) string {
-	if a.cfg.trustProxy {
-		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			parts := strings.Split(xff, ",")
-			return strings.TrimSpace(parts[len(parts)-1])
-		}
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
 	}
-	return host
+	if a.cfg.trustProxy {
+		// The proxy appends the address that it sees: use the last value of the last line.
+		if xff := r.Header.Values("X-Forwarded-For"); len(xff) > 0 {
+			parts := strings.Split(xff[len(xff)-1], ",")
+			host = strings.TrimSpace(parts[len(parts)-1])
+		}
+	}
+	ip, err := netip.ParseAddr(host)
+	if err != nil {
+		return host
+	}
+	if ip = ip.Unmap(); ip.Is6() {
+		p, _ := ip.WithZone("").Prefix(64)
+		return p.String()
+	}
+	return ip.String()
 }
 
 // tokenHash parses "Authorization: Bearer <base64url 32 bytes>" and returns SHA-256 of the token.
@@ -125,8 +155,21 @@ func tokenHash(r *http.Request) ([]byte, bool) {
 	return sum[:], true
 }
 
+// noAuth answers 401 to a request without an Authorization header. Such requests (scanners)
+// do not count as failures, so that they cannot block the clients that share their address.
+func noAuth(w http.ResponseWriter, r *http.Request) bool {
+	if r.Header.Get("Authorization") != "" {
+		return false
+	}
+	writeError(w, http.StatusUnauthorized, "unauthorized")
+	return true
+}
+
 func (a *api) auth(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if noAuth(w, r) {
+			return
+		}
 		ip := a.clientIP(r)
 		if a.limiter.blocked(ip) {
 			writeError(w, http.StatusTooManyRequests, "rate_limited")
@@ -182,6 +225,9 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 }
 
 func (a *api) createAccount(w http.ResponseWriter, r *http.Request) {
+	if noAuth(w, r) {
+		return
+	}
 	ip := a.clientIP(r)
 	if a.limiter.blocked(ip) {
 		writeError(w, http.StatusTooManyRequests, "rate_limited")
@@ -277,23 +323,28 @@ func (a *api) getChanges(w http.ResponseWriter, r *http.Request) {
 	}
 	acct := account(r)
 	rc := http.NewResponseController(w)
-	_ = rc.SetWriteDeadline(time.Now().Add(time.Duration(wait+30) * time.Second))
+	_ = rc.SetWriteDeadline(time.Now().Add(time.Duration(wait)*time.Second + ioTimeout))
 
 	// Register before reading, so that a change between read and wait is not missed.
 	woken := a.store.wait(acct)
+	if !a.acquire(r) {
+		return
+	}
 	changes, last, more, err := a.store.Changes(acct, uint64(since), int(limit), maxPageBytes)
 	if err == nil && len(changes) == 0 && wait > 0 {
-		timer := time.NewTimer(time.Duration(wait) * time.Second)
+		a.release() // the wait holds no slot
 		select {
 		case <-woken:
-			changes, last, more, err = a.store.Changes(acct, uint64(since), int(limit), maxPageBytes)
-		case <-timer.C:
+		case <-time.After(time.Duration(wait) * time.Second):
 		case <-r.Context().Done():
-			timer.Stop()
 			return
 		}
-		timer.Stop()
+		if !a.acquire(r) {
+			return
+		}
+		changes, last, more, err = a.store.Changes(acct, uint64(since), int(limit), maxPageBytes)
 	}
+	defer a.release()
 	if err != nil {
 		a.internalError(w, "changes", err)
 		return
@@ -305,6 +356,24 @@ func (a *api) getChanges(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) postChanges(w http.ResponseWriter, r *http.Request) {
+	// A large batch on a slow link takes longer than ioTimeout. Read it before taking a slot,
+	// so that a slow client cannot hold one.
+	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(30 * time.Minute))
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBytes))
+	if err != nil {
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			writeError(w, http.StatusRequestEntityTooLarge, "too_large")
+		} else {
+			writeError(w, http.StatusBadRequest, "bad_request")
+		}
+		return
+	}
+	r.Body = io.NopCloser(bytes.NewReader(data))
+	if !a.acquire(r) {
+		return
+	}
+	defer a.release()
 	var body struct {
 		Changes []ChangeIn `json:"changes"`
 	}
@@ -369,7 +438,7 @@ func (a *api) missingBlobs(w http.ResponseWriter, r *http.Request) {
 
 func (a *api) putBlob(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if !validID(id) {
+	if !validID(id) || r.ContentLength == 0 {
 		writeError(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -377,7 +446,7 @@ func (a *api) putBlob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusLengthRequired, "length_required")
 		return
 	}
-	if r.ContentLength == 0 || (a.cfg.maxBlobBytes > 0 && r.ContentLength > a.cfg.maxBlobBytes) {
+	if a.cfg.maxBlobBytes > 0 && r.ContentLength > a.cfg.maxBlobBytes {
 		writeError(w, http.StatusRequestEntityTooLarge, "too_large")
 		return
 	}
@@ -400,8 +469,12 @@ func (a *api) getBlob(w http.ResponseWriter, r *http.Request) {
 	}
 	f, err := a.store.OpenBlob(account(r), id)
 	if errors.Is(err, os.ErrNotExist) {
+		// Delete the entry of the lost file, so that "missing" reports the blob and the
+		// clients upload it again.
 		log.Print("get blob: stored blob has no file")
-		err = errNotFound
+		if err = a.store.DeleteBlob(account(r), id); err == nil {
+			err = errNotFound
+		}
 	}
 	if err != nil {
 		a.internalError(w, "get blob", err)

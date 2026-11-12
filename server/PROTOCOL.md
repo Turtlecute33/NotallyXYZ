@@ -78,6 +78,11 @@ check that it fits in `T - 8` and that all padding bytes are zero. A failure at 
 step rejects the whole message. The AAD binds the ciphertext to its kind and id, so the
 server cannot swap records. Deletions are sealed too (§5), so the server cannot fake them.
 
+Known limit: the sealed data binds kind and id, but no version. The server, or anyone
+with the `authToken`, can send an older authentic version of a record again. This can
+revert a note, bring back a deleted note, or delete a note again with an old tombstone.
+Clients cannot detect this.
+
 `testvectors.json` holds fixed inputs and outputs for all of the above. Every client
 must pass these vectors in its unit tests.
 
@@ -116,8 +121,9 @@ Field names and value formats are the same as the NotallyX Room entity `BaseNote
 - Device-local state is not synced (status bar pin, visible notification flags).
 - Writers omit keys whose value is `null` (for example `linkData`, `checkedTimestamp`,
   `repetition`). Readers treat a missing key and `null` the same.
-- A client that does not understand a field must keep it unchanged when it writes
-  the note again.
+- A client keeps the unknown top-level keys of a note payload unchanged when it writes
+  the note again. Unknown keys inside nested objects (for example in `items` or `images`)
+  can be lost, so a new field must be a top-level key.
 - `body` has at most 393,216 UTF-16 code units, the limit of the Android app. Android
   cuts a longer body. The other clients do not save a body that is longer than the limit
   and longer than before.
@@ -150,7 +156,8 @@ Base path `/v1`. HTTPS is mandatory outside of tests. JSON bodies are UTF-8.
 
 Authentication: `Authorization: Bearer <authToken base64url>` on every endpoint except
 `GET /v1/health`. An unknown token returns `401`. Repeated failures from one address
-return `429`.
+return `429` (an IPv6 address counts as its /64 network). A request without an
+`Authorization` header returns `401` and does not count as a failure.
 
 | Method & path                | Purpose                                                |
 |------------------------------|--------------------------------------------------------|
@@ -178,7 +185,7 @@ POST /v1/account   {"invite": "<server signup token>"}
 
 ```
 GET /v1/changes?since=<seq>&limit=<1..1000>&wait=<0..60>
-→ {"changes":[{"kind":"note","id":"…","seq":12,"deleted":false,"data":"…"}],
+→ {"changes":[{"kind":"note","id":"…","seq":12,"data":"…"}],
    "seq": 12, "more": false}
 ```
 
@@ -188,29 +195,40 @@ order. `seq` in the response is the cursor for the next call. If `more` is true,
 again at once. With `wait > 0` and no changes, the server holds the request open up to
 `wait` seconds and answers as soon as a change arrives (long poll).
 
+If `since` is greater than the `seq` of the account, the server returns `409`
+`{"error":"cursor_ahead"}`. This happens after the server is restored from an older
+backup, or after the account is deleted and created again. The client stops syncing
+and shows an error. It does not run blob garbage collection.
+
 ### Write changes
 
 ```
 POST /v1/changes
-{"changes":[{"kind":"note","id":"…","base":12,"deleted":false,"data":"…"}]}
+{"changes":[{"kind":"note","id":"…","base":12,"data":"…"}]}
 → {"results":[{"id":"…","kind":"note","seq":13},
               {"id":"…","kind":"note","conflict":true,"seq":15}]}
 ```
 
 `base` is the `seq` of the version that the client last saw (0 for a new record).
-The server accepts a change only if `base` equals the current `seq` of the record
-(or the record does not exist and `base` is 0). Otherwise it returns `conflict` with
-the current `seq`, and the client must pull, merge and try again. Every change has `data`;
-the server rejects a change without it (`400`). A deletion has `deleted: true` and the
-sealed tombstone (§5) as `data`. The server keeps it and returns it with `deleted: true`,
-so that other devices learn of the deletion. All changes of one request are written in
-one transaction.
+If the server has the record, it accepts the change only if `base` equals the current
+`seq` of the record. Otherwise it returns `conflict` with the current `seq`, and the
+client must pull, merge and try again. If the server does not have the record, it
+ignores `base` and accepts the change (for example after a restore of an old backup).
+Every change has `data`; the server rejects a change without it (`400`). A deletion is
+a change with the sealed tombstone (§5) as `data`. The server cannot tell it from other
+changes: it keeps it and returns it like any change, so that other devices learn of the
+deletion. Clients send `deleted: false` or omit the key. Older clients send
+`deleted: true` with a deletion: the server accepts the key, but it does not store it.
+It returns `deleted: false` for every change, because older clients need the key.
+All changes of one request are written in one transaction.
 
 ### Blobs
 
 Blobs are immutable. Clients upload a blob before the first note that references it,
 and download a blob before they show a note that references it. A `PUT` of an existing
-id returns `204` and keeps the stored bytes.
+id returns `204` and keeps the stored bytes. If the server lost the file of a blob,
+`GET` returns `404` and the server deletes the blob, so that `missing` reports it and
+clients upload it again.
 
 Garbage collection is client-driven: after a full sync with an empty outbox, a client
 can delete blobs that no note references and that are older than 24 hours.
@@ -219,34 +237,47 @@ can delete blobs that no note references and that are older than 24 hours.
 
 Errors are `{"error": "<code>"}` with a matching status. Limits are in the server
 configuration (`GET /v1/account` shows them). A record is at most 8 MiB sealed, a
-request body at most 32 MiB.
+request body at most 32 MiB. An empty blob returns `400`, a blob over `maxBlobBytes`
+returns `413`. A write over `maxAccountBytes` returns `507` `quota_exceeded`, unless it
+does not make the account larger (for example deletions). The server ends a request
+whose body does not arrive in 2 minutes (30 minutes for a blob or `POST /v1/changes`).
 
 ## 7. Client sync algorithm
 
-1. **Pull**: read changes from the stored cursor until `more` is false. For each change:
+1. **Pull**: read changes from the stored cursor until `more` is false. On
+   `409 cursor_ahead`, stop syncing, show an error and do not run blob garbage
+   collection (§6). For each change:
    - `seq` not greater than the `seq` stored for the record → skip (own push or a
      known version);
    - `data` missing or does not open (forged deletion, tampered or damaged record) →
      do not apply it. If this device has a copy of the record, keep the copy and push it
      again with `base` = `seq` of this change: this repairs the server copy. Else skip it.
-     The `deleted` flag is not authenticated: a change is a deletion only if its data
-     opens and the payload has `"deleted": true`. `deleted: false` without `data` is
-     not a deletion;
+     A change is a deletion only if its data opens and the payload has
+     `"deleted": true`. Older servers also sent a `deleted` flag: it is not
+     authenticated, and clients ignore it;
    - note open in the editor → keep the remote version aside and merge it when the
      editor closes; do not push that note while a remote version waits;
-   - unknown id → insert, unless an unsynced local note has the same title, type and
-     content, then link that note to the id instead (no duplicates on first sync);
+   - unknown id → insert, unless an unsynced local note is the same note. Then link that
+     note to the id instead (no duplicates on first sync). It is the same note only if
+     these are equal: `type`, `title`, the content (note: `body`; list: the `body` and
+     `checked` of each item, in order), and the sets of attachment names (`images` and
+     `files` by `localName`, `audios` by `name`);
    - known id, no local change → overwrite the local copy;
    - known id, local change pending → 3-way merge against the field hashes of the last
      synced version. Content fields `type`, `title`, `body`, `spans`, `items` are one
      unit. A field changed on one side takes that side. Changed on both sides: content →
      keep local and add the remote version as a new note titled `<title> (conflict)`
-     (`(conflict)` if the title is empty); `modifiedTimestamp` → newest; `labels`,
-     `images`, `files`, `audios` → union; other fields → local. Nothing is discarded.
+     (`(conflict)` if the title is empty). The conflict copy has `pinned` = false and
+     no `reminders`. `modifiedTimestamp` → newest; `labels`, `images`, `files`,
+     `audios` → union; other fields → local. Nothing is discarded.
+   - known id, local deletion pending, remote update → the remote version wins and
+     the local deletion is dropped. This applies to notes and labels.
    - tombstone → delete locally, unless a local change is pending (the local version
      is then written again on push).
 2. **Push**: send pending local changes with `base` = last seen `seq`. A deletion sends
-   a sealed tombstone. Upload missing blobs first. On `conflict`, pull and try again.
+   a sealed tombstone. A client does not upload a deletion for a record that the server
+   never had (local `seq` 0): it only removes the local row. Upload missing blobs
+   first. On `conflict`, pull and try again.
 3. Store the cursor only after the changes of a page are applied.
 
 Clients of version 1.0.0 sent deletions without `data`. The server rejects these now, and

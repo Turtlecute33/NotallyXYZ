@@ -25,11 +25,12 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: desktop/go.mod
+          go-version: '1.27.x'
+          check-latest: true
           cache-dependency-path: desktop/go.sum
       - name: Test (crypto vectors, payloads, merge, sync against the real server)
         working-directory: desktop
-        run: go test ./core/
+        run: go test -race ./core/
 
   linux:
     needs: test
@@ -49,12 +50,13 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: desktop/go.mod
-          cache-dependency-path: desktop/go.sum
+          go-version: '1.27.x'
+          check-latest: true
+          cache: false # release builds do not use a cache that other runs can write
       - name: Install GTK and WebKitGTK
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
       - name: Version
-        run: echo "VERSION=$(echo '${{ github.ref_name }}' | sed -n 's/^v//p' | grep . || echo 0.0.0-dev)" >> "$GITHUB_ENV"
+        run: echo "VERSION=$(echo "$GITHUB_REF_NAME" | sed -n 's/^v//p' | grep . || echo 0.0.0-dev)" >> "$GITHUB_ENV"
       - name: Build
         working-directory: desktop
         run: |
@@ -62,9 +64,12 @@ jobs:
           go run "$WAILS" build -tags webkit2_41 -skipbindings -trimpath -ldflags "-X main.version=$VERSION" -o notallyxyz
       - name: Package (.tar.gz and .deb)
         working-directory: desktop
+        env:
+          ARCH: ${{ matrix.arch }}
+          DEB: ${{ matrix.deb }}
         run: |
           out="$GITHUB_WORKSPACE/out"; mkdir -p "$out"
-          name="NotallyXYZ-linux-${{ matrix.arch }}-$VERSION"
+          name="NotallyXYZ-linux-$ARCH-$VERSION"
           mkdir -p "pkg/$name"
           cp build/bin/notallyxyz build/linux/notallyxyz.desktop ../LICENSE.md "pkg/$name/"
           cp build/linux/notallyxyz.png "pkg/$name/"
@@ -79,16 +84,16 @@ jobs:
           cat > "$deb/DEBIAN/control" <<EOF
           Package: notallyxyz
           Version: $VERSION
-          Architecture: ${{ matrix.deb }}
-          Maintainer: NotallyXYZ <https://github.com/${{ github.repository }}>
+          Architecture: $DEB
+          Maintainer: NotallyXYZ <https://github.com/$GITHUB_REPOSITORY>
           Depends: libgtk-3-0t64 | libgtk-3-0, libwebkit2gtk-4.1-0
           Section: utils
           Priority: optional
-          Homepage: https://github.com/${{ github.repository }}
+          Homepage: https://github.com/$GITHUB_REPOSITORY
           Description: NotallyX notes with end-to-end encrypted sync
            Notes and lists that sync through your own zero-knowledge server.
           EOF
-          dpkg-deb --root-owner-group --build "$deb" "$out/notallyxyz_${VERSION}_${{ matrix.deb }}.deb"
+          dpkg-deb --root-owner-group --build "$deb" "$out/notallyxyz_${VERSION}_$DEB.deb"
           ls -l "$out"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -105,10 +110,11 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: desktop/go.mod
-          cache-dependency-path: desktop/go.sum
+          go-version: '1.27.x'
+          check-latest: true
+          cache: false # release builds do not use a cache that other runs can write
       - name: Version
-        run: echo "VERSION=$(echo '${{ github.ref_name }}' | sed -n 's/^v//p' | grep . || echo 0.0.0-dev)" >> "$GITHUB_ENV"
+        run: echo "VERSION=$(echo "$GITHUB_REF_NAME" | sed -n 's/^v//p' | grep . || echo 0.0.0-dev)" >> "$GITHUB_ENV"
       - name: Build
         working-directory: desktop
         run: |
@@ -147,10 +153,10 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 ||
             gh release create "$TAG" --verify-tag --title "NotallyXYZ ${TAG#v}" --notes "Release ${TAG#v}."
           # One SHA256SUMS for all files: add the desktop files to the list of the Android and macOS files.
+          # The new lines come first, because sort -u keeps the first line of each file name.
           cd out
-          gh release download "$TAG" -p SHA256SUMS -O existing 2>/dev/null || : > existing
-          sha256sum * | grep -v ' existing$' > desktop
-          cat existing desktop | sort -k2 -u > SHA256SUMS
-          rm existing desktop
+          gh release download "$TAG" -p SHA256SUMS -O "$RUNNER_TEMP/existing" 2>/dev/null || : > "$RUNNER_TEMP/existing"
+          sha256sum * > "$RUNNER_TEMP/desktop"
+          cat "$RUNNER_TEMP/desktop" "$RUNNER_TEMP/existing" | sort -k2 -u > SHA256SUMS
           cat SHA256SUMS
           gh release upload "$TAG" * --clobber

@@ -19,20 +19,19 @@ var (
 	errQuota       = errors.New("quota_exceeded")
 	errAccountsMax = errors.New("accounts_limit")
 	errNotFound    = errors.New("not_found")
+	errCursorAhead = errors.New("cursor_ahead")
 )
 
 var (
 	bucketAccounts = []byte("accounts") // SHA-256(authToken) -> account id (16 bytes)
 	bucketMeta     = []byte("meta")     // "seq", "bytes", "created"
-	bucketRecords  = []byte("rec")      // kind ":" id -> seq(8) flags(1) data (tombstones too)
+	bucketRecords  = []byte("rec")      // kind ":" id -> seq(8) flags(1, unused) data (tombstones too)
 	bucketLog      = []byte("log")      // seq(8) -> kind ":" id
 	bucketBlobs    = []byte("blob")     // id -> size(8) created(8)
 	keySeq         = []byte("seq")
 	keyBytes       = []byte("bytes")
 	keyCreated     = []byte("created")
 )
-
-const flagDeleted = 1
 
 // Store keeps all accounts in one bbolt file and blobs as files.
 type Store struct {
@@ -47,7 +46,7 @@ type Change struct {
 	Kind    string `json:"kind"`
 	ID      string `json:"id"`
 	Seq     uint64 `json:"seq"`
-	Deleted bool   `json:"deleted"`
+	Deleted bool   `json:"deleted"` // always false: the macOS app 1.1.4 needs the key
 	Data    []byte `json:"data,omitempty"`
 }
 
@@ -55,7 +54,7 @@ type ChangeIn struct {
 	Kind    string `json:"kind"`
 	ID      string `json:"id"`
 	Base    uint64 `json:"base"`
-	Deleted bool   `json:"deleted"`
+	Deleted bool   `json:"deleted"` // ignored, accepted for old clients: a deletion is a sealed tombstone
 	Data    []byte `json:"data,omitempty"`
 }
 
@@ -198,6 +197,7 @@ func (s *Store) Info(acct string) (AccountInfo, error) {
 }
 
 // Changes returns the newest version of each record with seq > since, in seq order.
+// A since after the account seq (restored backup, new account) returns errCursorAhead.
 func (s *Store) Changes(acct string, since uint64, limit int, maxBytes int) ([]Change, uint64, bool, error) {
 	var (
 		out   []Change
@@ -209,6 +209,9 @@ func (s *Store) Changes(acct string, since uint64, limit int, maxBytes int) ([]C
 		b := tx.Bucket(accountBucketName(acct))
 		if b == nil {
 			return errNotFound
+		}
+		if since > u64(b.Bucket(bucketMeta).Get(keySeq)) {
+			return errCursorAhead
 		}
 		recs := b.Bucket(bucketRecords)
 		c := b.Bucket(bucketLog).Cursor()
@@ -222,7 +225,7 @@ func (s *Store) Changes(acct string, since uint64, limit int, maxBytes int) ([]C
 				continue
 			}
 			kind, id := splitKey(v)
-			ch := Change{Kind: kind, ID: id, Seq: u64(k), Deleted: rec[8]&flagDeleted != 0}
+			ch := Change{Kind: kind, ID: id, Seq: u64(k)}
 			// Tombstones from 1.0.0 have no data; clients do not apply those.
 			if len(rec) > 9 {
 				ch.Data = append([]byte(nil), rec[9:]...)
@@ -258,6 +261,7 @@ func (s *Store) Apply(acct string, changes []ChangeIn, maxAccountBytes int64) ([
 		meta, recs, logb := b.Bucket(bucketMeta), b.Bucket(bucketRecords), b.Bucket(bucketLog)
 		seq := u64(meta.Get(keySeq))
 		used := int64(u64(meta.Get(keyBytes)))
+		usedBefore := used
 		for _, ch := range changes {
 			key := []byte(ch.Kind + ":" + ch.ID)
 			var curSeq uint64
@@ -274,17 +278,12 @@ func (s *Store) Apply(acct string, changes []ChangeIn, maxAccountBytes int64) ([
 				}
 			}
 			seq++
-			// A tombstone keeps its sealed data: clients delete only what opens as a deletion.
-			var flags byte
-			data := ch.Data
-			if ch.Deleted {
-				flags = flagDeleted
-			}
-			used += int64(len(data)) - curSize
-			val := make([]byte, 9+len(data))
+			// The server does not know which change is a deletion: clients delete only
+			// what opens as a sealed tombstone.
+			used += int64(len(ch.Data)) - curSize
+			val := make([]byte, 9+len(ch.Data))
 			copy(val, putU64(seq))
-			val[8] = flags
-			copy(val[9:], data)
+			copy(val[9:], ch.Data)
 			if err := recs.Put(key, val); err != nil {
 				return err
 			}
@@ -294,7 +293,8 @@ func (s *Store) Apply(acct string, changes []ChangeIn, maxAccountBytes int64) ([
 			results = append(results, Result{Kind: ch.Kind, ID: ch.ID, Seq: seq})
 			written = true
 		}
-		if maxAccountBytes > 0 && used > maxAccountBytes {
+		// A batch that does not add bytes (deletions) passes even over the quota.
+		if maxAccountBytes > 0 && used > maxAccountBytes && used > usedBefore {
 			return errQuota
 		}
 		if used < 0 {
@@ -435,7 +435,7 @@ func (s *Store) OpenBlob(acct, id string) (*os.File, error) {
 }
 
 func (s *Store) DeleteBlob(acct, id string) error {
-	err := s.db.Update(func(tx *bolt.Tx) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(accountBucketName(acct))
 		if b == nil {
 			return errNotFound
@@ -452,15 +452,13 @@ func (s *Store) DeleteBlob(acct, id string) error {
 		if err := blobs.Delete([]byte(id)); err != nil {
 			return err
 		}
+		// Remove the file in the transaction, so that it cannot remove the file of a PutBlob
+		// of the same id that follows.
+		if err := os.Remove(s.blobPath(acct, id)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
 		return meta.Put(keyBytes, putU64(uint64(used)))
 	})
-	if err != nil {
-		return err
-	}
-	if err := os.Remove(s.blobPath(acct, id)); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	return nil
 }
 
 // wait returns a channel that is closed on the next change of acct.

@@ -6,6 +6,8 @@
 set -euo pipefail
 version=${1:?usage: ./release.zsh <version>}
 root=${0:A:h}
+[[ $version =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || { print -u2 "The version must be like 1.2.3."; exit 2 }
+[[ -z $(git -C $root status --porcelain) ]] || { print -u2 "The git tree has changes. Commit or stash them first."; exit 1 }
 out=$root/dist/$version
 rm -rf $out && mkdir -p $out
 

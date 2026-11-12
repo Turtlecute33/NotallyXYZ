@@ -170,7 +170,7 @@ func TestChanges(t *testing.T) {
 	}
 	_, body := do(t, srv, "GET", "/v1/changes?since=0", tok, nil)
 	ch := changesOf(body)
-	if len(ch) != 2 || ch[0]["id"] != idB || ch[1]["id"] != idA || ch[1]["deleted"] != true || body["seq"].(float64) != 3 {
+	if ch[1]["deleted"] != false || len(ch) != 2 || ch[0]["id"] != idB || ch[1]["id"] != idA || body["seq"].(float64) != 3 {
 		t.Fatalf("pull: %v", body)
 	}
 	if got, _ := base64.StdEncoding.DecodeString(ch[0]["data"].(string)); string(got) != "ciphertext" {
@@ -287,6 +287,9 @@ func TestBlobs(t *testing.T) {
 	if code, _ := do(t, srv, "PUT", "/v1/blobs/"+idA, tok, bytes.Repeat([]byte{1}, 2<<20)); code != 413 {
 		t.Fatal("too large blob accepted")
 	}
+	if code, _ := do(t, srv, "PUT", "/v1/blobs/"+idA, tok, []byte{}); code != 400 {
+		t.Fatalf("empty blob: %d", code)
+	}
 }
 
 func TestBlobFileMissing(t *testing.T) {
@@ -300,6 +303,91 @@ func TestBlobFileMissing(t *testing.T) {
 	}
 	if code, _ := do(t, srv, "GET", "/v1/blobs/"+idA, tok, nil); code != 404 {
 		t.Fatalf("get blob with no file: %d", code)
+	}
+	// The entry of the lost file is gone, so that the clients upload the blob again.
+	_, body := do(t, srv, "POST", "/v1/blobs/missing", tok, map[string]any{"ids": []string{idA}})
+	_, info := do(t, srv, "GET", "/v1/account", tok, nil)
+	if len(body["missing"].([]any)) != 1 || info["bytes"].(float64) != 0 {
+		t.Fatalf("after lost file: %v %v", body, info)
+	}
+	do(t, srv, "PUT", "/v1/blobs/"+idA, tok, []byte("sealed"))
+	if _, body := do(t, srv, "GET", "/v1/blobs/"+idA, tok, nil); body["raw"] != "sealed" {
+		t.Fatalf("upload again: %v", body)
+	}
+}
+
+func TestCursorAhead(t *testing.T) {
+	srv := newTestServer(t, nil)
+	tok := signup(t, srv)
+	do(t, srv, "POST", "/v1/changes", tok, map[string]any{"changes": []any{
+		map[string]any{"kind": "note", "id": idA, "base": 0, "data": []byte("x")}}})
+	if code, _ := do(t, srv, "GET", "/v1/changes?since=1&wait=1", tok, nil); code != 200 {
+		t.Fatalf("since = seq: %d", code)
+	}
+	// For example after a restore of an old backup: the client must not skip changes.
+	if code, body := do(t, srv, "GET", "/v1/changes?since=2&wait=10", tok, nil); code != 409 || body["error"] != "cursor_ahead" {
+		t.Fatalf("since > seq: %d %v", code, body)
+	}
+}
+
+func TestQuotaAllowsShrink(t *testing.T) {
+	dir := t.TempDir()
+	s, err := openStore(filepath.Join(dir, "db"), filepath.Join(dir, "blobs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	s.CreateAccount(make([]byte, 32), 0)
+	acct, _ := s.Lookup(make([]byte, 32))
+	put := func(base uint64, size int, quota int64) error {
+		_, err := s.Apply(acct, []ChangeIn{{Kind: "note", ID: idA, Base: base, Data: make([]byte, size)}}, quota)
+		return err
+	}
+	// 100 bytes without a quota, then over a quota of 50: shrinking passes, growing does not.
+	if err := put(0, 100, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := put(1, 60, 50); err != nil {
+		t.Fatalf("shrink over quota: %v", err)
+	}
+	if err := put(2, 70, 50); err != errQuota {
+		t.Fatalf("grow over quota: %v", err)
+	}
+}
+
+func TestNoAuthNotCounted(t *testing.T) {
+	srv := newTestServer(t, nil)
+	for i := 0; i < 40; i++ {
+		if code, _ := do(t, srv, "GET", "/v1/account", "", nil); code != 401 {
+			t.Fatalf("no auth: %d", code)
+		}
+		do(t, srv, "POST", "/v1/account", "", map[string]string{"invite": "wrong"})
+	}
+	if code, _ := do(t, srv, "GET", "/v1/account", signup(t, srv), nil); code != 200 {
+		t.Fatalf("blocked by requests without auth: %d", code)
+	}
+}
+
+func TestClientIP(t *testing.T) {
+	a := &api{cfg: config{trustProxy: true}}
+	for _, c := range []struct {
+		remote string
+		xff    []string
+		want   string
+	}{
+		{"192.0.2.1:5", nil, "192.0.2.1"},
+		{"[::ffff:192.0.2.1]:5", nil, "192.0.2.1"},
+		{"[2001:db8:1:2:3:4:5:6]:5", nil, "2001:db8:1:2::/64"},
+		{"10.0.0.1:5", []string{"198.51.100.1, 198.51.100.2", "spoofed, 203.0.113.9"}, "203.0.113.9"},
+	} {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.RemoteAddr = c.remote
+		for _, v := range c.xff {
+			r.Header.Add("X-Forwarded-For", v)
+		}
+		if got := a.clientIP(r); got != c.want {
+			t.Errorf("%s %v: %s, want %s", c.remote, c.xff, got, c.want)
+		}
 	}
 }
 

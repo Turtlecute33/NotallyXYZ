@@ -1,5 +1,9 @@
 {
 	admin off
+	# Discard all logs (errors, TLS, access): they can hold client addresses.
+	log {
+		output discard
+	}
 }
 
 {$DOMAIN} {

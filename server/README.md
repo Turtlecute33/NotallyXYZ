@@ -6,7 +6,8 @@ Zero-knowledge sync server for NotallyXYZ (Android fork of NotallyX, macOS, Linu
   (AES-256-GCM, key from the sync key with HKDF). The server never gets the key.
 - No user names, no e-mail, no passwords. An account is the SHA-256 of a token that
   the client derives from its sync key.
-- No IP addresses in logs or storage. Access logs are off.
+- No IP addresses in logs or storage. Access logs are off, and the included Caddy
+  discards all of its logs.
 - One static Go binary (7 MB), embedded bbolt database, `scratch` image, runs as
   non-root with a read-only file system and no capabilities.
 
@@ -21,7 +22,8 @@ cp .env.example .env
 # Set SIGNUP_TOKEN to a long random value, for example: openssl rand -base64 32
 ```
 
-Prebuilt image (built by GitHub Actions for amd64 and arm64 on every `v*` tag):
+Prebuilt image (built by GitHub Actions for amd64 and arm64 on every `v*` tag; `latest`
+is the newest tag without a pre-release suffix such as `-rc1`):
 
 ```zsh
 echo 'NOTALLYXYZ_IMAGE=ghcr.io/turtlecute33/notallyxyz-server:1.0' >> .env
@@ -38,7 +40,8 @@ The server listens on `127.0.0.1:8080` of the host. Put it behind HTTPS:
   to `127.0.0.1:8080` (or to the container `server:8080` on a shared Docker network).
   Do not put an SSO or login page in front of it: the apps cannot use it.
   Allow request bodies up to the attachment limit (100 MB by default) and request
-  times of at least 60 s (long poll).
+  times of at least 60 s (long poll). The server itself ends a request whose body does
+  not arrive in 2 minutes (30 minutes for an attachment or a batch of changes).
 - **Caddy included here**: set `DOMAIN` in `.env`, point DNS to the server, open ports
   80 and 443, then `docker compose --profile caddy up -d --build`.
 
@@ -61,7 +64,7 @@ Check: `curl https://<your host>/v1/health` prints `ok`.
 | `MAX_BLOB_MB`     | 100      | Largest attachment                                        |
 | `MAX_ACCOUNT_MB`  | 0        | Storage quota per account, 0 = none                       |
 | `MAX_ACCOUNTS`    | 0        | Number of accounts, 0 = no limit                          |
-| `TRUST_PROXY`     | false    | Use `X-Forwarded-For` (last entry) for the rate limit     |
+| `TRUST_PROXY`     | false    | Use `X-Forwarded-For` (last value) for the rate limit     |
 | `LISTEN_ADDR`     | `:8080`  |                                                           |
 | `DATA_DIR`        | `/data`  |                                                           |
 
@@ -78,18 +81,34 @@ docker run --rm -v notallyxyz-server_data:/data -v "$PWD":/backup alpine \
 docker compose start server
 ```
 
+### Restore
+
+Restore a backup only when you must, for example after the loss of the disk. Do not
+restore an old backup over a live server: the changes after the backup are lost on the
+server, and the devices are ahead of it. Such a device stops syncing with the error
+`cursor_ahead`. To continue on that device:
+
+- Android: disconnect sync and connect again with the sync key. The app keeps its notes
+  and uploads them.
+- macOS, Linux and Windows: connect again with the sync key. This replaces the notes on
+  this device with the server copy, so the changes that this device did not sync are lost.
+
 ## What the server can see
 
 Number and size class of records and attachments (sizes are padded), when they change,
-and the client IP address of each request (not stored). It cannot read or change note
-content: every record is authenticated with its id and kind, so the server also cannot
-swap records without detection. Deletions are sealed too: a forged deletion is not applied
-on the devices, and they write their copy to the server again. The same applies to anyone
+and the client IP address of each request (not stored). A deletion has no plaintext flag:
+it is a small sealed record. The server cannot read note content or write new content:
+every record is authenticated with its id and kind, so the server also cannot swap
+records without detection. Deletions are sealed too: a forged deletion is not applied on
+the devices, and they write their copy to the server again. The same applies to anyone
 who gets the bearer token, for example a TLS-terminating proxy.
 
-The server can still delete data on the server, withhold updates, or send an older
-authentic version of a record again (rollback). Keep a local backup of your notes on one
-device (the Android app has automatic backups).
+The server, and anyone with the bearer token, can still delete data on the server,
+withhold updates, or send an older authentic version of a record again (rollback or
+replay). The sealed data has no version, so this can revert a note to an older content,
+bring back a deleted note, or delete a note again with an old deletion. This is a known
+limit. Keep a local backup of your notes on one device (the Android app has automatic
+backups).
 
 ## Development
 

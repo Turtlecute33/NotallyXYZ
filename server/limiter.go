@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+// maxHits bounds the memory of the limiter. When the map is full, a new address is not
+// counted: blocking all new addresses would block every client.
+const maxHits = 50000
+
 // limiter counts authentication failures per address in memory only.
 type limiter struct {
 	mu     sync.Mutex
@@ -34,7 +38,7 @@ func (l *limiter) fail(ip string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := time.Now()
-	if now.Sub(l.last) > l.window {
+	if now.Sub(l.last) > time.Minute {
 		for k, h := range l.hits {
 			if now.After(h.reset) {
 				delete(l.hits, k)
@@ -44,6 +48,9 @@ func (l *limiter) fail(ip string) {
 	}
 	h, ok := l.hits[ip]
 	if !ok || now.After(h.reset) {
+		if !ok && len(l.hits) >= maxHits {
+			return
+		}
 		h = &hit{reset: now.Add(l.window)}
 		l.hits[ip] = h
 	}
