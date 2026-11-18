@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
+import androidx.core.net.toUri
 import com.philkes.notallyx.R
 import com.philkes.notallyx.data.model.BaseNote
 import com.philkes.notallyx.presentation.activity.note.reminders.ReminderReceiver.Companion.EXTRA_NOTE_ID
@@ -104,10 +105,13 @@ fun Context.createDeleteReminderIntent(
                 else ReminderReceiver.ACTION_PINNED_NOTIFICATION_DISMISSED
             putExtra(EXTRA_NOTE_ID, noteId)
             reminderId?.let { putExtra(EXTRA_REMINDER_ID, it) }
+            // The data makes the PendingIntent of each notification unique. The hash of the ids
+            // can collide ("878232-2" and "738382-67").
+            data = "notallyx-dismiss:$noteId/${reminderId ?: requestCodePostfix!!}".toUri()
         }
     return PendingIntent.getBroadcast(
         this,
-        "$noteId-${reminderId ?: requestCodePostfix!!}".hashCode(),
+        0,
         deleteIntent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
