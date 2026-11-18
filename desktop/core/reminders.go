@@ -6,7 +6,7 @@ import (
 )
 
 // NextNotification follows NotallyX Reminder.nextNotification (ModelExtensions.kt), in local time.
-// Months and years clamp to the last day of the month, like java.util.Calendar.
+// Months and years count from the start and clamp to the last day of the month, like java.util.Calendar.
 func NextNotification(r Reminder, from time.Time) (time.Time, bool) {
 	start := time.UnixMilli(r.DateTime).In(time.Local)
 	if from.Before(start) {
@@ -50,10 +50,25 @@ func NextNotification(r Reminder, from time.Time) (time.Time, bool) {
 		step = func(t time.Time) time.Time { return t.AddDate(0, 0, value) }
 	case "WEEKS":
 		step = func(t time.Time) time.Time { return t.AddDate(0, 0, 7*value) }
-	case "MONTHS":
-		step = func(t time.Time) time.Time { return addMonths(t, value) }
-	case "YEARS":
-		step = func(t time.Time) time.Time { return addMonths(t, 12*value) }
+	case "MONTHS", "YEARS":
+		months := value
+		if rep.Unit == "YEARS" {
+			if value > math.MaxInt/12 {
+				return time.Time{}, false
+			}
+			months = 12 * value
+		}
+		// Each occurrence counts from the start, so a day that a short month cut comes back
+		// (Jan 31 → Feb 28 → Mar 31). Start at the occurrence in the month of `from` (or the last
+		// one before that month). If it is not after `from`, the next one is: it is in a later month.
+		k := max(1, monthsBetween(start, from)/months)
+		for range 2 {
+			if next := addMonths(start, k*months); next.After(from) {
+				return next, true
+			}
+			k++
+		}
+		return time.Time{}, false
 	default:
 		return time.Time{}, false
 	}
@@ -65,6 +80,12 @@ func NextNotification(r Reminder, from time.Time) (time.Time, bool) {
 		}
 	}
 	return time.Time{}, false
+}
+
+// monthsBetween is the number of calendar months from the month of start to the month of t, in the time zone of start.
+func monthsBetween(start, t time.Time) int {
+	t = t.In(start.Location())
+	return (t.Year()-start.Year())*12 + int(t.Month()-start.Month())
 }
 
 func addMonths(t time.Time, n int) time.Time {

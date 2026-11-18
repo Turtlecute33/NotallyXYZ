@@ -19,19 +19,38 @@ extension Reminder {
             return nil
         }
 
+        if rep.unit == .months || rep.unit == .years {
+            // Each occurrence counts from the start, so a day that a short month cut comes back
+            // (Jan 31 → Feb 28 → Mar 31). Start at the occurrence in the month of `from` (or the last
+            // one before that month). If it is not after `from`, the next one is: it is in a later
+            // month. `passed` is one short when a time change skips the midnight that starts the
+            // first month, so try one more.
+            let (months, overflow) = rep.value.multipliedReportingOverflow(by: rep.unit == .years ? 12 : 1)
+            guard !overflow, months > 0,
+                  let startMonth = calendar.dateInterval(of: .month, for: start)?.start,
+                  let fromMonth = calendar.dateInterval(of: .month, for: from)?.start,
+                  let passed = calendar.dateComponents([.month], from: startMonth, to: fromMonth).month else { return nil }
+            var k = max(1, passed / months)
+            for _ in 0..<3 {
+                let (total, overflow) = k.multipliedReportingOverflow(by: months)
+                guard !overflow, let next = calendar.date(byAdding: .month, value: total, to: start) else { return nil }
+                if next > from { return next }
+                k += 1
+            }
+            return nil
+        }
+
         let component: Calendar.Component
         switch rep.unit {
         case .minutes: component = .minute
         case .hours: component = .hour
         case .days: component = .day
         case .weeks: component = .weekOfYear
-        case .months: component = .month
-        case .years: component = .year
+        case .months, .years: return nil  // handled above
         }
         var next = start
         // Jump close to `from` first. Minutes and hours have a fixed length; days and weeks are
-        // counted in calendar units. Months and years step one period at a time like Android, which
-        // keeps a day that a short month cut (31 → 28 → 28).
+        // counted in calendar units.
         if rep.unit == .minutes || rep.unit == .hours {
             let step = Double(rep.value) * (rep.unit == .minutes ? 60 : 3600)
             let skip = Int(from.timeIntervalSince(start) / step) - 1

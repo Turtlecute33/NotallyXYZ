@@ -469,6 +469,18 @@ fun Reminder.lastNotification(before: Date = Date()): Date? {
     if (repetition == null) {
         return dateTime
     }
+    repetition!!.months()?.let { months ->
+        if (months <= 0) return null
+        // Start at the occurrence in the month of 'before' (or the last one before that month).
+        // If it is not before 'before', the previous one is: it is in an earlier month.
+        var k = monthsBetween(dateTime, before) / months
+        repeat(2) {
+            val last = dateTime.plusMonths(k * months) ?: return null
+            if (last.before(before)) return last
+            k--
+        }
+        return null
+    }
 
     val calendar = dateTime.toCalendar()
     val field = repetition!!.unit.toCalendarField()
@@ -515,6 +527,18 @@ fun Reminder.nextNotification(from: Date = Date()): Date? {
         }
         return null
     }
+    rep.months()?.let { months ->
+        if (months <= 0) return null
+        // Start at the occurrence in the month of 'from' (or the last one before that month). If
+        // it is not after 'from', the next one is: it is in a later month.
+        var k = maxOf(1, monthsBetween(dateTime, from) / months)
+        repeat(2) {
+            val next = dateTime.plusMonths(k * months) ?: return null
+            if (next.after(from)) return next
+            k++
+        }
+        return null
+    }
     val calendar = dateTime.toCalendar()
     val field = repetition!!.unit.toCalendarField()
     val value = repetition!!.value
@@ -528,6 +552,31 @@ fun Reminder.nextNotification(from: Date = Date()): Date? {
         }
     }
     return null
+}
+
+/**
+ * Months and years: the number of months in one repetition, else null. Each occurrence counts from
+ * the start date, so a day that a short month cut comes back (Jan 31 → Feb 28 → Mar 31).
+ */
+private fun Repetition.months(): Long? =
+    when (unit) {
+        RepetitionTimeUnit.MONTHS -> value.toLong()
+        RepetitionTimeUnit.YEARS -> 12L * value
+        else -> null
+    }
+
+/** The number of calendar months from the month of [start] to the month of [date]. */
+private fun monthsBetween(start: Date, date: Date): Long {
+    val s = start.toCalendar()
+    val d = date.toCalendar()
+    return (d.get(Calendar.YEAR) - s.get(Calendar.YEAR)) * 12L + d.get(Calendar.MONTH) -
+        s.get(Calendar.MONTH)
+}
+
+/** The same time of day [months] later, on the last day of that month if it is shorter. */
+private fun Date.plusMonths(months: Long): Date? {
+    if (months > Int.MAX_VALUE) return null
+    return toCalendar().apply { add(Calendar.MONTH, months.toInt()) }.time
 }
 
 /** Minutes and hours have a fixed length: moves [calendar] from [start] to just before [target]. */

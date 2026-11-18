@@ -119,6 +119,51 @@ import Testing
         #expect(once.nextNotification(after: from) == nil)
     }
 
+    // Each occurrence counts from the start date: a day that a short month cut comes back.
+    // The Android ReminderRepetitionTest and desktop core_test.go have the same table.
+    @Test func monthsAndYearsCountFromStart() {
+        let cases: [(start: String, value: Int, unit: RepetitionUnit, from: String, next: String)] = [
+            ("2025-01-31 09:00", 1, .months, "2025-02-01 00:00", "2025-02-28 09:00"),
+            ("2025-01-31 09:00", 1, .months, "2025-03-01 00:00", "2025-03-31 09:00"),
+            ("2025-01-31 09:00", 1, .months, "2025-04-01 00:00", "2025-04-30 09:00"),
+            ("2025-01-31 09:00", 1, .months, "2025-05-01 00:00", "2025-05-31 09:00"),
+            ("2024-01-31 09:00", 1, .months, "2024-02-01 00:00", "2024-02-29 09:00"),
+            ("2025-01-31 09:00", 2, .months, "2025-02-01 00:00", "2025-03-31 09:00"),
+            ("2025-01-31 09:00", 2, .months, "2025-04-01 00:00", "2025-05-31 09:00"),
+            ("2025-01-31 09:00", 2, .months, "2025-10-01 00:00", "2025-11-30 09:00"),
+            ("2025-08-31 09:00", 1, .months, "2025-09-01 00:00", "2025-09-30 09:00"),
+            ("2025-08-31 09:00", 1, .months, "2025-10-01 00:00", "2025-10-31 09:00"),
+            ("2025-08-31 09:00", 1, .months, "2026-03-01 00:00", "2026-03-31 09:00"),
+            ("2024-02-29 09:00", 1, .years, "2024-03-01 00:00", "2025-02-28 09:00"),
+            ("2024-02-29 09:00", 1, .years, "2026-03-01 00:00", "2027-02-28 09:00"),
+            ("2024-02-29 09:00", 1, .years, "2027-03-01 00:00", "2028-02-29 09:00"),
+            ("2025-03-15 09:00", 1, .months, "2025-03-16 00:00", "2025-04-15 09:00"),
+            ("2025-03-15 09:00", 1, .months, "2026-01-01 00:00", "2026-01-15 09:00"),
+            ("2025-01-31 09:00", 1, .months, "2025-03-31 08:00", "2025-03-31 09:00"),
+            ("2025-01-31 09:00", 1, .months, "2025-03-31 09:00", "2025-04-30 09:00"),
+            ("2025-01-31 09:00", 1, .months, "2025-03-31 10:00", "2025-04-30 09:00"),
+        ]
+        let cal = Calendar(identifier: .gregorian)
+        let format = DateFormatter()
+        format.calendar = cal
+        format.locale = Locale(identifier: "en_US_POSIX")
+        format.dateFormat = "yyyy-MM-dd HH:mm"
+        for c in cases {
+            let start = format.date(from: c.start)!
+            let r = Reminder(id: 0, dateTime: Int64(start.timeIntervalSince1970 * 1000),
+                             repetition: Repetition(value: c.value, unit: c.unit))
+            #expect(r.nextNotification(after: format.date(from: c.from)!, calendar: cal) == format.date(from: c.next),
+                    "\(c.start) every \(c.value) \(c.unit) from \(c.from)")
+        }
+        // In Asunción, October 2017 starts at 01:00 (a time change at midnight).
+        var asuncion = Calendar(identifier: .gregorian)
+        asuncion.timeZone = TimeZone(identifier: "America/Asuncion")!
+        let start = asuncion.date(from: DateComponents(year: 2017, month: 10, day: 15, hour: 9))!
+        let r = Reminder(id: 0, dateTime: Int64(start.timeIntervalSince1970 * 1000), repetition: Repetition(value: 1, unit: .months))
+        let from = asuncion.date(from: DateComponents(year: 2017, month: 12, day: 20, hour: 9))!
+        #expect(r.nextNotification(after: from, calendar: asuncion) == asuncion.date(from: DateComponents(year: 2018, month: 1, day: 15, hour: 9)))
+    }
+
     @Test func serverURLValidation() {
         #expect(APIClient.validate("https://notes.example.com/") != nil)
         #expect(APIClient.validate("http://127.0.0.1:8080") != nil)

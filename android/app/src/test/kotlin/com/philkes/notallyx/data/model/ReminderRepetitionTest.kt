@@ -1,5 +1,8 @@
 package com.philkes.notallyx.data.model
 
+import com.philkes.notallyx.data.model.RepetitionTimeUnit.MONTHS
+import com.philkes.notallyx.data.model.RepetitionTimeUnit.YEARS
+import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import org.junit.Assert.assertEquals
@@ -196,5 +199,69 @@ class ReminderRepetitionTest {
         val from = createDate(2023, Calendar.MARCH, 15, 9, 0)
         val expected = createDate(2023, Calendar.MAY, 13, 10, 0)
         assertEquals(expected, reminder.nextNotification(from))
+    }
+
+    /** A reminder from [start], repeated every [value] [unit]: [expected] is the answer at [at]. */
+    private data class Case(
+        val start: String,
+        val value: Int,
+        val unit: RepetitionTimeUnit,
+        val at: String,
+        val expected: String,
+    )
+
+    private fun date(text: String): Date = SimpleDateFormat("yyyy-MM-dd HH:mm").parse(text)!!
+
+    // Each occurrence counts from the start date: a day that a short month cut comes back.
+    // desktop/core/core_test.go and mac/Tests/NotallyCoreTests/ModelTests.swift have this table.
+    private val monthlyCases =
+        listOf(
+            Case("2025-01-31 09:00", 1, MONTHS, "2025-02-01 00:00", "2025-02-28 09:00"),
+            Case("2025-01-31 09:00", 1, MONTHS, "2025-03-01 00:00", "2025-03-31 09:00"),
+            Case("2025-01-31 09:00", 1, MONTHS, "2025-04-01 00:00", "2025-04-30 09:00"),
+            Case("2025-01-31 09:00", 1, MONTHS, "2025-05-01 00:00", "2025-05-31 09:00"),
+            Case("2024-01-31 09:00", 1, MONTHS, "2024-02-01 00:00", "2024-02-29 09:00"),
+            Case("2025-01-31 09:00", 2, MONTHS, "2025-02-01 00:00", "2025-03-31 09:00"),
+            Case("2025-01-31 09:00", 2, MONTHS, "2025-04-01 00:00", "2025-05-31 09:00"),
+            Case("2025-01-31 09:00", 2, MONTHS, "2025-10-01 00:00", "2025-11-30 09:00"),
+            Case("2025-08-31 09:00", 1, MONTHS, "2025-09-01 00:00", "2025-09-30 09:00"),
+            Case("2025-08-31 09:00", 1, MONTHS, "2025-10-01 00:00", "2025-10-31 09:00"),
+            Case("2025-08-31 09:00", 1, MONTHS, "2026-03-01 00:00", "2026-03-31 09:00"),
+            Case("2024-02-29 09:00", 1, YEARS, "2024-03-01 00:00", "2025-02-28 09:00"),
+            Case("2024-02-29 09:00", 1, YEARS, "2026-03-01 00:00", "2027-02-28 09:00"),
+            Case("2024-02-29 09:00", 1, YEARS, "2027-03-01 00:00", "2028-02-29 09:00"),
+            Case("2025-03-15 09:00", 1, MONTHS, "2025-03-16 00:00", "2025-04-15 09:00"),
+            Case("2025-03-15 09:00", 1, MONTHS, "2026-01-01 00:00", "2026-01-15 09:00"),
+            Case("2025-01-31 09:00", 1, MONTHS, "2025-03-31 08:00", "2025-03-31 09:00"),
+            Case("2025-01-31 09:00", 1, MONTHS, "2025-03-31 09:00", "2025-04-30 09:00"),
+            Case("2025-01-31 09:00", 1, MONTHS, "2025-03-31 10:00", "2025-04-30 09:00"),
+        )
+
+    @Test
+    fun `nextNotification for months and years counts from the start date`() {
+        for (case in monthlyCases) {
+            val reminder = Reminder(1, date(case.start), Repetition(case.value, case.unit))
+            val actual = reminder.nextNotification(date(case.at))
+            assertEquals(case.toString(), date(case.expected), actual)
+        }
+    }
+
+    @Test
+    fun `lastNotification for months and years counts from the start date`() {
+        val cases =
+            listOf(
+                Case("2025-01-31 09:00", 1, MONTHS, "2025-04-01 00:00", "2025-03-31 09:00"),
+                Case("2025-01-31 09:00", 1, MONTHS, "2025-03-31 09:00", "2025-02-28 09:00"),
+                Case("2025-01-31 09:00", 1, MONTHS, "2025-03-31 10:00", "2025-03-31 09:00"),
+                Case("2025-01-31 09:00", 2, MONTHS, "2025-06-01 00:00", "2025-05-31 09:00"),
+                Case("2025-03-15 09:00", 1, MONTHS, "2025-03-16 00:00", "2025-03-15 09:00"),
+                Case("2024-02-29 09:00", 1, YEARS, "2027-03-01 00:00", "2027-02-28 09:00"),
+                Case("2024-02-29 09:00", 1, YEARS, "2028-03-01 00:00", "2028-02-29 09:00"),
+            )
+        for (case in cases) {
+            val reminder = Reminder(1, date(case.start), Repetition(case.value, case.unit))
+            val actual = reminder.lastNotification(date(case.at))
+            assertEquals(case.toString(), date(case.expected), actual)
+        }
     }
 }

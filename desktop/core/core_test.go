@@ -224,8 +224,8 @@ func TestReminders(t *testing.T) {
 		t.Fatalf("month clamp: %v", got)
 	}
 	got, _ = NextNotification(r, at(2026, 3, 1, 0))
-	if !got.Equal(at(2026, 3, 28, 9)) {
-		t.Fatalf("month after clamp (Calendar keeps the 28th): %v", got)
+	if !got.Equal(at(2026, 3, 31, 9)) {
+		t.Fatalf("month after clamp (counts from the start): %v", got)
 	}
 	two, tue := 2, 3 // 2nd Tuesday
 	r.Repetition = &Repetition{Value: 1, Unit: "MONTHS", Occurrence: &two, DayOfWeek: &tue}
@@ -244,6 +244,51 @@ func TestReminders(t *testing.T) {
 	}
 }
 
+// Each occurrence counts from the start date: a day that a short month cut comes back.
+// The Android ReminderRepetitionTest and mac ModelTests have the same table.
+func TestRemindersMonthsCountFromStart(t *testing.T) {
+	cases := []struct {
+		start string
+		value int
+		unit  string
+		from  string
+		next  string
+	}{
+		{"2025-01-31 09:00", 1, "MONTHS", "2025-02-01 00:00", "2025-02-28 09:00"},
+		{"2025-01-31 09:00", 1, "MONTHS", "2025-03-01 00:00", "2025-03-31 09:00"},
+		{"2025-01-31 09:00", 1, "MONTHS", "2025-04-01 00:00", "2025-04-30 09:00"},
+		{"2025-01-31 09:00", 1, "MONTHS", "2025-05-01 00:00", "2025-05-31 09:00"},
+		{"2024-01-31 09:00", 1, "MONTHS", "2024-02-01 00:00", "2024-02-29 09:00"},
+		{"2025-01-31 09:00", 2, "MONTHS", "2025-02-01 00:00", "2025-03-31 09:00"},
+		{"2025-01-31 09:00", 2, "MONTHS", "2025-04-01 00:00", "2025-05-31 09:00"},
+		{"2025-01-31 09:00", 2, "MONTHS", "2025-10-01 00:00", "2025-11-30 09:00"},
+		{"2025-08-31 09:00", 1, "MONTHS", "2025-09-01 00:00", "2025-09-30 09:00"},
+		{"2025-08-31 09:00", 1, "MONTHS", "2025-10-01 00:00", "2025-10-31 09:00"},
+		{"2025-08-31 09:00", 1, "MONTHS", "2026-03-01 00:00", "2026-03-31 09:00"},
+		{"2024-02-29 09:00", 1, "YEARS", "2024-03-01 00:00", "2025-02-28 09:00"},
+		{"2024-02-29 09:00", 1, "YEARS", "2026-03-01 00:00", "2027-02-28 09:00"},
+		{"2024-02-29 09:00", 1, "YEARS", "2027-03-01 00:00", "2028-02-29 09:00"},
+		{"2025-03-15 09:00", 1, "MONTHS", "2025-03-16 00:00", "2025-04-15 09:00"},
+		{"2025-03-15 09:00", 1, "MONTHS", "2026-01-01 00:00", "2026-01-15 09:00"},
+		{"2025-01-31 09:00", 1, "MONTHS", "2025-03-31 08:00", "2025-03-31 09:00"},
+		{"2025-01-31 09:00", 1, "MONTHS", "2025-03-31 09:00", "2025-04-30 09:00"},
+		{"2025-01-31 09:00", 1, "MONTHS", "2025-03-31 10:00", "2025-04-30 09:00"},
+	}
+	date := func(s string) time.Time {
+		d, err := time.ParseInLocation("2006-01-02 15:04", s, time.Local)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	for _, c := range cases {
+		r := Reminder{DateTime: date(c.start).UnixMilli(), Repetition: &Repetition{Value: c.value, Unit: c.unit}}
+		if got, ok := NextNotification(r, date(c.from)); !ok || !got.Equal(date(c.next)) {
+			t.Errorf("%s every %d %s from %s: got %v, want %s", c.start, c.value, c.unit, c.from, got, c.next)
+		}
+	}
+}
+
 // A value that does not fit in a Duration (value × unit wraps to 0) must not panic.
 func TestRemindersHugeInterval(t *testing.T) {
 	at := func(y int, m time.Month, d, h int) time.Time { return time.Date(y, m, d, h, 0, 0, 0, time.Local) }
@@ -252,6 +297,12 @@ func TestRemindersHugeInterval(t *testing.T) {
 		r.Repetition = &Repetition{Value: 1 << 53, Unit: unit}
 		if _, ok := NextNotification(r, at(2026, 2, 1, 0)); ok {
 			t.Fatalf("%s: interval too long to repeat", unit)
+		}
+	}
+	for _, unit := range []string{"MONTHS", "YEARS"} {
+		for _, value := range []int{math.MaxInt / 12, math.MaxInt / 12 * 2, math.MaxInt} {
+			r.Repetition = &Repetition{Value: value, Unit: unit}
+			NextNotification(r, at(2026, 2, 1, 0)) // must not panic
 		}
 	}
 	r.Repetition = &Repetition{Value: int(math.MaxInt64 / int64(time.Minute)), Unit: "MINUTES"}
