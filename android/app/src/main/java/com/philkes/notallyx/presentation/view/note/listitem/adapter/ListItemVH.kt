@@ -30,7 +30,6 @@ import com.philkes.notallyx.presentation.setOnNextAction
 import com.philkes.notallyx.presentation.setTextSizeSp
 import com.philkes.notallyx.presentation.view.misc.EditTextAutoClearFocus
 import com.philkes.notallyx.presentation.view.note.listitem.ListManager
-import com.philkes.notallyx.presentation.view.note.listitem.firstBodyOrEmptyString
 import com.philkes.notallyx.presentation.viewmodel.preference.ListItemSort
 import com.philkes.notallyx.presentation.viewmodel.preference.editBodySize
 import com.philkes.notallyx.presentation.viewmodel.preference.isAutoSortChecked
@@ -261,12 +260,7 @@ class ListItemVH(
                     if (items.isNotEmpty()) {
                         listManager.startBatchChange(start)
                         val position = absoluteAdapterPosition
-                        val itemHadTextBefore = text.trim().length > count
-                        val firstPastedItemBody = items.firstBodyOrEmptyString()
-                        val updatedText =
-                            if (itemHadTextBefore) {
-                                text.substring(0, start) + firstPastedItemBody
-                            } else firstPastedItemBody
+                        val updatedText = items.keepTextAroundPaste(text, start, count)
                         editText.changeText(position, updatedText)
                         items.drop(1).forEachIndexed { index, it ->
                             listManager.add(position + 1 + index, it, pushChange = false)
@@ -285,4 +279,17 @@ class ListItemVH(
     }
 
     fun getSelection() = with(binding.EditText) { Pair(selectionStart, selectionEnd) }
+}
+
+/**
+ * Puts the text after the paste at the end of the last pasted item and returns the new body of the
+ * item that got the paste: the text before the paste plus the first pasted item.
+ */
+internal fun List<ListItem>.keepTextAroundPaste(
+    text: CharSequence,
+    start: Int,
+    count: Int,
+): String {
+    last().body += text.substring(start + count)
+    return text.substring(0, start) + first().body
 }
