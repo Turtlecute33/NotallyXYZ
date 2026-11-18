@@ -65,7 +65,29 @@ func saveKey(p paths, key string) (inFile bool, err error) {
 	if err := os.MkdirAll(p.config, 0o700); err != nil {
 		return true, err
 	}
-	return true, os.WriteFile(p.keyFile(), []byte(key+"\n"), 0o600)
+	return true, writeKeyFile(p.keyFile(), key)
+}
+
+// writeKeyFile replaces the key file in one step, so that a crash cannot leave a cut key.
+// CreateTemp makes the new file with mode 0600, also if the old file had a wider mode.
+func writeKeyFile(path, key string) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".sync-key-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.WriteString(key + "\n"); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 // moveKeyToKeyring moves the key from the key file into the system key store, if one works
