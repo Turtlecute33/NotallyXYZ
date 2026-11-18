@@ -33,6 +33,7 @@ import java.io.File
 import java.util.Date
 import javax.crypto.Cipher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
@@ -91,39 +92,43 @@ class DatabaseTransitionActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                when (action) {
-                    DatabaseAction.ENABLE_DATA_IN_PUBLIC ->
-                        enableDataInPublic(notallyXApplication, preferences)
-                    DatabaseAction.DISABLE_DATA_IN_PUBLIC ->
-                        disableDataInPublic(notallyXApplication, preferences)
-                    DatabaseAction.ENABLE_BIOMETRIC_LOCK,
-                    DatabaseAction.DISABLE_BIOMETRIC_LOCK -> {
-                        if (encryptDatabase) {
-                            requireNotNull(cipher) { "Missing cipher for biometric encryption" }
-                            enableBiometricsEncryption(notallyXApplication, preferences, cipher)
-                        } else {
-                            if (preferences.biometricLockEncryptsDb.value) {
-                                disableBiometricsEncryption(
-                                    notallyXApplication,
-                                    preferences,
-                                    cipher,
-                                    keepBiometricLockEnabled = enableBiometricLock,
-                                )
+                // The files are replaced before the settings are saved: Back or a rotation must not
+                // stop in between, or the next start cannot open the database.
+                withContext(NonCancellable) {
+                    when (action) {
+                        DatabaseAction.ENABLE_DATA_IN_PUBLIC ->
+                            enableDataInPublic(notallyXApplication, preferences)
+                        DatabaseAction.DISABLE_DATA_IN_PUBLIC ->
+                            disableDataInPublic(notallyXApplication, preferences)
+                        DatabaseAction.ENABLE_BIOMETRIC_LOCK,
+                        DatabaseAction.DISABLE_BIOMETRIC_LOCK -> {
+                            if (encryptDatabase) {
+                                requireNotNull(cipher) { "Missing cipher for biometric encryption" }
+                                enableBiometricsEncryption(notallyXApplication, preferences, cipher)
                             } else {
-                                preferences.biometricLockEncryptsDb.save(false)
-                                preferences.biometricLock.save(
-                                    if (enableBiometricLock) BiometricLock.ENABLED
-                                    else BiometricLock.DISABLED
-                                )
+                                if (preferences.biometricLockEncryptsDb.value) {
+                                    disableBiometricsEncryption(
+                                        notallyXApplication,
+                                        preferences,
+                                        cipher,
+                                        keepBiometricLockEnabled = enableBiometricLock,
+                                    )
+                                } else {
+                                    preferences.biometricLockEncryptsDb.save(false)
+                                    preferences.biometricLock.save(
+                                        if (enableBiometricLock) BiometricLock.ENABLED
+                                        else BiometricLock.DISABLED
+                                    )
+                                }
                             }
+                            notallyXApplication.locked.value = false
+                            showToast(
+                                if (enableBiometricLock && !encryptDatabase)
+                                    R.string.biometrics_decrypted_success
+                                else if (enableBiometricLock) R.string.biometrics_setup_success
+                                else R.string.biometrics_disable_success
+                            )
                         }
-                        notallyXApplication.locked.value = false
-                        showToast(
-                            if (enableBiometricLock && !encryptDatabase)
-                                R.string.biometrics_decrypted_success
-                            else if (enableBiometricLock) R.string.biometrics_setup_success
-                            else R.string.biometrics_disable_success
-                        )
                     }
                 }
                 launchMainActivity()
