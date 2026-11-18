@@ -1,3 +1,4 @@
 package com.philkes.notallyx.data.model
 
-class Header(val label: String) : Item
+/** [rank] places the header above its notes (ItemSort.PINNED, OTHERS or ARCHIVED). */
+class Header(val label: String, val rank: Int) : Item

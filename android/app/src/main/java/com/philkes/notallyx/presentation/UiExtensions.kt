@@ -105,6 +105,7 @@ import com.philkes.notallyx.databinding.DialogInputBinding
 import com.philkes.notallyx.databinding.DialogProgressBinding
 import com.philkes.notallyx.databinding.LabelBinding
 import com.philkes.notallyx.presentation.activity.main.MainActivity
+import com.philkes.notallyx.presentation.view.main.sorting.ItemSort
 import com.philkes.notallyx.presentation.view.misc.Progress
 import com.philkes.notallyx.presentation.view.misc.StylableEditTextWithHistory
 import com.philkes.notallyx.presentation.view.note.listitem.ListManager
@@ -1230,9 +1231,9 @@ fun Context.exportedText(notesAndAttachments: NotesAndAttachments) =
     "${getString(R.string.exported)} ${notesAndAttachments.first} ${if(notesAndAttachments.first == 1) getString(R.string.note) else getString(R.string.notes)} (${notesAndAttachments.second} ${getQuantityString(R.plurals.attachments, notesAndAttachments.second)})"
 
 fun Context.createItemsFromNotes(list: List<BaseNote>): List<Item> {
-    val pinned by lazy { Header(getString(R.string.pinned)) }
-    val others by lazy { Header(getString(R.string.others)) }
-    val archived by lazy { Header(getString(R.string.archived)) }
+    val pinned by lazy { Header(getString(R.string.pinned), ItemSort.PINNED) }
+    val others by lazy { Header(getString(R.string.others), ItemSort.OTHERS) }
+    val archived by lazy { Header(getString(R.string.archived), ItemSort.ARCHIVED) }
     if (list.isEmpty()) {
         return list
     } else {

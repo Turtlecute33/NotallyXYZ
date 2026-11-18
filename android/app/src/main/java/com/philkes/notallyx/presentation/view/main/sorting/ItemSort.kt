@@ -3,6 +3,7 @@ package com.philkes.notallyx.presentation.view.main.sorting
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SortedListAdapterCallback
 import com.philkes.notallyx.data.model.BaseNote
+import com.philkes.notallyx.data.model.Folder
 import com.philkes.notallyx.data.model.Header
 import com.philkes.notallyx.data.model.Item
 import com.philkes.notallyx.presentation.viewmodel.preference.SortDirection
@@ -19,15 +20,26 @@ abstract class ItemSort(
             item1 == null && item2 == null -> 0
             item1 == null && item2 != null -> -1
             item1 != null && item2 == null -> 1
-            item1 is BaseNote && item2 is BaseNote -> {
-                val pinnedCompare = item1.pinned.compareTo(item2.pinned) * -1
-                return if (pinnedCompare != 0) pinnedCompare
-                else compare(item1, item2, sortDirection)
+            else -> {
+                val rankCompare = item1!!.rank().compareTo(item2!!.rank())
+                if (rankCompare == 0 && item1 is BaseNote && item2 is BaseNote) {
+                    compare(item1, item2, sortDirection)
+                } else rankCompare
             }
-            item1 is Header && item2 is Header -> 0
-            else -> 0
         }
     }
+
+    /** Each header comes just above its notes. Archived notes (in a label) come last. */
+    private fun Item.rank(): Int =
+        when (this) {
+            is Header -> rank
+            is BaseNote ->
+                when {
+                    folder == Folder.ARCHIVED -> if (pinned) ARCHIVED + 1 else ARCHIVED + 2
+                    pinned -> PINNED + 1
+                    else -> OTHERS + 1
+                }
+        }
 
     override fun areContentsTheSame(oldItem: Item?, newItem: Item?): Boolean {
         return oldItem == newItem
@@ -39,5 +51,12 @@ abstract class ItemSort(
             item1 is Header && item2 is Header -> item1 == item2
             else -> false
         }
+    }
+
+    companion object {
+        /** Ranks of the headers. */
+        const val PINNED = 0
+        const val OTHERS = 2
+        const val ARCHIVED = 4
     }
 }
