@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -487,6 +488,11 @@ func (a *App) OpenURL(link string) error {
 	l := strings.ToLower(strings.TrimSpace(link))
 	if !strings.HasPrefix(l, "https://") && !strings.HasPrefix(l, "http://") && !strings.HasPrefix(l, "mailto:") {
 		return fmt.Errorf("only web and mail links can be opened")
+	}
+	// Wails ignores such a link without an error. It reports no launch error either.
+	u, err := url.Parse(strings.TrimSpace(link))
+	if err != nil || (!strings.HasPrefix(l, "mailto:") && u.Host == "") {
+		return errors.New("This link is not valid.")
 	}
 	wruntime.BrowserOpenURL(a.ctx, strings.TrimSpace(link))
 	return nil
