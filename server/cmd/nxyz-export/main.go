@@ -177,7 +177,9 @@ type client struct{ base, token string }
 func (c client) get(path string) ([]byte, error) {
 	req, _ := http.NewRequest("GET", c.base+path, nil)
 	req.Header.Set("Authorization", "Bearer "+c.token)
-	resp, err := (&http.Client{Timeout: 10 * time.Minute}).Do(req)
+	// No redirects: Go sends the token again to the same host, also over http.
+	noRedirect := func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := (&http.Client{Timeout: 10 * time.Minute, CheckRedirect: noRedirect}).Do(req)
 	if err != nil {
 		return nil, err
 	}
