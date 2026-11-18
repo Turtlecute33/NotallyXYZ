@@ -66,20 +66,28 @@ private fun ContentResolver.writeToFile(
     adapter: PrintDocumentAdapter,
     pdfPrintListener: PdfPrintListener,
 ) {
+    // "t": a file that is already there is emptied first, so no old bytes stay at its end.
+    val fileDescriptor = openFileDescriptor(file.uri, "rwt")
     val onWriteResult =
         object : PrintDocumentAdapter.WriteResultCallback() {
 
             override fun onWriteFailed(error: CharSequence?) {
+                fileDescriptor?.close()
                 pdfPrintListener.onFailure(error)
             }
 
+            override fun onWriteCancelled() {
+                fileDescriptor?.close()
+                pdfPrintListener.onFailure(null)
+            }
+
             override fun onWriteFinished(pages: Array<out PageRange>?) {
+                fileDescriptor?.close()
                 pdfPrintListener.onSuccess(file)
             }
         }
 
     val pages = arrayOf(PageRange.ALL_PAGES)
-    val fileDescriptor = openFileDescriptor(file.uri, "rw")
     adapter.onWrite(pages, fileDescriptor, null, onWriteResult)
 }
 

@@ -59,7 +59,6 @@ import com.philkes.notallyx.utils.createReportBugIntent
 import com.philkes.notallyx.utils.getCurrentImagesDirectory
 import com.philkes.notallyx.utils.getCurrentMediaRoot
 import com.philkes.notallyx.utils.getDocumentFolder
-import com.philkes.notallyx.utils.getExportedPath
 import com.philkes.notallyx.utils.getExternalCrashesDirectory
 import com.philkes.notallyx.utils.getLogFileUri
 import com.philkes.notallyx.utils.keepOnlyNewest
@@ -755,32 +754,40 @@ fun exportPdfFile(
     total: Int? = null,
     pdfPrintListener: PdfPrintListener? = null,
 ) {
-    val tempFile = DocumentFile.fromFile(File(app.getExportedPath(), "temp.pdf"))
+    // Each export has its own temporary file: several notes are printed at the same time.
+    val exportedFolder = File(app.cacheDir, "exported").apply { mkdirs() }
+    val temp = File.createTempFile("note", ".pdf", exportedFolder)
     val html =
         note.toHtml(
             NotallyXPreferences.getInstance(app).showDateCreated(),
             app.getCurrentImagesDirectory(),
         )
     app.printPdf(
-        tempFile,
+        DocumentFile.fromFile(temp),
         html,
         object : PdfPrintListener {
             override fun onSuccess(file: DocumentFile) {
-                app.contentResolver.openOutputStream(outputFile.uri)?.use { outStream ->
-                    app.contentResolver.openInputStream(file.uri)?.copyTo(outStream)
+                try {
+                    // "t": an existing file is emptied first, so no old bytes stay at its end.
+                    app.contentResolver.openOutputStream(outputFile.uri, "wt")?.use { outStream ->
+                        temp.inputStream().use { it.copyTo(outStream) }
+                    }
+                } finally {
+                    temp.delete()
                 }
                 if (progress != null) {
                     progress.value =
                         BackupProgress(current = counter!!.incrementAndGet(), total = total!!)
                     if (counter.get() == total) {
-                        pdfPrintListener?.onSuccess(file)
+                        pdfPrintListener?.onSuccess(outputFile)
                     }
                 } else {
-                    pdfPrintListener?.onSuccess(file)
+                    pdfPrintListener?.onSuccess(outputFile)
                 }
             }
 
             override fun onFailure(message: CharSequence?) {
+                temp.delete()
                 pdfPrintListener?.onFailure(message)
             }
         },
