@@ -471,7 +471,12 @@ suspend fun ContextWrapper.exportAsZip(
                 )
             }
         }
-        contentResolver.openOutputStream(fileUri)?.use { outputStream ->
+        // "wt": backup on save writes over the last ZIP, which can be larger. Some document
+        // providers do not truncate in mode "w", so old bytes would stay at the end of the file.
+        val output =
+            runCatching { contentResolver.openOutputStream(fileUri, "wt") }.getOrNull()
+                ?: contentResolver.openOutputStream(fileUri)
+        output?.use { outputStream ->
             FileInputStream(zipFile.file).use { inputStream ->
                 inputStream.copyToLarge(outputStream)
                 outputStream.flush()
