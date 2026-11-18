@@ -96,7 +96,12 @@ func (a *App) startup(ctx context.Context) {
 	a.settings = defaultSettings()
 	_ = readJSON(a.paths.settingsFile(), &a.settings)
 	a.settings.clean()
-	_ = readJSON(a.paths.configFile(), &a.config)
+	if err := readJSON(a.paths.configFile(), &a.config); err != nil && !errors.Is(err, os.ErrNotExist) {
+		// Not a first start: the setup screen must warn that a new setup deletes unsynced changes.
+		a.mu.Lock()
+		a.startupError = "The app cannot read its config file: " + err.Error()
+		a.mu.Unlock()
+	}
 	cleanStaleTemp()
 	if runtime.GOOS != "darwin" { // macOS needs an app bundle; the macOS app is separate anyway
 		a.notify = wruntime.InitializeNotifications(ctx) == nil
@@ -306,7 +311,16 @@ func (a *App) finishSetup(server string, keys core.Keys) error {
 	return a.open(server, keys)
 }
 
-// Disconnect removes the key and the local cache. Notes stay on the server.
+// UnsyncedChanges is the number of local changes that Disconnect deletes.
+func (a *App) UnsyncedChanges() (int, error) {
+	store, _, err := a.current()
+	if err != nil {
+		return 0, err
+	}
+	return store.UnsyncedCount(), nil
+}
+
+// Disconnect removes the key and the local cache. Synced notes stay on the server.
 func (a *App) Disconnect() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()

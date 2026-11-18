@@ -344,3 +344,34 @@ func TestCursorAhead(t *testing.T) {
 		t.Fatalf("status: %+v", st)
 	}
 }
+
+// UnsyncedCount is what a disconnect deletes: local changes and attachments not on the server yet.
+func TestUnsyncedCount(t *testing.T) {
+	server, keys := account(t)
+	a := newDevice(t, server, keys)
+	file := filepath.Join(t.TempDir(), "photo.jpg")
+	if err := os.WriteFile(file, []byte("photo"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	att, err := a.store.ImportAttachment(file, "image/jpeg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.store.ImportAttachment(file, "image/jpeg"); err != nil { // no note uses it
+		t.Fatal(err)
+	}
+	note := NewNote(TypeNote)
+	note.Title, note.Labels, note.Images = "Plan", []string{"Work"}, []FileAttachment{att}
+	_ = a.store.Save(note)
+	draft := NewNote(TypeNote)
+	draft.Title = "Draft"
+	_ = a.store.Save(draft)
+	_ = a.store.DeleteForever(draft.ID) // never on the server
+	if n := a.store.UnsyncedCount(); n != 3 {
+		t.Fatalf("before sync: %d, want note + label + attachment", n)
+	}
+	a.sync(t)
+	if n := a.store.UnsyncedCount(); n != 0 {
+		t.Fatalf("after sync: %d", n)
+	}
+}

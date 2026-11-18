@@ -471,6 +471,28 @@ func (s *NoteStore) ReferencedBlobIDs() map[string]bool {
 	return out
 }
 
+// UnsyncedCount is the number of local changes that are not on the server yet: changed notes
+// and labels, and attachments of notes that are not uploaded. A disconnect deletes them.
+func (s *NoteStore) UnsyncedCount() int {
+	referenced := s.ReferencedBlobIDs()
+	count := 0
+	_ = s.local.View(func(tx *Tx) error {
+		for _, r := range tx.Records() {
+			// A deletion of a record that the server never had loses nothing.
+			if r.Dirty > 0 && !(r.Deleted && r.Seq == 0) {
+				count++
+			}
+		}
+		for _, id := range tx.PendingBlobs() {
+			if referenced[id] {
+				count++
+			}
+		}
+		return nil
+	})
+	return count
+}
+
 // Editors
 
 // EditorOpened: remote versions of this note wait until the editor closes (PROTOCOL.md §7).

@@ -105,7 +105,11 @@ export function showSettings(main, app, onClose) {
   }
 
   async function disconnect() {
-    if (!(await confirm('Disconnect this device?', 'The sync key and the local cache are removed from this device. Your notes stay on the server and on your other devices. Keep your sync key to connect again.', 'Disconnect'))) return;
+    const n = await api().UnsyncedChanges().catch(() => -1);
+    const lost = n > 0 ? `${n} ${n === 1 ? 'change on this computer is' : 'changes on this computer are'} not on the server yet. They are deleted.`
+      : n < 0 ? 'Changes on this computer that are not synced yet are deleted.' : 'Your notes stay on the server and on your other devices.';
+    if (!(await confirm('Disconnect this device?', `The sync key and the local cache are removed from this device. ${lost} Keep your sync key to connect again.`,
+      n > 0 ? `Delete ${n} unsynced ${n === 1 ? 'change' : 'changes'}` : 'Disconnect'))) return;
     await api().Disconnect();
     close();
     await app.refresh();
