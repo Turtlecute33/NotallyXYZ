@@ -7,13 +7,18 @@ import com.philkes.notallyx.presentation.viewmodel.edit.NoteModel
 import com.philkes.notallyx.presentation.viewmodel.preference.EditAction
 
 /** BottomSheet inside list-note for all common note actions. */
-class MoreNoteBottomSheet(
-    model: NoteModel,
-    @ColorInt color: Int?,
-    actionHandler: NoteActionHandler,
-    topActions: Collection<EditAction> = listOf(),
-    bottomAction: EditAction? = null,
-) : ActionBottomSheet(createActions(model, actionHandler, topActions, bottomAction), color) {
+class MoreNoteBottomSheet : ActionBottomSheet {
+
+    constructor(
+        model: NoteModel,
+        @ColorInt color: Int?,
+        actionHandler: NoteActionHandler,
+        topActions: Collection<EditAction> = listOf(),
+        bottomAction: EditAction? = null,
+    ) : super(createActions(model, actionHandler, topActions, bottomAction), color)
+
+    /** Only for the fragment manager. A sheet it restores has no actions and closes itself. */
+    constructor() : super()
 
     companion object {
         const val TAG = "MoreNoteBottomSheet"

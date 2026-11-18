@@ -5,8 +5,15 @@ import com.philkes.notallyx.R
 import com.philkes.notallyx.presentation.activity.note.NoteActionHandler
 
 /** BottomSheet inside note for adding files, recording audio. */
-class AddBottomSheet(handler: NoteActionHandler, @ColorInt color: Int?) :
-    ActionBottomSheet(createActions(handler), color) {
+class AddBottomSheet : ActionBottomSheet {
+
+    constructor(
+        handler: NoteActionHandler,
+        @ColorInt color: Int?,
+    ) : super(createActions(handler), color)
+
+    /** Only for the fragment manager. A sheet it restores has no actions and closes itself. */
+    constructor() : super()
 
     companion object {
         const val TAG = "AddBottomSheet"

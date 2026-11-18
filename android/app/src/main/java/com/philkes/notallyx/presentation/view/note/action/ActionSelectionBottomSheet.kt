@@ -17,16 +17,20 @@ import com.philkes.notallyx.presentation.getString
 import com.philkes.notallyx.presentation.viewmodel.edit.NoteModel
 import com.philkes.notallyx.presentation.viewmodel.preference.EditAction
 
-class ActionSelectionBottomSheet(
-    actions: List<EditAction>,
-    model: NoteModel,
-    private val oldAction: EditAction,
-    private val title: String? = null,
-    private val onReset: (() -> Unit)? = null,
-    @ColorInt color: Int?,
-    onActionSelected: (EditAction) -> Unit,
-) :
-    ActionBottomSheet(
+class ActionSelectionBottomSheet : ActionBottomSheet {
+
+    private val title: String?
+    private val onReset: (() -> Unit)?
+
+    constructor(
+        actions: List<EditAction>,
+        model: NoteModel,
+        oldAction: EditAction,
+        title: String? = null,
+        onReset: (() -> Unit)? = null,
+        @ColorInt color: Int?,
+        onActionSelected: (EditAction) -> Unit,
+    ) : super(
         actions.map { action ->
             val (title, icon) =
                 action.getTitleAndIcon(model.pinned, model.viewMode.value, model.folder, model.type)
@@ -37,6 +41,16 @@ class ActionSelectionBottomSheet(
         },
         color,
     ) {
+        this.title = title
+        this.onReset = onReset
+    }
+
+    /** Only for the fragment manager. A sheet it restores has no actions and closes itself. */
+    constructor() : super() {
+        title = null
+        onReset = null
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,

@@ -4,8 +4,15 @@ import androidx.annotation.ColorInt
 import com.philkes.notallyx.presentation.viewmodel.ExportMimeType
 import com.philkes.notallyx.presentation.viewmodel.preference.EditAction
 
-class ExportBottomSheet(@ColorInt color: Int?, callback: (ExportMimeType) -> Unit) :
-    ActionBottomSheet(createActions(callback), color) {
+class ExportBottomSheet : ActionBottomSheet {
+
+    constructor(
+        @ColorInt color: Int?,
+        callback: (ExportMimeType) -> Unit,
+    ) : super(createActions(callback), color)
+
+    /** Only for the fragment manager. A sheet it restores has no actions and closes itself. */
+    constructor() : super()
 
     companion object {
         const val TAG = "ExportBottomSheet"

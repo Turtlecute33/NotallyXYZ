@@ -28,8 +28,20 @@ open class ActionBottomSheet(
     @ColorInt private val color: Int? = null,
 ) : BottomSheetDialogFragment() {
 
+    /** Only for the fragment manager. A sheet it restores has no actions and closes itself. */
+    constructor() : this(emptyList())
+
     lateinit var layout: LinearLayout
     lateinit var inflater: LayoutInflater
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // The actions are not saved, so a sheet restored after a rotation or a theme change
+        // would have none.
+        if (savedInstanceState != null) {
+            dismissAllowingStateLoss()
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
