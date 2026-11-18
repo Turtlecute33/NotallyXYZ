@@ -38,7 +38,7 @@ struct RemindersSheet: View {
             HStack {
                 Button("Add Reminder") {
                     let next = Date().addingTimeInterval(3600)
-                    editing = Reminder(id: (note.map(\.id).max() ?? -1) + 1,
+                    editing = Reminder(id: (note.map(\.id).max() ?? -1) &+ 1,
                                        dateTime: Int64(next.timeIntervalSince1970 * 1000), repetition: nil)
                 }
                 Spacer()

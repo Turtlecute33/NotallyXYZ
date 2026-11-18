@@ -143,7 +143,7 @@ public final class NoteStore {
         guard !value.isEmpty else { return }
         let id = keys.labelID(value)
         guard labels[id] == nil else { return }
-        let label = Label(id: id, value: value, order: (labels.values.map(\.order).max() ?? -1) + 1)
+        let label = Label(id: id, value: value, order: (labels.values.map(\.order).max() ?? -1) &+ 1)
         guard write(kind: "label", id: id, try sealLabel(label)) else { return }
         labels[id] = label
         onLocalChange?()

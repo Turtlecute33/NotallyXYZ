@@ -25,6 +25,16 @@ import Testing
         #expect((dict["futureField"] as? [String: Any])?["nested"] as? [Int] == [1, 2])
     }
 
+    @MainActor @Test func newLabelAfterLargestOrderDoesNotCrash() throws {
+        let dir = tempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = try NoteStore(directory: dir, keys: .generate())
+        let id = store.keys.labelID("Synced")
+        store.labels[id] = Label(id: id, value: "Synced", order: .max)  // as decoded from a crafted record
+        store.createLabel("New")
+        #expect(store.labels[store.keys.labelID("New")] != nil)
+    }
+
     @Test func listRules() {
         var items = [ListItem(body: "A"), ListItem(body: "a1", isChild: true), ListItem(body: "B"), ListItem(body: "a2", isChild: true)]
         ListOps.setChecked(&items, at: 0, true, now: 10)
