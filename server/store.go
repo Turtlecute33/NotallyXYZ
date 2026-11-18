@@ -378,8 +378,14 @@ func (s *Store) PutBlob(acct, id string, size int64, r io.Reader, maxAccountByte
 		}
 	}
 	dir := filepath.Join(s.blobDir, acct)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
+	if _, err := os.Stat(dir); err != nil {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return err
+		}
+		// Write the new directory entry to the disk, so that it stays after a crash.
+		if err := syncDir(s.blobDir); err != nil {
+			return err
+		}
 	}
 	tmp, err := os.CreateTemp(dir, ".upload-*")
 	if err != nil {
@@ -416,6 +422,10 @@ func (s *Store) PutBlob(acct, id string, size int64, r io.Reader, maxAccountByte
 		if err := os.Rename(tmp.Name(), s.blobPath(acct, id)); err != nil {
 			return err
 		}
+		// Make the rename durable before the entry is committed.
+		if err := syncDir(dir); err != nil {
+			return err
+		}
 		v := make([]byte, 16)
 		binary.BigEndian.PutUint64(v, uint64(size))
 		binary.BigEndian.PutUint64(v[8:], uint64(time.Now().Unix()))
@@ -424,6 +434,19 @@ func (s *Store) PutBlob(acct, id string, size int64, r io.Reader, maxAccountByte
 		}
 		return meta.Put(keyBytes, putU64(uint64(used)))
 	})
+	return err
+}
+
+// syncDir writes the entries of dir (a new file name) to the disk.
+func syncDir(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	err = d.Sync()
+	if cerr := d.Close(); err == nil {
+		err = cerr
+	}
 	return err
 }
 
