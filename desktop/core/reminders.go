@@ -1,6 +1,9 @@
 package core
 
-import "time"
+import (
+	"math"
+	"time"
+)
 
 // NextNotification follows NotallyX Reminder.nextNotification (ModelExtensions.kt), in local time.
 // Months and years clamp to the last day of the month, like java.util.Calendar.
@@ -29,10 +32,15 @@ func NextNotification(r Reminder, from time.Time) (time.Time, bool) {
 	var step func(time.Time) time.Time
 	switch rep.Unit {
 	case "MINUTES", "HOURS":
-		d := time.Duration(value) * time.Minute
+		unit := time.Minute
 		if rep.Unit == "HOURS" {
-			d = time.Duration(value) * time.Hour
+			unit = time.Hour
 		}
+		// An interval longer than a Duration (about 292 years) would wrap, maybe to 0.
+		if int64(value) > math.MaxInt64/int64(unit) {
+			return time.Time{}, false
+		}
+		d := time.Duration(value) * unit
 		// Fixed length: jump close to `from` first.
 		if skip := int64(from.Sub(start)/d) - 1; skip > 0 {
 			start = start.Add(time.Duration(skip) * d)

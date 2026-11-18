@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -178,5 +179,21 @@ func TestReminders(t *testing.T) {
 	r.Repetition = nil
 	if _, ok := NextNotification(r, at(2026, 2, 1, 0)); ok {
 		t.Fatal("past one-time reminder")
+	}
+}
+
+// A value that does not fit in a Duration (value × unit wraps to 0) must not panic.
+func TestRemindersHugeInterval(t *testing.T) {
+	at := func(y int, m time.Month, d, h int) time.Time { return time.Date(y, m, d, h, 0, 0, 0, time.Local) }
+	r := Reminder{DateTime: at(2026, 1, 1, 9).UnixMilli()}
+	for _, unit := range []string{"MINUTES", "HOURS"} {
+		r.Repetition = &Repetition{Value: 1 << 53, Unit: unit}
+		if _, ok := NextNotification(r, at(2026, 2, 1, 0)); ok {
+			t.Fatalf("%s: interval too long to repeat", unit)
+		}
+	}
+	r.Repetition = &Repetition{Value: int(math.MaxInt64 / int64(time.Minute)), Unit: "MINUTES"}
+	if got, ok := NextNotification(r, at(2026, 2, 1, 0)); !ok || !got.After(at(2300, 1, 1, 0)) {
+		t.Fatalf("longest interval that fits: %v %v", got, ok)
 	}
 }
