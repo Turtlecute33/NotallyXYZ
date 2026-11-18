@@ -8,8 +8,10 @@ import androidx.core.net.toUri
 import androidx.test.core.app.ApplicationProvider
 import com.philkes.notallyx.R
 import com.philkes.notallyx.data.NotallyDatabase
+import com.philkes.notallyx.data.NotallyDatabase.Companion.DATABASE_NAME
 import com.philkes.notallyx.data.ShadowContextImplMedia
 import com.philkes.notallyx.data.model.BaseNote
+import com.philkes.notallyx.data.model.FileAttachment
 import com.philkes.notallyx.data.model.Type
 import com.philkes.notallyx.presentation.viewmodel.preference.BiometricLock
 import com.philkes.notallyx.presentation.viewmodel.preference.Constants.PASSWORD_EMPTY
@@ -17,12 +19,14 @@ import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreference
 import com.philkes.notallyx.presentation.viewmodel.preference.PeriodicBackup
 import com.philkes.notallyx.test.FakeAndroidKeyStore
 import com.philkes.notallyx.utils.SUBFOLDER_BACKUPS
+import com.philkes.notallyx.utils.SUBFOLDER_IMAGES
 import com.philkes.notallyx.utils.backup.ON_SAVE_BACKUP_FILE
 import com.philkes.notallyx.utils.backup.autoBackupOnSave
 import com.philkes.notallyx.utils.backup.autoBackupOnSaveFileExists
 import com.philkes.notallyx.utils.backup.createBackup
 import com.philkes.notallyx.utils.backup.deleteModifiedNoteBackup
 import com.philkes.notallyx.utils.backup.modifiedNoteBackupExists
+import com.philkes.notallyx.utils.getCurrentImagesDirectory
 import com.philkes.notallyx.utils.getDocumentFolder
 import com.philkes.notallyx.utils.getExternalBackupsDirectory
 import java.io.File
@@ -150,7 +154,7 @@ class NotallyXPreferencesBackupsTest {
                 .isFalse()
 
             // A corrupt backup is replaced with a full one (the mutex is not reentrant). The test
-            // database is in memory: give the partial backup a database file to copy.
+            // database is in memory: give the backup a database file to copy.
             NotallyDatabase.getCurrentDatabaseFile(application).apply {
                 parentFile?.mkdirs()
                 writeText("database")
@@ -158,9 +162,41 @@ class NotallyXPreferencesBackupsTest {
             val backup = File(backupsFolderFile, "$ON_SAVE_BACKUP_FILE.zip")
             backup.writeText("not a zip")
             withTimeout(30_000) {
-                application.autoBackupOnSave(preferences.backupsFolder.value, "", note)
+                application.autoBackupOnSave(preferences.backupsFolder.value, PASSWORD_EMPTY, note)
             }
             assertThat(ZipFile(backup).isValidZipFile).isTrue()
+            assertThat(ZipFile(backup).getFileHeader(DATABASE_NAME)).isNotNull
+        }
+    }
+
+    @Test
+    fun autoBackupOnSave_containsAttachmentsOfOtherNotes() {
+        runBlocking {
+            val noteDao =
+                NotallyDatabase.getFreshDatabase(application, false, BiometricLock.DISABLED)
+                    .getBaseNoteDao()
+            noteDao.insert(createSampleNote(title = "Saved", body = "Body"))
+            val savedNote = noteDao.getAll().first()
+            // The test database is in memory: give the backups a database file to copy.
+            NotallyDatabase.getCurrentDatabaseFile(application).apply {
+                parentFile?.mkdirs()
+                writeText("database")
+            }
+            val backupsFolder = preferences.backupsFolder.value
+            application.autoBackupOnSave(backupsFolder, PASSWORD_EMPTY, null)
+
+            // Then another note with an image arrives, for example by sync.
+            val image = FileAttachment("other-5b2c.jpg", "other.jpg", "image/jpeg")
+            File(application.getCurrentImagesDirectory(), image.localName).writeBytes(ByteArray(10))
+            noteDao.insert(
+                createSampleNote(title = "Other", body = "").copy(images = listOf(image))
+            )
+
+            application.autoBackupOnSave(backupsFolder, PASSWORD_EMPTY, savedNote)
+
+            val backup = File(application.getExternalBackupsDirectory(), "$ON_SAVE_BACKUP_FILE.zip")
+            assertThat(ZipFile(backup).getFileHeader("$SUBFOLDER_IMAGES/${image.localName}"))
+                .isNotNull
         }
     }
 
