@@ -44,7 +44,12 @@ public final class SyncEngine {
         if isSyncing { again = true; return }
         guard !stopped else { return }
         isSyncing = true
-        defer { isSyncing = false; cancelRunning = nil }
+        defer {
+            isSyncing = false
+            cancelRunning = nil
+            // A sync asked for after the loop below ended, while this call still waited to resume.
+            if again { schedule(after: 0) }
+        }
         let task = Task {
             repeat {
                 again = false
