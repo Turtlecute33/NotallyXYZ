@@ -204,7 +204,9 @@ public final class NoteStore {
     /// Copies a file into the sealed blob cache. Returns the new attachment (UUID name like Android).
     public func importAttachment(from url: URL, mimeType: String) async throws -> FileAttachment {
         let ext = url.pathExtension.isEmpty ? "" : ".\(url.pathExtension.lowercased())"
-        let localName = UUID().uuidString.lowercased() + ext
+        var localName = UUID().uuidString.lowercased() + ext
+        // An odd extension ("\", control character, very long) would make a name that readers drop.
+        if !Payload.isSafeFileName(localName) { localName = UUID().uuidString.lowercased() }
         let blobID = keys.blobID(localName), target = local.blobURL(blobID), key = keys.encKey
         try await Task.detached { try Seal.sealFile(from: url, to: target, key: key, ad: Seal.ad("blob", blobID)) }.value
         try local.addBlob(blobID, uploaded: false)

@@ -35,6 +35,19 @@ import Testing
         #expect(store.labels[store.keys.labelID("New")] != nil)
     }
 
+    @MainActor @Test func importedFileGetsANameThatReadersKeep() async throws {
+        let dir = tempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = try NoteStore(directory: dir, keys: .generate())
+        let file = dir.appendingPathComponent("photo.j\\pg")  // "\" is allowed in a macOS file name
+        try Data([1, 2, 3]).write(to: file)
+        let attachment = try await store.importAttachment(from: file, mimeType: "image/jpeg")
+        #expect(Payload.isSafeFileName(attachment.localName) && store.hasAttachment(attachment.localName))
+        var note = store.create(.note)
+        note.files = [attachment]
+        #expect(Payload.decodeNote(id: note.id, Payload.encode(note))?.files == [attachment])
+    }
+
     @Test func listRules() {
         var items = [ListItem(body: "A"), ListItem(body: "a1", isChild: true), ListItem(body: "B"), ListItem(body: "a2", isChild: true)]
         ListOps.setChecked(&items, at: 0, true, now: 10)
