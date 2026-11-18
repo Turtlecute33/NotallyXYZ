@@ -255,6 +255,7 @@ class NoteActionHandler(
     }
 
     fun pinToStatus() {
+        activity.updateModel() // A checklist keeps its latest items in the list view until now.
         if (!notallyModel.isPinnedToStatus) {
             activity.checkNotificationPermission(
                 REQUEST_NOTIFICATION_PERMISSION_PIN_TO_STATUS,
@@ -335,6 +336,7 @@ class NoteActionHandler(
     }
 
     private fun share() {
+        activity.updateModel() // A checklist keeps its latest items in the list view until now.
         activity.shareNote(notallyModel.getBaseNote())
     }
 
