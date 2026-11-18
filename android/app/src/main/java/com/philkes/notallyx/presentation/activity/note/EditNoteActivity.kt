@@ -11,9 +11,11 @@ import android.widget.LinearLayout
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.philkes.notallyx.R
+import com.philkes.notallyx.data.NotallyDatabase
 import com.philkes.notallyx.data.model.NoteViewMode
 import com.philkes.notallyx.data.model.Type
 import com.philkes.notallyx.data.model.getNoteIdFromUrl
@@ -36,6 +38,7 @@ import com.philkes.notallyx.utils.findAllOccurrences
 import com.philkes.notallyx.utils.openNote
 import com.philkes.notallyx.utils.wrapWithChooser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class EditNoteActivity : EditActivity(Type.NOTE) {
@@ -321,7 +324,16 @@ class EditNoteActivity : EditActivity(Type.NOTE) {
     }
 
     private fun URLSpan.navigateToNote() {
-        openNote(this.url.getNoteIdFromUrl(), this.url.getNoteTypeFromUrl())
+        val id = url.getNoteIdFromUrl()
+        val linkType = url.getNoteTypeFromUrl()
+        lifecycleScope.launch {
+            // The type in a link can be old (the note was converted since): open the right editor.
+            val type =
+                withContext(Dispatchers.IO) {
+                    NotallyDatabase.getDatabase(application).value?.getBaseNoteDao()?.get(id)?.type
+                } ?: linkType
+            openNote(id, type)
+        }
     }
 
     companion object {
