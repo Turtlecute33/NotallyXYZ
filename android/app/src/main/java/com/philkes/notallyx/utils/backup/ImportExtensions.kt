@@ -33,6 +33,7 @@ import com.philkes.notallyx.presentation.showToast
 import com.philkes.notallyx.presentation.view.misc.Progress
 import com.philkes.notallyx.presentation.viewmodel.edit.NoteModel.FileType
 import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.sync.NotePayload
 import com.philkes.notallyx.utils.FileError
 import com.philkes.notallyx.utils.SUBFOLDER_AUDIOS
 import com.philkes.notallyx.utils.SUBFOLDER_FILES
@@ -394,22 +395,29 @@ private fun Cursor.toBaseNote(sourceDb: SQLiteDatabase): BaseNote {
     val spans = Converters.jsonToSpans(spansTmp).filter { it.isInsideBounds() }
     val items = Converters.jsonToItems(itemsTmp)
 
+    // Attachment names become file paths: drop names that could point outside the folders.
     val imagesIndex = getColumnIndex("images")
     val images =
         if (imagesIndex != -1) {
-            Converters.jsonToFiles(getString(imagesIndex))
+            Converters.jsonToFiles(getString(imagesIndex)).filter {
+                NotePayload.isSafeName(it.localName)
+            }
         } else emptyList()
 
     val filesIndex = getColumnIndex("files")
     val files =
         if (filesIndex != -1) {
-            Converters.jsonToFiles(getString(filesIndex))
+            Converters.jsonToFiles(getString(filesIndex)).filter {
+                NotePayload.isSafeName(it.localName)
+            }
         } else emptyList()
 
     val audiosIndex = getColumnIndex("audios")
     val audios =
         if (audiosIndex != -1) {
-            Converters.jsonToAudios(getString(audiosIndex))
+            Converters.jsonToAudios(getString(audiosIndex)).filter {
+                NotePayload.isSafeName(it.name)
+            }
         } else emptyList()
 
     val remindersIndex = getColumnIndex("reminders")

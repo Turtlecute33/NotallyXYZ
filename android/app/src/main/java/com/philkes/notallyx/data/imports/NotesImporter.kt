@@ -19,6 +19,7 @@ import com.philkes.notallyx.data.model.Type
 import com.philkes.notallyx.data.model.toText
 import com.philkes.notallyx.presentation.view.misc.Progress
 import com.philkes.notallyx.presentation.viewmodel.edit.NoteModel
+import com.philkes.notallyx.sync.NotePayload
 import com.philkes.notallyx.utils.MIME_TYPE_ZIP
 import com.philkes.notallyx.utils.NoteSplitUtils
 import com.philkes.notallyx.utils.backup.importAudio
@@ -30,6 +31,12 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.MutableStateFlow
 
 data class ImportResult(val inserted: Int, val duplicates: Int, val corruptedNotes: Int)
+
+/** True if [name] is a file inside this folder, so that a name from an import cannot leave it. */
+fun File.containsFile(name: String): Boolean {
+    val root = canonicalFile.path + File.separator
+    return File(this, name).canonicalFile.path.startsWith(root)
+}
 
 class NotesImporter(private val app: Application, private val database: NotallyDatabase) {
 
@@ -43,7 +50,7 @@ class NotesImporter(private val app: Application, private val database: NotallyD
             tempDir.mkdirs()
         }
         try {
-            val (notes, importDataFolder) =
+            val (importedNotes, importDataFolder) =
                 try {
                     when (importSource) {
                         ImportSource.GOOGLE_KEEP -> GoogleKeepImporter()
@@ -57,6 +64,16 @@ class NotesImporter(private val app: Application, private val database: NotallyD
                     progress?.value = ImportProgress(inProgress = false)
                     throw e
                 }
+            // Attachment names come from the import file: drop names that point outside it.
+            val notes = importedNotes.map { note ->
+                fun safe(name: String) =
+                    importDataFolder?.containsFile(name) ?: NotePayload.isSafeName(name)
+                note.copy(
+                    images = note.images.filter { safe(it.localName) },
+                    files = note.files.filter { safe(it.localName) },
+                    audios = note.audios.filter { safe(it.name) },
+                )
+            }
             val labelDao = database.getLabelDao()
             val maxOrder = labelDao.getMaxOrder() ?: -1
             labelDao.insert(

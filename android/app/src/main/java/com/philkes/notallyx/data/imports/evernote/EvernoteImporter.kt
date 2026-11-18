@@ -9,6 +9,7 @@ import com.philkes.notallyx.data.imports.ExternalImporter
 import com.philkes.notallyx.data.imports.ImportException
 import com.philkes.notallyx.data.imports.ImportProgress
 import com.philkes.notallyx.data.imports.ImportStage
+import com.philkes.notallyx.data.imports.containsFile
 import com.philkes.notallyx.data.imports.evernote.EvernoteImporter.Companion.parseTimestamp
 import com.philkes.notallyx.data.imports.parseBodyAndSpansFromHtml
 import com.philkes.notallyx.data.model.Audio
@@ -86,8 +87,11 @@ class EvernoteImporter : ExternalImporter {
     ) {
         progress?.value = ImportProgress(total = resources.size, stage = ImportStage.EXTRACT_FILES)
         resources.forEachIndexed { idx, it ->
-            val file = File(dir, it.attributes!!.fileName)
+            val name = it.attributes!!.fileName
+            val file = File(dir, name)
             try {
+                // A file name from the export must not write outside the import folder.
+                if (!dir.containsFile(name)) throw IllegalArgumentException("Unsafe file name")
                 val data = Base64.decode(it.data!!.content.trimStart(), Base64.DEFAULT)
                 file.write(data)
             } catch (e: Exception) {

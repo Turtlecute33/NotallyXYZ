@@ -70,6 +70,41 @@ class NotesImporterTest {
         testImport(ImportSource.QUILLPAD, 9)
     }
 
+    @Test
+    fun `importFiles Evernote does not write outside the import folder`() {
+        val escape = "../../escaped-${System.nanoTime()}.txt"
+        val enex =
+            Files.createTempFile("traversal", ".enex").toFile().apply {
+                writeText(
+                    """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <en-export export-date="20241026T102349Z">
+                      <note>
+                        <title>Traversal</title>
+                        <content><![CDATA[<en-note><div>Text</div></en-note>]]></content>
+                        <created>20241024T072339Z</created>
+                        <updated>20241024T072339Z</updated>
+                        <resource>
+                          <data encoding="base64">aGVsbG8=</data>
+                          <mime>text/plain</mime>
+                          <resource-attributes><file-name>$escape</file-name></resource-attributes>
+                        </resource>
+                      </note>
+                    </en-export>
+                    """
+                        .trimIndent()
+                )
+            }
+        runBlocking {
+            NotesImporter(application, database).import(enex.toUri(), ImportSource.EVERNOTE)
+        }
+        val tempFolder = File(application.cacheDir, "${NotesImporter.IMPORT_CACHE_FOLDER}_x")
+        assertThat(File(tempFolder, escape).canonicalFile).doesNotExist()
+        val note = database.getBaseNoteDao().getAll().single()
+        assertThat(note.body).isEqualTo("Text")
+        assertThat(note.files).isEmpty()
+    }
+
     private fun testImport(importSource: ImportSource, expectedAmountNotes: Int) {
         testImport(prepareImportSources(importSource), importSource, expectedAmountNotes)
     }
