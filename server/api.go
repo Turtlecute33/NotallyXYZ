@@ -24,6 +24,7 @@ const (
 	maxRequestBytes  = 32 << 20
 	maxPageBytes     = 8 << 20
 	maxChangesPerReq = 1000
+	maxMissingIDs    = 10000
 	maxWait          = 60
 	ioTimeout        = 2 * time.Minute // ReadTimeout and WriteTimeout. Long poll and blobs extend them.
 	maxHeavy         = 4               // requests that hold a page of changes in memory at one time
@@ -224,6 +225,45 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
+// changeList and idList decode a JSON array one element at a time and stop after the limit.
+// A plain slice would first decode all elements: millions of tiny elements fit in a body.
+type (
+	changeList []ChangeIn
+	idList     []string
+)
+
+func (l *changeList) UnmarshalJSON(b []byte) error {
+	return decodeArray(b, (*[]ChangeIn)(l), maxChangesPerReq)
+}
+
+func (l *idList) UnmarshalJSON(b []byte) error { return decodeArray(b, (*[]string)(l), maxMissingIDs) }
+
+func decodeArray[T any](b []byte, out *[]T, max int) error {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	tok, err := dec.Token()
+	if err != nil || tok == nil {
+		*out = nil
+		return err
+	}
+	if tok != json.Delim('[') {
+		return errors.New("not an array")
+	}
+	list := []T{}
+	for dec.More() {
+		if len(list) == max {
+			return errors.New("too many elements")
+		}
+		var v T
+		if err := dec.Decode(&v); err != nil {
+			return err
+		}
+		list = append(list, v)
+	}
+	*out = list
+	return nil
+}
+
 func (a *api) createAccount(w http.ResponseWriter, r *http.Request) {
 	if noAuth(w, r) {
 		return
@@ -375,7 +415,7 @@ func (a *api) postChanges(w http.ResponseWriter, r *http.Request) {
 	}
 	defer a.release()
 	var body struct {
-		Changes []ChangeIn `json:"changes"`
+		Changes changeList `json:"changes"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
@@ -413,12 +453,12 @@ func (a *api) listBlobs(w http.ResponseWriter, r *http.Request) {
 
 func (a *api) missingBlobs(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		IDs []string `json:"ids"`
+		IDs idList `json:"ids"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
 	}
-	if len(body.IDs) > 10000 {
+	if len(body.IDs) > maxMissingIDs {
 		writeError(w, http.StatusBadRequest, "bad_request")
 		return
 	}

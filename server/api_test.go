@@ -5,11 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -206,6 +208,53 @@ func TestChanges(t *testing.T) {
 	other := signup(t, srv)
 	if _, body := do(t, srv, "GET", "/v1/changes", other, nil); len(changesOf(body)) != 0 {
 		t.Fatal("leak between accounts")
+	}
+}
+
+// A body of many small elements must stop at the element limit, so that the memory does not
+// grow with the number of elements. Before, a 32 MiB {"changes":[{},{},...]} used about 900 MiB.
+func TestTooManyElements(t *testing.T) {
+	srv := newTestServer(t, nil)
+	tok := signup(t, srv)
+	for _, c := range []struct {
+		path, field, elem string
+		n                 int
+	}{
+		{"/v1/changes", "changes", `{}`, 1 << 20},
+		{"/v1/blobs/missing", "ids", `""`, 4 << 20},
+	} {
+		body := []byte(`{"` + c.field + `":[` + strings.Repeat(c.elem+",", c.n-1) + c.elem + `]}`)
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		code, resp := do(t, srv, "POST", c.path, tok, body)
+		runtime.ReadMemStats(&after)
+		if code != 400 || resp["error"] != "bad_request" {
+			t.Fatalf("%s: %d %v", c.path, code, resp)
+		}
+		if alloc := after.TotalAlloc - before.TotalAlloc; alloc > 100<<20 {
+			t.Errorf("%s: %d MiB allocated for a body of %d MiB", c.path, alloc>>20, len(body)>>20)
+		}
+	}
+	// The limits themselves do not change.
+	ids := make([]string, 10000)
+	for i := range ids {
+		ids[i] = idA
+	}
+	if code, _ := do(t, srv, "POST", "/v1/blobs/missing", tok, map[string]any{"ids": ids}); code != 200 {
+		t.Fatalf("10000 ids: %d", code)
+	}
+	if code, _ := do(t, srv, "POST", "/v1/blobs/missing", tok, map[string]any{"ids": append(ids, idA)}); code != 400 {
+		t.Fatalf("10001 ids: %d", code)
+	}
+	changes := make([]map[string]any, 1001)
+	for i := range changes {
+		changes[i] = map[string]any{"kind": "note", "id": fmt.Sprintf("%032x", i), "base": 0, "data": []byte("x")}
+	}
+	if code, _ := do(t, srv, "POST", "/v1/changes", tok, map[string]any{"changes": changes}); code != 400 {
+		t.Fatalf("1001 changes: %d", code)
+	}
+	if code, _ := do(t, srv, "POST", "/v1/changes", tok, map[string]any{"changes": changes[:1000]}); code != 200 {
+		t.Fatalf("1000 changes: %d", code)
 	}
 }
 
