@@ -91,7 +91,8 @@ manager. If you lose the key and all your devices, the data on the server cannot
 The server, or a person with the access token, can still delete your data, hold back changes,
 or send an older version of a record again. An older version can undo an edit, bring back a
 deleted note, or repeat an old deletion. Keep a local backup on one device. The Android app makes
-automatic backups.
+automatic backups. With database encryption on, set a backup password: without it, the automatic
+backups are paused.
 
 ## Privacy
 

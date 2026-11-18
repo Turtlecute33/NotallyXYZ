@@ -130,6 +130,9 @@ suspend fun ContextWrapper.createBackup(): Result {
                     "Periodic Backup failed, because auto-backup path '$path' is invalid",
                 ) ?: return@withLock Result.success()
             try {
+                if (app.autoBackupsPaused(preferences.backupPassword.value)) {
+                    return@withLock Result.success()
+                }
                 val backupFilePrefix = PERIODIC_BACKUP_FILE_PREFIX
                 val name =
                     "$backupFilePrefix${FILE_TIMESTAMP_FORMAT.format(System.currentTimeMillis())}"
@@ -196,6 +199,9 @@ suspend fun ContextWrapper.autoBackupOnSave(
                 "Auto backup on note save (${savedNote?.let { "id: '${savedNote.id}'" }}) failed, because auto-backup path '$backupPath' is invalid",
             ) ?: return@withLock
         try {
+            if (autoBackupsPaused(password)) {
+                return@withLock
+            }
             var changedNote = savedNote
             var backupFile = folder.findFile("$ON_SAVE_BACKUP_FILE.zip")
             backupFile =
@@ -286,6 +292,64 @@ suspend fun ContextWrapper.autoBackupOnSave(
             tryPostErrorNotification(e)
         }
     }
+}
+
+/**
+ * With database encryption on, a backup holds a decrypted copy of the database. Without a backup
+ * password, that copy would be readable in the backups folder. Then the automatic backups are not
+ * written and a notification asks for a password. A manual export is not affected.
+ */
+private fun ContextWrapper.autoBackupsPaused(password: String): Boolean {
+    val preferences = NotallyXPreferences.getInstance(this)
+    val paused =
+        preferences.biometricLockEncryptsDb.value &&
+            preferences.isLockEnabled &&
+            (password == PASSWORD_EMPTY || password.isEmpty())
+    if (paused) {
+        log(
+            TAG,
+            msg = "Auto backup paused: the database is encrypted and the backup has no password",
+        )
+        tryPostAutoBackupsPausedNotification()
+    }
+    return paused
+}
+
+private fun ContextWrapper.tryPostAutoBackupsPausedNotification() {
+    if (
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+    ) {
+        return
+    }
+    val manager = getSystemService<NotificationManager>() ?: return
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        manager.createChannelIfNotExists(NOTIFICATION_CHANNEL_ID)
+    }
+    val openSettings =
+        PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java).apply {
+                putExtra(MainActivity.EXTRA_FRAGMENT_TO_OPEN, R.id.Settings)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    val message = getString(R.string.auto_backup_paused_message)
+    val notification =
+        NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(R.drawable.error)
+            .setContentTitle(getString(R.string.auto_backup_paused))
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(openSettings)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .addAction(R.drawable.settings, getString(R.string.settings), openSettings)
+            .build()
+    manager.notify(NOTIFICATION_ID, notification)
 }
 
 private fun ContextWrapper.requireBackupFolder(path: String, msg: String): DocumentFile? {

@@ -1,16 +1,21 @@
 package com.philkes.notallyx.preference
 
 import android.app.Application
+import android.app.Notification
+import android.app.NotificationManager
 import android.os.Environment
 import androidx.core.net.toUri
 import androidx.test.core.app.ApplicationProvider
+import com.philkes.notallyx.R
 import com.philkes.notallyx.data.NotallyDatabase
 import com.philkes.notallyx.data.ShadowContextImplMedia
 import com.philkes.notallyx.data.model.BaseNote
 import com.philkes.notallyx.data.model.Type
 import com.philkes.notallyx.presentation.viewmodel.preference.BiometricLock
+import com.philkes.notallyx.presentation.viewmodel.preference.Constants.PASSWORD_EMPTY
 import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.PeriodicBackup
+import com.philkes.notallyx.test.FakeAndroidKeyStore
 import com.philkes.notallyx.utils.SUBFOLDER_BACKUPS
 import com.philkes.notallyx.utils.backup.ON_SAVE_BACKUP_FILE
 import com.philkes.notallyx.utils.backup.autoBackupOnSave
@@ -30,6 +35,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowEnvironment
 
@@ -49,14 +55,24 @@ class NotallyXPreferencesBackupsTest {
             .commit()
         NotallyXPreferences.clearInstance()
         preferences = NotallyXPreferences.getInstance(application)
-        NotallyDatabase.clearInstance()
+        newDatabase()
         ShadowEnvironment.setExternalStorageState(Environment.MEDIA_MOUNTED)
     }
 
     @After
     fun tearDown() {
-        NotallyDatabase.clearInstance()
+        newDatabase()
         NotallyXPreferences.clearInstance()
+    }
+
+    /** Each test closes the shared test database: use a new one, and leave none behind. */
+    private fun newDatabase() {
+        NotallyDatabase.clearInstance()
+        NotallyDatabase::class
+            .java
+            .getDeclaredField("testInstance")
+            .apply { isAccessible = true }
+            .set(null, null)
     }
 
     @Test
@@ -145,6 +161,57 @@ class NotallyXPreferencesBackupsTest {
                 application.autoBackupOnSave(preferences.backupsFolder.value, "", note)
             }
             assertThat(ZipFile(backup).isValidZipFile).isTrue()
+        }
+    }
+
+    @Test
+    fun automaticBackups_notWrittenWhenDatabaseEncryptedAndNoBackupPassword() {
+        FakeAndroidKeyStore.setup
+        runBlocking {
+            val noteDao =
+                NotallyDatabase.getFreshDatabase(application, false, BiometricLock.DISABLED)
+                    .getBaseNoteDao()
+            noteDao.insert(createSampleNote(title = "Test Note", body = "Test Body"))
+            val note = noteDao.getAll().first()
+            // The test database is in memory: give the backups a database file to copy.
+            NotallyDatabase.getCurrentDatabaseFile(application).apply {
+                parentFile?.mkdirs()
+                writeText("database")
+            }
+            val backupsFolder = application.getExternalBackupsDirectory()
+            backupsFolder.listFiles()?.forEach { it.delete() }
+            fun zips() = backupsFolder.listFiles()?.filter { it.name.endsWith(".zip") }.orEmpty()
+
+            preferences.biometricLock.save(BiometricLock.ENABLED)
+            preferences.biometricLockEncryptsDb.save(true)
+            assertThat(preferences.backupPassword.value).isEqualTo(PASSWORD_EMPTY)
+
+            application.createBackup()
+            application.autoBackupOnSave(
+                preferences.backupsFolder.value,
+                preferences.backupPassword.value,
+                note,
+            )
+            application.autoBackupOnSave(preferences.backupsFolder.value, "", null)
+
+            assertThat(zips()).isEmpty()
+            val notifications =
+                shadowOf(application.getSystemService(NotificationManager::class.java))
+                    .allNotifications
+            assertThat(notifications.map { it.extras.getString(Notification.EXTRA_TITLE) })
+                .contains(application.getString(R.string.auto_backup_paused))
+
+            // When encryption is off, the same backups are written again.
+            preferences.biometricLockEncryptsDb.save(false)
+            application.createBackup()
+            application.autoBackupOnSave(
+                preferences.backupsFolder.value,
+                preferences.backupPassword.value,
+                note,
+            )
+            assertThat(zips()).hasSize(2).allSatisfy {
+                assertThat(ZipFile(it).isValidZipFile).isTrue()
+            }
         }
     }
 }
