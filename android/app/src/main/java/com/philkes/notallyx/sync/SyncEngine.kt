@@ -366,6 +366,7 @@ class SyncEngine(
                     title = conflictTitle(remote.title),
                     pinned = false,
                     reminders = emptyList(),
+                    isPinnedToStatus = false,
                 )
             val copyId = dao.insert(copy)
             store.enqueue(KIND_NOTE, copyId.toString())
