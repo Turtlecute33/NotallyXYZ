@@ -135,6 +135,38 @@ func TestMerge(t *testing.T) {
 	}
 }
 
+// A label change whose transaction fails leaves the notes and labels in memory as on disk.
+func TestFailedLabelChangeKeepsMemory(t *testing.T) {
+	store, err := OpenNoteStore(t.TempDir(), GenerateKeys())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	note := NewNote(TypeNote)
+	note.Title, note.Labels = "Plan", []string{"Work"}
+	if err := store.Save(note); err != nil {
+		t.Fatal(err)
+	}
+	// A note whose row cannot be written: the key is longer than bbolt allows.
+	bad := NewNote(TypeNote)
+	bad.ID, bad.Labels = strings.Repeat("a", 40_000), []string{"Work"}
+	store.notes[bad.ID] = bad
+	check := func(op string, err error) {
+		t.Helper()
+		if err == nil {
+			t.Fatalf("%s did not fail", op)
+		}
+		if l := store.Labels(); len(l) != 1 || l[0].Value != "Work" {
+			t.Fatalf("%s: labels in memory: %+v", op, l)
+		}
+		if n, _ := store.Note(note.ID); len(n.Labels) != 1 || n.Labels[0] != "Work" {
+			t.Fatalf("%s: note in memory: %+v", op, n.Labels)
+		}
+	}
+	check("rename", store.RenameLabel("Work", "Job"))
+	check("delete", store.DeleteLabel("Work"))
+}
+
 func TestSameText(t *testing.T) {
 	a := NewNote(TypeList)
 	a.Items = []ListItem{{Body: "Milk"}}

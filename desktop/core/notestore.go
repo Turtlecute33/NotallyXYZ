@@ -204,12 +204,13 @@ func (s *NoteStore) saveLocked(n Note) (bool, error) {
 	if len(sealed) > maxRecordBytes {
 		return false, errTooLarge
 	}
+	var ops []memOp
 	err := s.local.Update(func(tx *Tx) error {
 		if err := tx.PutLocal("note", n.ID, sealed); err != nil {
 			return err
 		}
 		for _, name := range n.Labels {
-			if err := s.createLabel(tx, name); err != nil {
+			if err := s.createLabel(tx, name, &ops); err != nil {
 				return err
 			}
 		}
@@ -218,6 +219,7 @@ func (s *NoteStore) saveLocked(n Note) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	s.finish(ops)
 	s.notes[n.ID] = n
 	return true, nil
 }
@@ -281,7 +283,8 @@ func (s *NoteStore) Duplicate(id string) (Note, error) {
 
 // Labels
 
-func (s *NoteStore) createLabel(tx *Tx, value string) error {
+// createLabel adds the label change to ops; the caller applies ops after the commit.
+func (s *NoteStore) createLabel(tx *Tx, value string, ops *[]memOp) error {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return nil
@@ -294,17 +297,29 @@ func (s *NoteStore) createLabel(tx *Tx, value string) error {
 	for _, l := range s.labels {
 		order = max(order, l.Order)
 	}
+	for _, op := range *ops {
+		if op.label != nil {
+			if op.label.ID == id {
+				return nil
+			}
+			order = max(order, op.label.Order)
+		}
+	}
 	l := Label{ID: id, Value: value, Order: order + 1}
 	if err := tx.PutLocal("label", id, s.sealLabel(l)); err != nil {
 		return err
 	}
-	s.labels[id] = l
+	*ops = append(*ops, memOp{label: &l})
 	return nil
 }
 
 func (s *NoteStore) CreateLabel(value string) error {
 	s.mu.Lock()
-	err := s.local.Update(func(tx *Tx) error { return s.createLabel(tx, value) })
+	var ops []memOp
+	err := s.local.Update(func(tx *Tx) error { return s.createLabel(tx, value, &ops) })
+	if err == nil {
+		s.finish(ops)
+	}
 	s.mu.Unlock()
 	if err == nil {
 		s.emit(true)
@@ -321,6 +336,7 @@ func (s *NoteStore) RenameLabel(old, value string) error {
 		s.mu.Unlock()
 		return nil
 	}
+	var ops []memOp
 	err := s.local.Update(func(tx *Tx) error {
 		id := s.Keys.LabelID(value)
 		if _, exists := s.labels[id]; !exists {
@@ -328,14 +344,17 @@ func (s *NoteStore) RenameLabel(old, value string) error {
 			if err := tx.PutLocal("label", id, s.sealLabel(l)); err != nil {
 				return err
 			}
-			s.labels[id] = l
+			ops = append(ops, memOp{label: &l})
 		}
 		if err := tx.PutLocal("label", oldLabel.ID, nil); err != nil {
 			return err
 		}
-		delete(s.labels, oldLabel.ID)
-		return s.relabel(tx, old, value)
+		ops = append(ops, memOp{remove: "label:" + oldLabel.ID})
+		return s.relabel(tx, old, value, &ops)
 	})
+	if err == nil {
+		s.finish(ops)
+	}
 	s.mu.Unlock()
 	s.emit(true)
 	return err
@@ -344,23 +363,27 @@ func (s *NoteStore) RenameLabel(old, value string) error {
 // DeleteLabel removes the label from every note, like NotallyX CommonDao.deleteLabel.
 func (s *NoteStore) DeleteLabel(value string) error {
 	s.mu.Lock()
+	var ops []memOp
 	err := s.local.Update(func(tx *Tx) error {
 		id := s.Keys.LabelID(value)
 		if _, ok := s.labels[id]; ok {
 			if err := tx.PutLocal("label", id, nil); err != nil {
 				return err
 			}
-			delete(s.labels, id)
+			ops = append(ops, memOp{remove: "label:" + id})
 		}
-		return s.relabel(tx, value, "")
+		return s.relabel(tx, value, "", &ops)
 	})
+	if err == nil {
+		s.finish(ops)
+	}
 	s.mu.Unlock()
 	s.emit(true)
 	return err
 }
 
-// relabel replaces (or with "" removes) a label in all notes.
-func (s *NoteStore) relabel(tx *Tx, old, value string) error {
+// relabel replaces (or with "" removes) a label in all notes. The changes go to ops.
+func (s *NoteStore) relabel(tx *Tx, old, value string, ops *[]memOp) error {
 	for id, n := range s.notes {
 		found := false
 		var labels []string
@@ -381,7 +404,7 @@ func (s *NoteStore) relabel(tx *Tx, old, value string) error {
 		if err := tx.PutLocal("note", id, s.sealNote(n)); err != nil {
 			return err
 		}
-		s.notes[id] = n
+		*ops = append(*ops, memOp{note: &n})
 	}
 	return nil
 }
