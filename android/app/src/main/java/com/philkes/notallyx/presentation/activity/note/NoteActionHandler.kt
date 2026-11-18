@@ -339,6 +339,7 @@ class NoteActionHandler(
     }
 
     private fun export(mimeType: ExportMimeType) {
+        notallyModel.selectedExportMimeType = mimeType
         activity.exportNote(notallyModel.getBaseNote(), mimeType, exportFileActivityResultLauncher)
     }
 
