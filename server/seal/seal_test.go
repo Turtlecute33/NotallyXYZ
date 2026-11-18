@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -27,6 +28,13 @@ func TestKeyRoundTrip(t *testing.T) {
 	got, err := ParseKey(" " + bytes.NewBufferString(s).String() + "\n")
 	if err != nil || !bytes.Equal(got, k) {
 		t.Fatalf("round trip: %v", err)
+	}
+	// Any white space, as on Android: NBSP or en space from rich text, CRLF from a Windows file.
+	for _, sep := range []string{"\u00a0", "\u2002", "\r\n", "\v", "\f"} {
+		got, err := ParseKey(sep + strings.ReplaceAll(s, "-", sep) + "\r\n")
+		if err != nil || !bytes.Equal(got, k) {
+			t.Fatalf("separator %q: %v", sep, err)
+		}
 	}
 	bad := []byte(s)
 	if bad[0] == 'A' {

@@ -64,7 +64,8 @@ public struct SyncKeys: Sendable {
 
     public static func parse(_ text: String) throws -> SyncKeys {
         var cleaned = ""
-        for ch in text.uppercased() where !" -\n\t\r".contains(ch) {
+        // Any white space and "-" are ignored, as on Android. "\r\n" is one Character.
+        for ch in text.uppercased() where !ch.isWhitespace && ch != "-" {
             switch ch {
             case "O": cleaned.append("0")
             case "I", "L": cleaned.append("1")

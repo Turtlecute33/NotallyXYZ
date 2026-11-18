@@ -15,6 +15,7 @@ import (
 	"errors"
 	"math/bits"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -69,7 +70,13 @@ func FormatKey(k []byte) string {
 
 // ParseKey reverses FormatKey and verifies the checksum.
 func ParseKey(s string) ([]byte, error) {
-	s = strings.ToUpper(strings.NewReplacer(" ", "", "-", "", "\n", "", "\r", "", "\t", "").Replace(s))
+	// Any white space and '-' are ignored, as on Android (NBSP from rich text, CRLF from a Windows file).
+	s = strings.ToUpper(strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) || r == '-' {
+			return -1
+		}
+		return r
+	}, s))
 	s = strings.NewReplacer("O", "0", "I", "1", "L", "1").Replace(s)
 	if len(s) != 56 {
 		return nil, errors.New("wrong length")

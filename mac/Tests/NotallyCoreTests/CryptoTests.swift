@@ -32,6 +32,11 @@ private func keyData(_ key: SymmetricKey) -> Data { key.withUnsafeBytes { Data($
         #expect(parsed.raw == keys.raw)
         let compact = try SyncKeys.parse(v.display.replacingOccurrences(of: "-", with: ""))
         #expect(compact.raw == keys.raw)
+        // Any white space, as on Android: NBSP or en space from rich text, CRLF from a Windows file.
+        for separator in ["\u{00A0}", "\u{2002}", "\r\n", "\u{0B}", "\u{0C}"] {
+            let spaced = try SyncKeys.parse(separator + v.display.replacingOccurrences(of: "-", with: separator) + "\r\n")
+            #expect(spaced.raw == keys.raw)
+        }
     }
 
     @Test func typoRejected() {
