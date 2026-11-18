@@ -44,6 +44,7 @@ import com.philkes.notallyx.utils.PinnedNotificationManager
 import com.philkes.notallyx.utils.backup.exportNote
 import com.philkes.notallyx.utils.cancelPinAndReminders
 import com.philkes.notallyx.utils.openNote
+import com.philkes.notallyx.utils.pinAndScheduleReminders
 import com.philkes.notallyx.utils.shareNote
 import com.philkes.notallyx.utils.showColorSelectDialog
 import com.philkes.notallyx.utils.wrapWithChooser
@@ -372,6 +373,10 @@ class NoteActionHandler(
                 putExtra(EditActivity.EXTRA_FOLDER_TO, toFolder.name)
             }
         notallyModel.folder = toFolder
+        if (toFolder == Folder.NOTES) {
+            // As on the list screens: a restored note gets its reminders and status-bar pin back.
+            activity.pinAndScheduleReminders(listOf(notallyModel.getBaseNote()))
+        }
         activity.setResult(AppCompatActivity.RESULT_OK, resultIntent)
         activity.finish()
     }
