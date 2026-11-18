@@ -2,7 +2,6 @@ package com.philkes.notallyx.presentation.activity.main.fragment.settings
 
 import android.Manifest
 import android.app.Application
-import android.content.ActivityNotFoundException
 import android.content.ContextWrapper
 import android.content.Intent
 import android.content.Intent.ACTION_OPEN_DOCUMENT_TREE
@@ -72,8 +71,6 @@ import com.philkes.notallyx.utils.copyToClipBoard
 import com.philkes.notallyx.utils.getExternalCrashesDirectory
 import com.philkes.notallyx.utils.getExtraBooleanFromBundleOrIntent
 import com.philkes.notallyx.utils.getLastExceptionLog
-import com.philkes.notallyx.utils.getLogFile
-import com.philkes.notallyx.utils.getUriForFile
 import com.philkes.notallyx.utils.openExternalMediaFolder
 import com.philkes.notallyx.utils.reportBug
 import com.philkes.notallyx.utils.security.AuthenticatorProvider
@@ -967,7 +964,6 @@ class SettingsFragment : Fragment() {
                     arrayOf(
                         getString(R.string.report_bug),
                         getString(R.string.make_feature_request),
-                        getString(R.string.send_feedback),
                     )
                 MaterialAlertDialogBuilder(requireContext())
                     .setTitle(R.string.send_feedback)
@@ -985,38 +981,12 @@ class SettingsFragment : Fragment() {
                                         Intent(
                                                 Intent.ACTION_VIEW,
                                                 Uri.parse(
-                                                    "https://github.com/Crustack/NotallyX/issues/new?labels=enhancement&template=feature_request.md"
+                                                    "https://github.com/Turtlecute33/NotallyXYZ/issues/new"
                                                 ),
                                             )
                                             .wrapWithChooser(requireContext())
                                     )
                                 }
-                            2 -> {
-                                val intent =
-                                    Intent(Intent.ACTION_SEND)
-                                        .apply {
-                                            selector =
-                                                Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))
-                                            putExtra(
-                                                Intent.EXTRA_EMAIL,
-                                                arrayOf("notallyx@yahoo.com"),
-                                            )
-                                            putExtra(Intent.EXTRA_SUBJECT, "NotallyX [Feedback]")
-                                            val app =
-                                                requireContext().applicationContext as Application
-                                            val log = app.getLogFile()
-                                            if (log.exists()) {
-                                                val uri = app.getUriForFile(log)
-                                                putExtra(Intent.EXTRA_STREAM, uri)
-                                            }
-                                        }
-                                        .wrapWithChooser(requireContext())
-                                try {
-                                    startActivity(intent)
-                                } catch (exception: ActivityNotFoundException) {
-                                    showToast(R.string.install_an_email)
-                                }
-                            }
                         }
                     }
                     .setCancelButton()
@@ -1025,8 +995,10 @@ class SettingsFragment : Fragment() {
             Rate.setOnClickListener {
                 openLink("https://play.google.com/store/apps/details?id=com.philkes.notallyx")
             }
-            Documentation.setOnClickListener { openLink("https://crustack.github.io/NotallyX") }
-            SourceCode.setOnClickListener { openLink("https://github.com/Crustack/NotallyX") }
+            Documentation.setOnClickListener {
+                openLink("https://github.com/Turtlecute33/NotallyXYZ#readme")
+            }
+            SourceCode.setOnClickListener { openLink("https://github.com/Turtlecute33/NotallyXYZ") }
             Donate.setOnClickListener { openLink("https://ko-fi.com/crustack") }
             ViewLogs.setOnClickListener { (requireContext() as ContextWrapper).viewLogs() }
             ViewCrashes.setOnClickListener {

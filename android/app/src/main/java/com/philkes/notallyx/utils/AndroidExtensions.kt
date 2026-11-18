@@ -378,14 +378,17 @@ fun Context.createReportBugIntent(
         return this?.let { "&$paramName=${URLEncoder.encode(this, "UTF-8")}" } ?: ""
     }
 
+    // The fork has no issue templates: everything goes into the body.
+    val issueBody = buildString {
+        body?.let { append(it).append("\n\n") }
+        append("App version: ${BuildConfig.VERSION_NAME}\n")
+        append("Android version: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n")
+        stackTrace?.let { append("\nLogs:\n```\n").append(it).append("\n```\n") }
+    }
     val url =
-        "https://github.com/Crustack/NotallyX/issues/new?labels=bug&projects=&template=bug_report.yml${
-            title.asQueryParam("title")
-        }&version=${BuildConfig.VERSION_NAME}&android-version=${Build.VERSION.SDK_INT}${
-            stackTrace.asQueryParam("logs")
-        }${
-            body.asQueryParam("what-happened")
-        }"
+        "https://github.com/Turtlecute33/NotallyXYZ/issues/new?body=${
+            URLEncoder.encode(issueBody, "UTF-8")
+        }${title.asQueryParam("title")}"
     if (url.length > 2000) {
         throw IllegalArgumentException("Given stacktrace is too long to build a valid URL!")
     }
