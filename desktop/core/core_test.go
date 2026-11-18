@@ -109,6 +109,36 @@ func TestPayloadRoundTrip(t *testing.T) {
 	}
 }
 
+// Like NSNumber (macOS) and org.json (Android): a number with a fraction or an exponent is
+// read as its integer part, not as 0.
+func TestPayloadNumbersWithFraction(t *testing.T) {
+	n, ok := DecodeNote("00112233445566778899aabbccddeeff", []byte(`{"title":"1.5","timestamp":1.7e12,
+"modifiedTimestamp":1700000000001.0,"spans":[{"start":0.0,"end":4.9}],"items":[{"body":"a","order":2.0,"checkedTimestamp":5e0}],
+"audios":[{"name":"c.m4a","duration":1.5,"timestamp":1e3}],"reminders":[{"id":1.5,"dateTime":1.7e12,"repetition":{"value":3.0,"unit":"DAYS"}}],
+"big":12345678901234567890.5}`))
+	if !ok || n.Title != "1.5" || n.Timestamp != 1_700_000_000_000 || n.ModifiedTimestamp != 1_700_000_000_001 {
+		t.Fatalf("note: %+v", n)
+	}
+	if len(n.Spans) != 1 || n.Spans[0].Start != 0 || n.Spans[0].End != 4 {
+		t.Fatalf("spans: %+v", n.Spans)
+	}
+	if len(n.Items) != 1 || *n.Items[0].Order != 2 || *n.Items[0].CheckedTimestamp != 5 {
+		t.Fatalf("items: %+v", n.Items)
+	}
+	if len(n.Audios) != 1 || *n.Audios[0].Duration != 1 || n.Audios[0].Timestamp != 1000 {
+		t.Fatalf("audios: %+v", n.Audios)
+	}
+	if r := n.Reminders; len(r) != 1 || r[0].ID != 1 || r[0].DateTime != 1_700_000_000_000 || r[0].Repetition.Value != 3 {
+		t.Fatalf("reminders: %+v", r)
+	}
+	if string(n.Extra) != `{"big":12345678901234567890.5}` {
+		t.Fatalf("unknown field changed: %s", n.Extra)
+	}
+	if l, ok := DecodeLabel("x", []byte(`{"v":1,"value":"Work","order":2.0}`)); !ok || l.Order != 2 {
+		t.Fatalf("label: %+v %v", l, ok)
+	}
+}
+
 func TestMerge(t *testing.T) {
 	base := NewNote(TypeNote)
 	base.Title, base.Body, base.Labels = "T", "base", []string{"A"}

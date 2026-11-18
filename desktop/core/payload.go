@@ -1,8 +1,12 @@
 package core
 
 import (
+	"bytes"
 	"encoding/json"
+	"math"
 	"path"
+	"strconv"
+	"strings"
 )
 
 var noteKeys = map[string]bool{
@@ -71,8 +75,10 @@ func DecodeNote(id string, data []byte) (Note, bool) {
 		return Note{}, false
 	}
 	get := func(k string, v any) {
-		if r, ok := raw[k]; ok {
-			_ = json.Unmarshal(r, v)
+		if r, ok := raw[k]; ok && json.Unmarshal(r, v) != nil {
+			if fixed, ok := integerNumbers(r); ok {
+				_ = json.Unmarshal(fixed, v)
+			}
 		}
 	}
 	n := Note{ID: id}
@@ -175,6 +181,46 @@ func DecodeNote(id string, data []byte) (Note, bool) {
 	return n, true
 }
 
+// integerNumbers replaces each number with a fraction or an exponent by its integer part, like
+// NSNumber.intValue (macOS) and org.json getLong (Android). ok is false if nothing changed.
+func integerNumbers(data []byte) ([]byte, bool) {
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.UseNumber()
+	var v any
+	if d.Decode(&v) != nil {
+		return nil, false
+	}
+	changed := false
+	var walk func(any) any
+	walk = func(v any) any {
+		switch t := v.(type) {
+		case json.Number:
+			if !strings.ContainsAny(string(t), ".eE") {
+				break
+			}
+			if f, err := strconv.ParseFloat(string(t), 64); err == nil && math.Abs(f) < 1<<63 {
+				changed = true
+				return json.Number(strconv.FormatInt(int64(f), 10))
+			}
+		case []any:
+			for i := range t {
+				t[i] = walk(t[i])
+			}
+		case map[string]any:
+			for k := range t {
+				t[k] = walk(t[k])
+			}
+		}
+		return v
+	}
+	v = walk(v)
+	if !changed {
+		return nil, false
+	}
+	out, err := json.Marshal(v)
+	return out, err == nil
+}
+
 func validUnit(u string) bool {
 	switch u {
 	case "MINUTES", "HOURS", "DAYS", "WEEKS", "MONTHS", "YEARS":
@@ -195,7 +241,13 @@ func DecodeLabel(id string, data []byte) (Label, bool) {
 		Value *string
 		Order int
 	}
-	if json.Unmarshal(data, &p) != nil || p.Value == nil {
+	err := json.Unmarshal(data, &p)
+	if err != nil {
+		if fixed, ok := integerNumbers(data); ok {
+			err = json.Unmarshal(fixed, &p)
+		}
+	}
+	if err != nil || p.Value == nil {
 		return Label{}, false
 	}
 	return Label{ID: id, Value: *p.Value, Order: p.Order}, true
