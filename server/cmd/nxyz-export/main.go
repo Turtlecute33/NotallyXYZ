@@ -28,6 +28,12 @@ import (
 	"notallyxyz-server/seal"
 )
 
+// The apps use the same limits. A page of changes has at most about 22 MiB of JSON.
+const (
+	maxJSONBytes = 64 << 20
+	maxBlobBytes = 1 << 30
+)
+
 type change struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`
@@ -64,7 +70,7 @@ func main() {
 	}
 	var labels []json.RawMessage
 	var blobNames []string
-	notes, skipped := 0, 0
+	notes, skipped, failed := 0, 0, 0
 	for since, more := uint64(0), true; more; {
 		var page struct {
 			Changes []change `json:"changes"`
@@ -108,6 +114,9 @@ func main() {
 				labels = append(labels, plain)
 			}
 		}
+		if page.More && page.Seq <= since {
+			fail(errors.New("the server sent more changes without a new cursor"))
+		}
 		since, more = page.Seq, page.More
 	}
 	raw, _ := json.MarshalIndent(labels, "", "  ")
@@ -117,12 +126,15 @@ func main() {
 	files := 0
 	for _, name := range blobNames {
 		if !safeName(name) {
+			fmt.Fprintf(os.Stderr, "attachment %q: not a safe file name\n", name)
+			failed++
 			continue
 		}
 		id := seal.BlobID(keys.IDKey, name)
-		sealed, err := c.get("/blobs/" + id)
+		sealed, err := c.get("/blobs/"+id, maxBlobBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "attachment %s: %v\n", name, err)
+			failed++
 			continue
 		}
 		plain, err := seal.Open(keys.EncKey, seal.AD("blob", id), sealed)
@@ -136,6 +148,9 @@ func main() {
 		files++
 	}
 	fmt.Printf("%d notes, %d labels, %d attachments, %d records rejected (not decryptable or invalid)\n", notes, len(labels), files, skipped)
+	if skipped > 0 || failed > 0 {
+		fail(fmt.Errorf("the export is not complete: %d records rejected, %d attachments failed", skipped, failed))
+	}
 }
 
 func attachmentNames(note []byte) []string {
@@ -174,7 +189,7 @@ func loopback(host string) bool {
 
 type client struct{ base, token string }
 
-func (c client) get(path string) ([]byte, error) {
+func (c client) get(path string, max int64) ([]byte, error) {
 	req, _ := http.NewRequest("GET", c.base+path, nil)
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	// No redirects: Go sends the token again to the same host, also over http.
@@ -184,9 +199,12 @@ func (c client) get(path string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, max+1))
 	if err != nil {
 		return nil, err
+	}
+	if int64(len(body)) > max {
+		return nil, errors.New("the response is too large")
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -195,7 +213,7 @@ func (c client) get(path string) ([]byte, error) {
 }
 
 func (c client) getJSON(path string, v any) error {
-	body, err := c.get(path)
+	body, err := c.get(path, maxJSONBytes)
 	if err != nil {
 		return err
 	}
