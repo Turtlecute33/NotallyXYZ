@@ -95,11 +95,16 @@ class GoogleKeepImporter : ExternalImporter {
     fun String.parseToBaseNote(relativePath: String? = null): BaseNote {
         val googleKeepNote = json.decodeFromString<GoogleKeepNote>(this)
         val (body, spans) =
-            parseBodyAndSpansFromHtml(
-                googleKeepNote.textContentHtml,
-                paragraphsAsNewLine = true,
-                brTagsAsNewLine = true,
-            )
+            if (googleKeepNote.textContentHtml.isBlank()) {
+                // Older exports have only the plain text.
+                Pair(googleKeepNote.textContent, mutableListOf())
+            } else {
+                parseBodyAndSpansFromHtml(
+                    googleKeepNote.textContentHtml,
+                    paragraphsAsNewLine = true,
+                    brTagsAsNewLine = true,
+                )
+            }
 
         val images =
             googleKeepNote.attachments

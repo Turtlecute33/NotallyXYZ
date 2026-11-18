@@ -56,6 +56,23 @@ class GoogleKeepImporterTest {
     }
 
     @Test
+    fun `parseToBaseNote text note without textContentHtml`() {
+        val json =
+            """
+            {
+              "textContent": "Older export\nwith plain text only",
+              "title": "Old Note"
+            }
+            """
+                .trimIndent()
+
+        val actual = with(importer) { json.parseToBaseNote() }
+
+        assertThat(actual.body).isEqualTo("Older export\nwith plain text only")
+        assertThat(actual.spans).isEmpty()
+    }
+
+    @Test
     fun `parseToBaseNote trashed note`() {
         val json =
             """
