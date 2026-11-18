@@ -15,7 +15,6 @@ type limiter struct {
 	max    int
 	window time.Duration
 	hits   map[string]*hit
-	last   time.Time
 }
 
 type hit struct {
@@ -38,14 +37,6 @@ func (l *limiter) fail(ip string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := time.Now()
-	if now.Sub(l.last) > time.Minute {
-		for k, h := range l.hits {
-			if now.After(h.reset) {
-				delete(l.hits, k)
-			}
-		}
-		l.last = now
-	}
 	h, ok := l.hits[ip]
 	if !ok || now.After(h.reset) {
 		if !ok && len(l.hits) >= maxHits {
@@ -53,6 +44,16 @@ func (l *limiter) fail(ip string) {
 		}
 		h = &hit{reset: now.Add(l.window)}
 		l.hits[ip] = h
+		// Remove the address at the end of the window, also when no request follows.
+		time.AfterFunc(l.window, func() { l.forget(ip, h) })
 	}
 	h.count++
+}
+
+func (l *limiter) forget(ip string, h *hit) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.hits[ip] == h {
+		delete(l.hits, ip)
+	}
 }
