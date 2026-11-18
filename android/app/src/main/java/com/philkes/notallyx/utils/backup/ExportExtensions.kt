@@ -678,7 +678,7 @@ private fun ContextWrapper.postSkippedAttachmentsNotification(missingAttachments
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
-        val notification =
+        val builder =
             NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(R.drawable.export)
                 .setContentTitle(getString(R.string.backup))
@@ -688,9 +688,15 @@ private fun ContextWrapper.postSkippedAttachmentsNotification(missingAttachments
                 )
                 .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .addAction(R.drawable.delete, getString(R.string.clean_up), cleanupPendingIntent)
-                .build()
-        manager.notify(NOTIFICATION_ID + 1, notification)
+        // With sync, the missing files can still arrive: do not offer to remove them.
+        if (!isSyncSetUp()) {
+            builder.addAction(
+                R.drawable.delete,
+                getString(R.string.clean_up),
+                cleanupPendingIntent,
+            )
+        }
+        manager.notify(NOTIFICATION_ID + 1, builder.build())
     }
 }
 

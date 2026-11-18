@@ -12,6 +12,8 @@ import com.philkes.notallyx.R
 import com.philkes.notallyx.data.NotallyDatabase
 import com.philkes.notallyx.data.model.Audio
 import com.philkes.notallyx.data.model.FileAttachment
+import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.sync.SyncManager
 import com.philkes.notallyx.utils.SUBFOLDER_AUDIOS
 import com.philkes.notallyx.utils.SUBFOLDER_FILES
 import com.philkes.notallyx.utils.SUBFOLDER_IMAGES
@@ -19,12 +21,33 @@ import com.philkes.notallyx.utils.createChannelIfNotExists
 import com.philkes.notallyx.utils.log
 import com.philkes.notallyx.utils.resolveAttachmentFile
 
+/**
+ * Sync is set up on this device. The same test as [SyncManager.isEnabled], but with the saved
+ * values: it is also correct before [SyncManager] has read the key. A key that cannot be read
+ * counts as set up. Reads the Keystore: call it off the main thread.
+ */
+internal fun ContextWrapper.isSyncSetUp(): Boolean {
+    val preferences = NotallyXPreferences.getInstance(this)
+    if (preferences.syncServerUrl.value.isEmpty()) return false
+    return try {
+        preferences.syncKey.value.isNotEmpty()
+    } catch (_: Exception) {
+        true
+    }
+}
+
 /** Scans all notes and removes references to attachments whose underlying files are missing. */
 class CleanupMissingAttachmentsWorker(appContext: Context, params: WorkerParameters) :
     CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
         val ctx = ContextWrapper(applicationContext)
+        // With sync, a file that is missing here can still arrive. A removed reference would go to
+        // all devices, and the file on the server would lose its last reference.
+        if (ctx.isSyncSetUp()) {
+            ctx.log(TAG, "Sync is set up: references to missing attachments stay")
+            return Result.success()
+        }
         val database = NotallyDatabase.getDatabase(ctx).value!!
         val dao = database.getBaseNoteDao()
 
