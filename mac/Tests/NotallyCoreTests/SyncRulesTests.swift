@@ -305,6 +305,33 @@ extension SyncTests {
         }
     }
 
+    @Test func blobLostByServerIsUploadedAgain() async throws {
+        try await withAccount { keys in
+            let a = try client(keys)
+            defer { try? FileManager.default.removeItem(at: a.dir) }
+            let file = a.dir.appendingPathComponent("photo.jpg")
+            let photo = Data((0..<20_000).map { UInt8(truncatingIfNeeded: $0 &* 7) })
+            try photo.write(to: file)
+            var note = a.store.create(.note)
+            note.images = [try await a.store.importAttachment(from: file, mimeType: "image/jpeg")]
+            a.store.save(note)
+            try await sync(a)
+            let id = keys.blobID(note.images[0].localName)
+            try await a.engine.api.deleteBlob(id: id)
+
+            // The note is clean, so the push does not look at its blob, and the check runs once a day.
+            try await sync(a)
+            #expect(try await a.engine.api.missingBlobs([id]) == [id])
+            // After an app start, the first sync checks all blobs.
+            try await sync(Client(dir: a.dir, store: a.store, engine: SyncEngine(store: a.store, api: a.engine.api)))
+            #expect(try await a.engine.api.missingBlobs([id]) == [])
+            let b = try client(keys)
+            defer { try? FileManager.default.removeItem(at: b.dir) }
+            try await sync(b)
+            #expect(await b.store.attachmentData(note.images[0].localName) == photo)
+        }
+    }
+
     @Test func blobTooLargeForServerIsKept() async throws {
         try await withAccount(server: ["MAX_BLOB_MB": "1"]) { keys in
             let a = try client(keys)

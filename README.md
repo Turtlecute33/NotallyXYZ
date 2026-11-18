@@ -190,8 +190,9 @@ dependencies.
   note keeps the local text and settings, and gets the labels and attachments of both notes.
 - **Attachments**: a device uploads an attachment before the first note that uses it. Before it
   sends a note, it asks the server which attachments of the note are missing and uploads them
-  again. After a full sync, a device can remove attachments that no note uses and that are older
-  than 24 hours.
+  again. After the first full sync from each app start, and then once a day, it does the same for
+  the attachments of all its notes. After a full sync, a device can remove attachments that no
+  note uses and that are older than 24 hours.
 - **Restored server**: if the server has older data than a device, for example after the restore
   of a backup, the device stops syncing and shows an error. Refer to
   [server/README.md](server/README.md).

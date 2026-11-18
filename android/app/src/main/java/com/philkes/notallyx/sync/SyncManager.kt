@@ -66,6 +66,8 @@ class SyncManager private constructor(private val app: Application) {
     private var liveJob: Job? = null
     @Volatile private var foreground = false
     private var observedDatabase: NotallyDatabase? = null
+    /** Time of the last check of all attachments on the server, 0 after an app start. */
+    private var lastBlobCheck = 0L
 
     /** The sync key, read once off the main thread (Keystore). Null until then, "" if none. */
     @Volatile private var key: String? = null
@@ -183,6 +185,14 @@ class SyncManager private constructor(private val app: Application) {
                         val consistent = engine.run()
                         val lastGc = SyncStore(database).getMeta(META_GC)?.toLongOrNull() ?: 0L
                         val now = System.currentTimeMillis()
+                        // Once after an app start, then once a day.
+                        if (
+                            consistent &&
+                                now - lastBlobCheck > BLOB_CHECK_INTERVAL_MS &&
+                                engine.uploadLostBlobs()
+                        ) {
+                            lastBlobCheck = now
+                        }
                         if (consistent && now - lastGc > GC_INTERVAL_MS) {
                             engine.collectGarbage()
                             SyncStore(database).setMeta(META_GC, now.toString())
@@ -390,6 +400,7 @@ class SyncManager private constructor(private val app: Application) {
         private const val LOCAL_CHANGE_DELAY_MS = 3_000L
         private const val LIVE_WAIT_S = 25
         private const val GC_INTERVAL_MS = 24 * 3600 * 1000L
+        private const val BLOB_CHECK_INTERVAL_MS = 24 * 3600 * 1000L
 
         @Volatile private var instance: SyncManager? = null
 

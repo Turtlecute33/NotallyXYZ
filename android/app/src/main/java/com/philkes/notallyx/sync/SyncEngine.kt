@@ -573,13 +573,12 @@ class SyncEngine(
         }
     }
 
-    private fun upload(notes: Collection<BaseNote>) {
+    /** Uploads the attachments that are on this device and that the server does not have. */
+    private fun upload(attachments: Collection<Pair<String, String>>) {
         val files = HashMap<String, File>()
-        notes.forEach { note ->
-            NotePayload.attachments(note).forEach { (folder, name) ->
-                val file = app.resolveAttachmentFile(folder, name)
-                if (file != null && file.exists()) files[SyncCrypto.blobId(keys.idKey, name)] = file
-            }
+        attachments.forEach { (folder, name) ->
+            val file = app.resolveAttachmentFile(folder, name)
+            if (file != null && file.exists()) files[SyncCrypto.blobId(keys.idKey, name)] = file
         }
         if (files.isEmpty()) return
         val missing = files.keys.chunked(1000).flatMap { api.missingBlobs(it) }
@@ -657,7 +656,7 @@ class SyncEngine(
                 else -> store.removeOutbox(entry)
             }
         }
-        upload(notes)
+        upload(notes.flatMap(NotePayload::attachments))
 
         var conflict = false
         batches(pending).forEach { batch ->
@@ -795,6 +794,18 @@ class SyncEngine(
         }
         if (current.isNotEmpty()) out.add(current)
         return out
+    }
+
+    /**
+     * Uploads the attachments of all notes that the server lost (PROTOCOL.md, section 6). A push
+     * checks only the attachments of the notes that it sends. Only with an empty outbox.
+     *
+     * @return false if it did not run.
+     */
+    suspend fun uploadLostBlobs(): Boolean {
+        if (store.outboxSize() > 0) return false
+        upload(referencedAttachments())
+        return true
     }
 
     // ---- Server cleanup ----

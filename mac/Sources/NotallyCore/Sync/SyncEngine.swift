@@ -20,6 +20,8 @@ public final class SyncEngine {
     /// Blobs that the server does not have, that are too large or that do not open: not downloaded
     /// again until the app becomes active again.
     @ObservationIgnored private var unavailableBlobs: Set<String> = []
+    /// Time of the last check of all blobs (PROTOCOL.md §6, Blobs). Nil until the first one after an app start.
+    @ObservationIgnored private var lastBlobCheck: Date?
 
     static let maxBatchBytes = 16 << 20
     static let maxBatchCount = 200
@@ -84,6 +86,11 @@ public final class SyncEngine {
         }
         await downloadMissingBlobs()
         try store.local.pruneBlobs(keeping: store.referencedBlobIDs)
+        // Blobs that the server lost are uploaded again: once after an app start, then once a day.
+        if lastBlobCheck.map({ Date().timeIntervalSince($0) > 24 * 3600 }) ?? true, try !store.local.hasDirty() {
+            try await uploadBlobs(ids: Array(store.referencedBlobIDs))
+            lastBlobCheck = Date()
+        }
     }
 
     func pull() async throws {
@@ -143,7 +150,12 @@ public final class SyncEngine {
     /// server lost (clean-up of another device) are uploaded again from the local cache.
     func uploadBlobs(of records: [LocalStore.Record]) async throws {
         let used = records.filter { $0.kind == "note" }.flatMap { store.notes[$0.id]?.allAttachmentNames ?? [] }
-        let ids = Array(Set(try store.local.pendingBlobs() + used.map(store.keys.blobID))).filter { store.local.hasBlob($0) }
+        try await uploadBlobs(ids: try store.local.pendingBlobs() + used.map(store.keys.blobID))
+    }
+
+    /// Uploads the blobs of `ids` that are on this Mac and that the server does not have.
+    func uploadBlobs(ids: [String]) async throws {
+        let ids = Array(Set(ids)).filter { store.local.hasBlob($0) }
         var missing = Set<String>()
         for start in stride(from: 0, to: ids.count, by: 1000) {
             missing.formUnion(try await api.missingBlobs(Array(ids[start..<min(start + 1000, ids.count)])))

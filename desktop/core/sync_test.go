@@ -433,6 +433,45 @@ func TestTooLargeNote(t *testing.T) {
 }
 
 // A server restored from an older backup has fewer changes than the cursor: sync stops with a clear error.
+func TestBlobLostByServerIsUploadedAgain(t *testing.T) {
+	server, keys := account(t)
+	a := newDevice(t, server, keys)
+	file := filepath.Join(t.TempDir(), "photo.jpg")
+	if err := os.WriteFile(file, bytes.Repeat([]byte{9}, 20_000), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	att, err := a.store.ImportAttachment(file, "image/jpeg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	note := NewNote(TypeNote)
+	note.Images = []FileAttachment{att}
+	_ = a.store.Save(note)
+	a.sync(t)
+	ctx, api, id := context.Background(), NewAPI(server, keys), keys.BlobID(att.LocalName)
+	if err := api.DeleteBlob(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+
+	// The note is clean, so the push does not look at its blob, and the check runs once a day.
+	a.sync(t)
+	if missing, err := api.MissingBlobs(ctx, []string{id}); err != nil || len(missing) != 1 {
+		t.Fatalf("missing before: %v %v", missing, err)
+	}
+	// After an app start, the first sync checks all blobs.
+	restarted := &device{a.store, NewEngine(a.store, NewAPI(server, keys))}
+	t.Cleanup(restarted.engine.Stop)
+	restarted.sync(t)
+	if missing, err := api.MissingBlobs(ctx, []string{id}); err != nil || len(missing) != 0 {
+		t.Fatalf("missing after: %v %v", missing, err)
+	}
+	b := newDevice(t, server, keys)
+	b.sync(t)
+	if data, err := b.store.AttachmentData(att.LocalName); err != nil || len(data) != 20_000 {
+		t.Fatalf("attachment on B: %v", err)
+	}
+}
+
 func TestCursorAhead(t *testing.T) {
 	server, keys := account(t)
 	a := newDevice(t, server, keys)

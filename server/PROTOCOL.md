@@ -228,7 +228,9 @@ Blobs are immutable. Clients upload a blob before the first note that references
 and download a blob before they show a note that references it. A `PUT` of an existing
 id returns `204` and keeps the stored bytes. If the server lost the file of a blob,
 `GET` returns `404` and the server deletes the blob, so that `missing` reports it and
-clients upload it again.
+clients upload it again. A client sends `missing` the ids of all blobs that its notes
+use and that it has, and uploads the missing ones, after a sync that ends with no local
+changes left: once after each start of the app, then at most once in 24 hours.
 
 Garbage collection is client-driven: after a full sync with an empty outbox, a client
 can delete blobs that no note references and that are older than 24 hours.

@@ -28,6 +28,7 @@ type Engine struct {
 	running   bool
 	again     bool
 	retry     time.Duration // wait before the next try after a failed sync; 0 after a full sync
+	blobCheck time.Time     // last check of all blobs (PROTOCOL.md §6, Blobs); zero after an app start; under runMu
 	scheduled *time.Timer
 	liveStop  context.CancelFunc
 	ctx       context.Context
@@ -193,7 +194,32 @@ func (e *Engine) runOnce(ctx context.Context) (done bool, err error) {
 	if err := e.store.local.Update(func(tx *Tx) error { return tx.PruneBlobs(referenced) }); err != nil {
 		return false, err
 	}
+	// Blobs that the server lost are uploaded again: once after an app start, then once a day.
+	if time.Since(e.blobCheck) > 24*time.Hour && !e.hasDirty() {
+		var ids []string
+		for id := range referenced {
+			if e.store.local.HasBlob(id) {
+				ids = append(ids, id)
+			}
+		}
+		if err := e.uploadMissing(ctx, ids); err != nil {
+			return false, err
+		}
+		e.blobCheck = time.Now()
+	}
 	return !conflict, tooLarge
+}
+
+// hasDirty reports whether local changes wait for a push.
+func (e *Engine) hasDirty() bool {
+	pending := false
+	_ = e.store.local.View(func(tx *Tx) error {
+		for _, r := range tx.Records() {
+			pending = pending || r.Dirty > 0
+		}
+		return nil
+	})
+	return pending
 }
 
 func (e *Engine) cursor() int64 {
@@ -322,13 +348,6 @@ func (e *Engine) push(ctx context.Context) (bool, error) {
 // uploadBlobs uploads the attachments of the pushed notes that the server does not have: new
 // ones, and ones that the clean-up of another device removed. Blobs go up before the notes.
 func (e *Engine) uploadBlobs(ctx context.Context, records []Record) error {
-	pending := map[string]bool{}
-	_ = e.store.local.View(func(tx *Tx) error {
-		for _, id := range tx.PendingBlobs() {
-			pending[id] = true
-		}
-		return nil
-	})
 	var ids []string
 	seen := map[string]bool{}
 	for _, r := range records {
@@ -343,6 +362,18 @@ func (e *Engine) uploadBlobs(ctx context.Context, records []Record) error {
 			}
 		}
 	}
+	return e.uploadMissing(ctx, ids)
+}
+
+// uploadMissing uploads the blobs of ids that the server does not have.
+func (e *Engine) uploadMissing(ctx context.Context, ids []string) error {
+	pending := map[string]bool{}
+	_ = e.store.local.View(func(tx *Tx) error {
+		for _, id := range tx.PendingBlobs() {
+			pending[id] = true
+		}
+		return nil
+	})
 	for len(ids) > 0 {
 		chunk := ids[:min(len(ids), 1000)]
 		ids = ids[len(chunk):]
@@ -465,14 +496,7 @@ func (e *Engine) RemoveUnusedServerBlobs() (int, error) {
 	if _, err := e.runOnce(ctx); err != nil {
 		return 0, err
 	}
-	pending := false
-	_ = e.store.local.View(func(tx *Tx) error {
-		for _, r := range tx.Records() {
-			pending = pending || r.Dirty > 0
-		}
-		return nil
-	})
-	if pending {
+	if e.hasDirty() {
 		return 0, nil
 	}
 	referenced := e.store.ReferencedBlobIDs()

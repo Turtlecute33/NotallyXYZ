@@ -27,6 +27,7 @@ import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -378,6 +379,26 @@ class SyncEngineTest {
         b.sync()
         assertArrayEquals(bytes, file.readBytes())
         assertEquals("me.jpg", b.note("Photo").images.single().originalName)
+    }
+
+    @Test
+    fun aBlobThatTheServerLostIsUploadedAgain() {
+        val a = device()
+        File(app.getCurrentImagesDirectory(), "lost.jpg").writeBytes(Random.nextBytes(20_000))
+        a.insert(note("Photo", images = listOf(FileAttachment("lost.jpg", "me.jpg", "image/jpeg"))))
+        a.sync()
+        val api = SyncApi(url, keys.bearer)
+        val id = SyncCrypto.blobId(keys.idKey, "lost.jpg")
+        api.deleteBlob(id)
+        // The note is clean, so the push does not look at its blob.
+        a.sync()
+        assertEquals(setOf(id), api.missingBlobs(listOf(id)))
+        assertTrue(runBlocking { a.engine.uploadLostBlobs() })
+        assertEquals(emptySet<String>(), api.missingBlobs(listOf(id)))
+        // Not while local changes wait.
+        api.deleteBlob(id)
+        runBlocking { a.dao.insert(a.note("Photo").copy(body = "edited")) }
+        assertFalse(runBlocking { a.engine.uploadLostBlobs() })
     }
 
     @Test
