@@ -149,6 +149,8 @@ class SyncApi(serverUrl: String, private val bearer: String) {
         connection.instanceFollowRedirects = false
         connection.setRequestProperty("Authorization", "Bearer $bearer")
         connection.setRequestProperty("Accept", "application/json")
+        // Not the default, which names the device model and the Android build.
+        connection.setRequestProperty("User-Agent", "NotallyXYZ")
         return connection
     }
 
