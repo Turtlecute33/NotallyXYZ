@@ -104,17 +104,20 @@ fun ContextWrapper.getCurrentMediaRoot(): File {
     return if (isDataInPublicEnabled()) getExternalMediaDirectory() else getPrivateAttachmentsRoot()
 }
 
-fun ContextWrapper.getAlternateImagesDirectory(): File {
-    return if (isDataInPublicEnabled()) getExternalImagesDirectory()
-    else getPrivateImagesDirectory()
+/** The folder of the other storage mode, or null if there is no public folder. */
+fun ContextWrapper.getAlternateImagesDirectory(): File? {
+    return if (isDataInPublicEnabled()) getPrivateImagesDirectory()
+    else runCatching { getExternalImagesDirectory() }.getOrNull()
 }
 
-fun ContextWrapper.getAlternateFilesDirectory(): File {
-    return if (isDataInPublicEnabled()) getExternalFilesDirectory() else getPrivateFilesDirectory()
+fun ContextWrapper.getAlternateFilesDirectory(): File? {
+    return if (isDataInPublicEnabled()) getPrivateFilesDirectory()
+    else runCatching { getExternalFilesDirectory() }.getOrNull()
 }
 
-fun ContextWrapper.getAlternateAudioDirectory(): File {
-    return if (isDataInPublicEnabled()) getExternalAudioDirectory() else getPrivateAudioDirectory()
+fun ContextWrapper.getAlternateAudioDirectory(): File? {
+    return if (isDataInPublicEnabled()) getPrivateAudioDirectory()
+    else runCatching { getExternalAudioDirectory() }.getOrNull()
 }
 
 /**
@@ -128,6 +131,8 @@ fun ContextWrapper.resolveAttachmentFile(subfolder: String, localName: String): 
             SUBFOLDER_AUDIOS -> getCurrentAudioDirectory()
             else -> null
         }
+    val inCurrent = current?.let { File(it, localName) }
+    if (inCurrent != null && inCurrent.exists()) return inCurrent
     val alt =
         when (subfolder) {
             SUBFOLDER_IMAGES -> getAlternateImagesDirectory()
@@ -135,8 +140,6 @@ fun ContextWrapper.resolveAttachmentFile(subfolder: String, localName: String): 
             SUBFOLDER_AUDIOS -> getAlternateAudioDirectory()
             else -> null
         }
-    val inCurrent = current?.let { File(it, localName) }
-    if (inCurrent != null && inCurrent.exists()) return inCurrent
     val inAlt = alt?.let { File(it, localName) }
     if (inAlt != null && inAlt.exists()) return inAlt
     return inCurrent ?: inAlt
@@ -373,9 +376,10 @@ fun ContextWrapper.deleteAttachments(
         (progress as? MutableStateFlow<Progress?>)?.value =
             DeleteAttachmentProgress(0, attachments.size)
         val inUse = attachmentsInUse(ids)
-        val imageRoot = getExternalImagesDirectory()
-        val audioRoot = getExternalAudioDirectory()
-        val fileRoot = getExternalFilesDirectory()
+        // A file is in the folder of the current storage mode, or still in the other one.
+        val imageRoots = listOfNotNull(getCurrentImagesDirectory(), getAlternateImagesDirectory())
+        val audioRoots = listOfNotNull(getCurrentAudioDirectory(), getAlternateAudioDirectory())
+        val fileRoots = listOfNotNull(getCurrentFilesDirectory(), getAlternateFilesDirectory())
         attachments.forEachIndexed { index, attachment ->
             val name =
                 when (attachment) {
@@ -387,18 +391,12 @@ fun ContextWrapper.deleteAttachments(
                     DeleteAttachmentProgress(index + 1, attachments.size)
                 return@forEachIndexed
             }
-            val file =
+            val roots =
                 when (attachment) {
-                    is Audio -> if (audioRoot != null) File(audioRoot, attachment.name) else null
-
-                    is FileAttachment -> {
-                        val root = if (attachment.isImage) imageRoot else fileRoot
-                        if (root != null) File(root, attachment.localName) else null
-                    }
+                    is Audio -> audioRoots
+                    is FileAttachment -> if (attachment.isImage) imageRoots else fileRoots
                 }
-            if (file != null && file.exists()) {
-                file.delete()
-            }
+            roots.forEach { root -> File(root, name).delete() }
             (progress as? MutableStateFlow<Progress?>)?.value =
                 DeleteAttachmentProgress(index + 1, attachments.size)
         }

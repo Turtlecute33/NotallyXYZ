@@ -12,10 +12,13 @@ import com.philkes.notallyx.data.model.Type
 import com.philkes.notallyx.utils.SUBFOLDER_IMAGES
 import com.philkes.notallyx.utils.deleteAttachments
 import com.philkes.notallyx.utils.getExternalMediaDirectory
+import com.philkes.notallyx.utils.getPrivateImagesDirectory
+import com.philkes.notallyx.utils.resolveAttachmentFile
 import java.io.File
 import java.nio.file.Files
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -74,7 +77,8 @@ class SharedAttachmentsTest {
             )
         val original = runBlocking { dao.insert(note) }
         val copy = runBlocking { dao.insert(note) }
-        val file = File(app.getExternalMediaDirectory(SUBFOLDER_IMAGES), image.localName)
+        // Default storage mode: attachments are in the private folder.
+        val file = File(app.getPrivateImagesDirectory(), image.localName)
         file.writeBytes(ByteArray(10))
         try {
             runBlocking { dao.delete(copy) }
@@ -86,6 +90,29 @@ class SharedAttachmentsTest {
             assertFalse(file.exists())
         } finally {
             runBlocking { dao.delete(longArrayOf(original, copy)) }
+            file.delete()
+            media.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun aFileLeftInThePublicFolderIsFoundAndDeleted() {
+        val media = Files.createTempDirectory("nxyz-media").toFile()
+        val app =
+            object : ContextWrapper(ApplicationProvider.getApplicationContext<Application>()) {
+                @Deprecated("Deprecated in Java")
+                override fun getExternalMediaDirs() = arrayOf(media)
+            }
+        // Without a database, deleteAttachments cannot check which files are in use and keeps all.
+        checkNotNull(NotallyDatabase.getDatabase(app).value)
+        val image = FileAttachment("left-3c9a.jpg", "a.jpg", "image/jpeg")
+        val file = File(app.getExternalMediaDirectory(SUBFOLDER_IMAGES), image.localName)
+        file.writeBytes(ByteArray(10))
+        try {
+            assertEquals(file, app.resolveAttachmentFile(SUBFOLDER_IMAGES, image.localName))
+            app.deleteAttachments(listOf(image), longArrayOf())
+            assertFalse(file.exists())
+        } finally {
             media.deleteRecursively()
         }
     }
