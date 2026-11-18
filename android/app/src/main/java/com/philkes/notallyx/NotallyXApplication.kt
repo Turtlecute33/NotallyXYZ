@@ -304,7 +304,7 @@ class NotallyXApplication : Application(), Application.ActivityLifecycleCallback
     }
 
     private fun checkUpdateAutoBackupOnSave(backupFolderBefore: String?, backupFolder: String) {
-        if (!preferences.backupOnSave.value && folderChanged(backupFolderBefore, backupFolder)) {
+        if (preferences.backupOnSave.value && folderChanged(backupFolderBefore, backupFolder)) {
             runOnIODispatcher {
                 autoBackupOnSave(backupFolder, preferences.backupPassword.value, null)
             }
