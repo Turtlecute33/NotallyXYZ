@@ -369,6 +369,13 @@ fun BaseNote.attachmentsDifferFrom(other: BaseNote): Boolean {
         other.audios.any { audio -> audios.none { it.name == audio.name } }
 }
 
+/** Import duplicate check: same image and file names and the same number of recordings. */
+fun BaseNote.hasSameAttachments(other: BaseNote): Boolean {
+    return images.map { it.originalName } == other.images.map { it.originalName } &&
+        files.map { it.originalName } == other.files.map { it.originalName } &&
+        audios.size == other.audios.size
+}
+
 fun Reminder.toRepetitionText(context: Context): String {
     val rep = repetition ?: return context.getString(R.string.reminder_no_repetition)
     if (rep.unit == RepetitionTimeUnit.MONTHS && rep.occurrence == null && rep.value == 1) {

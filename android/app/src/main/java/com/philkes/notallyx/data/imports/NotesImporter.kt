@@ -16,6 +16,7 @@ import com.philkes.notallyx.data.model.Audio
 import com.philkes.notallyx.data.model.FileAttachment
 import com.philkes.notallyx.data.model.Label
 import com.philkes.notallyx.data.model.Type
+import com.philkes.notallyx.data.model.hasSameAttachments
 import com.philkes.notallyx.data.model.toText
 import com.philkes.notallyx.presentation.view.misc.Progress
 import com.philkes.notallyx.presentation.viewmodel.edit.NoteModel
@@ -188,13 +189,17 @@ class NotesImporter(private val app: Application, private val database: NotallyD
     }
 
     private fun findDuplicateId(note: com.philkes.notallyx.data.model.BaseNote): Long? {
+        val target = normalizeContent(note)
+        // Without text (for example only a photo) title and text do not identify the note.
+        if (target.isEmpty()) return null
         val dao = database.getBaseNoteDao()
         val titleMatches = dao.getByTitle(note.title)
         if (titleMatches.isEmpty()) return null
-        val target = normalizeContent(note)
         return titleMatches
             .firstOrNull { existing ->
-                existing.type == note.type && normalizeContent(existing) == target
+                existing.type == note.type &&
+                    normalizeContent(existing) == target &&
+                    existing.hasSameAttachments(note)
             }
             ?.id
     }

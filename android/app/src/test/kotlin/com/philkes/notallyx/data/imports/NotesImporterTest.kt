@@ -8,6 +8,8 @@ import androidx.core.net.toUri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.philkes.notallyx.data.NotallyDatabase
+import com.philkes.notallyx.data.imports.google.GoogleKeepImporterTest.Companion.createBaseNote
+import com.philkes.notallyx.data.model.FileAttachment
 import com.philkes.notallyx.utils.decodeToBitmap
 import com.philkes.notallyx.utils.getCurrentMediaRoot
 import java.io.File
@@ -104,6 +106,76 @@ class NotesImporterTest {
         assertThat(note.body).isEqualTo("Text")
         assertThat(note.files).isEmpty()
     }
+
+    @Test
+    fun `import keeps notes that differ only in their attachments`() {
+        val enex =
+            enexFile(
+                enexNote("Scan", "", "a.txt"),
+                enexNote("Scan", "", "b.txt"),
+                enexNote("Same", "Text", "c.txt"),
+                enexNote("Same", "Text", "d.txt"),
+            )
+        val result = runBlocking {
+            NotesImporter(application, database).import(enex.toUri(), ImportSource.EVERNOTE)
+        }
+        assertThat(result.duplicates).isEqualTo(0)
+        val notes = database.getBaseNoteDao().getAll()
+        assertThat(notes.map { it.files.single().originalName })
+            .containsExactlyInAnyOrder("a.txt", "b.txt", "c.txt", "d.txt")
+    }
+
+    @Test
+    fun `import still skips a note that is already there`() {
+        val enex = enexFile(enexNote("Same", "Text", "a.txt"))
+        val importer = NotesImporter(application, database)
+        runBlocking { importer.import(enex.toUri(), ImportSource.EVERNOTE) }
+        val result = runBlocking { importer.import(enex.toUri(), ImportSource.EVERNOTE) }
+        assertThat(result.duplicates).isEqualTo(1)
+        assertThat(database.getBaseNoteDao().getAll()).hasSize(1)
+    }
+
+    @Test
+    fun `backup import with duplicate check keeps notes that differ only in their attachments`() {
+        fun note(title: String, body: String, image: String) =
+            createBaseNote(
+                title = title,
+                body = body,
+                images = listOf(FileAttachment(image, image, "image/png")),
+            )
+        val notes = listOf(note("", "", "a.png"), note("", "", "b.png"), note("T", "x", "c.png"))
+        runBlocking {
+            database.getCommonDao().importBackup(notes, listOf(), 0, checkDuplicates = true)
+            val again = database.getCommonDao().importBackup(notes, listOf(), 0, true)
+            // Only the note with text is found again; the notes without text are kept.
+            assertThat(again.duplicates).isEqualTo(1)
+        }
+        assertThat(database.getBaseNoteDao().getAll().map { it.images.single().localName })
+            .containsExactlyInAnyOrder("a.png", "b.png", "c.png", "a.png", "b.png")
+    }
+
+    private fun enexNote(title: String, text: String, fileName: String) =
+        """
+        <note>
+          <title>$title</title>
+          <content><![CDATA[<en-note><div>$text</div></en-note>]]></content>
+          <created>20241024T072339Z</created>
+          <updated>20241024T072339Z</updated>
+          <resource>
+            <data encoding="base64">aGVsbG8=</data>
+            <mime>text/plain</mime>
+            <resource-attributes><file-name>$fileName</file-name></resource-attributes>
+          </resource>
+        </note>
+        """
+
+    private fun enexFile(vararg notes: String): File =
+        Files.createTempFile("notes", ".enex").toFile().apply {
+            writeText(
+                """<?xml version="1.0" encoding="UTF-8"?>
+                <en-export export-date="20241026T102349Z">${notes.joinToString("")}</en-export>"""
+            )
+        }
 
     private fun testImport(importSource: ImportSource, expectedAmountNotes: Int) {
         testImport(prepareImportSources(importSource), importSource, expectedAmountNotes)

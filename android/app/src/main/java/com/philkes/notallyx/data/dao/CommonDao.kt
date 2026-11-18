@@ -14,6 +14,7 @@ import com.philkes.notallyx.data.model.Type
 import com.philkes.notallyx.data.model.createNoteUrl
 import com.philkes.notallyx.data.model.getNoteIdFromUrl
 import com.philkes.notallyx.data.model.getNoteTypeFromUrl
+import com.philkes.notallyx.data.model.hasSameAttachments
 import com.philkes.notallyx.data.model.isNoteUrl
 import com.philkes.notallyx.data.model.toText
 import com.philkes.notallyx.utils.NoteSplitUtils
@@ -176,18 +177,23 @@ abstract class CommonDao(private val database: NotallyDatabase) {
     }
 
     /**
-     * Returns the id of an existing note that has the same title and the same textual content as
-     * [note], or null if none found. For text notes, compares the body. For list notes, compares
-     * the textual representation of items (including checked state and hierarchy).
+     * Returns the id of an existing note that has the same title, the same textual content and the
+     * same attachments as [note], or null if none found. For text notes, compares the body. For
+     * list notes, compares the textual representation of items (including checked state and
+     * hierarchy). A note without text is never a duplicate.
      */
     private fun findDuplicateId(note: BaseNote): Long? {
+        val targetContent = normalizeContent(note)
+        // Without text (for example only a photo) title and text do not identify the note.
+        if (targetContent.isEmpty()) return null
         val dao = database.getBaseNoteDao()
         val titleMatches = dao.getByTitle(note.title)
         if (titleMatches.isEmpty()) return null
-        val targetContent = normalizeContent(note)
         return titleMatches
             .firstOrNull { existing ->
-                existing.type == note.type && normalizeContent(existing) == targetContent
+                existing.type == note.type &&
+                    normalizeContent(existing) == targetContent &&
+                    existing.hasSameAttachments(note)
             }
             ?.id
     }
