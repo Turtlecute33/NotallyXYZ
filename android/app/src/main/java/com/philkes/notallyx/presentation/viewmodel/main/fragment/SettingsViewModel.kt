@@ -31,6 +31,7 @@ import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreference
 import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.START_VIEW_DEFAULT
 import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.START_VIEW_UNLABELED
 import com.philkes.notallyx.presentation.viewmodel.preference.Theme
+import com.philkes.notallyx.presentation.viewmodel.progress.BackupProgress
 import com.philkes.notallyx.utils.backup.exportAsZip
 import com.philkes.notallyx.utils.backup.importRawDatabase
 import com.philkes.notallyx.utils.backup.importZip
@@ -148,7 +149,12 @@ class SettingsViewModel(
     }
 
     fun exportBackup(uri: Uri, onComplete: (() -> Unit)? = null) {
-        viewModelScope.launch {
+        val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+            app.log(TAG, throwable = throwable)
+            progress.value = BackupProgress(inProgress = false)
+            app.showToast(R.string.something_went_wrong)
+        }
+        viewModelScope.launch(exceptionHandler) {
             val exportedNotesAndAttachments =
                 withContext(Dispatchers.IO) {
                     app.log(TAG, msg = "Exporting backup to '$uri'...")
