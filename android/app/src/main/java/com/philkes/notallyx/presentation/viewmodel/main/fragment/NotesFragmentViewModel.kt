@@ -324,12 +324,15 @@ class NotesFragmentViewModel(app: Application, preferences: NotallyXPreferences)
         }
     }
 
+    // After process death the result of the file picker comes to a new, empty selection.
     fun exportSelectedNotesToFolder(folderUri: Uri, snackbarView: View) {
+        if (actionMode.selectedNotes.isEmpty()) return
         exportNotesToFolder(folderUri, actionMode.selectedNotes.values, snackbarView)
     }
 
     fun exportSelectedNoteToFile(fileUri: Uri, snackbarView: View) {
-        exportNoteToFile(fileUri, actionMode.selectedNotes.values.first(), snackbarView)
+        val note = actionMode.selectedNotes.values.firstOrNull() ?: return
+        exportNoteToFile(fileUri, note, snackbarView)
     }
 
     private fun View.showFileSnackbar(msg: String, fileUri: Uri, mimeType: ExportMimeType) {
