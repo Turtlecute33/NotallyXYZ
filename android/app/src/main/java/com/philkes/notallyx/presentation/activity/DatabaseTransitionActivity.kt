@@ -363,6 +363,8 @@ class DatabaseTransitionActivity : AppCompatActivity() {
                             "Encrypt succeeded but overwritten database is not encrypted, restored unencrypted database and created additional backup at ${externalBackupFile.absolutePath}"
                         )
                     }
+                    // The backup is a plain copy of the database: do not keep it once encrypted.
+                    dbFileBackup.delete()
                 } catch (e: Exception) {
                     NotallyDatabase.postNewInstance(app, biometricLock = BiometricLock.DISABLED)
                     throw e
