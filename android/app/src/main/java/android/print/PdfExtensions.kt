@@ -16,6 +16,10 @@ private const val TAG = "PdfExtensions"
  */
 fun Context.printPdf(file: DocumentFile, content: String, pdfPrintListener: PdfPrintListener) {
     val webView = WebView(this)
+    // The page is built from note content: it must not load anything from the network or files.
+    webView.settings.blockNetworkLoads = true
+    webView.settings.blockNetworkImage = true
+    webView.settings.allowFileAccess = false
     webView.loadDataWithBaseURL(null, content, "text/html", "utf-8", null)
     webView.webViewClient =
         object : WebViewClient() {

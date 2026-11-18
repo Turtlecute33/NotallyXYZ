@@ -5,6 +5,8 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.text.Html
+import android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+import android.text.style.URLSpan
 import android.util.Base64
 import androidx.core.content.IntentCompat
 import androidx.core.text.toHtml
@@ -238,8 +240,20 @@ fun BaseNote.toHtml(showDateCreated: Boolean, imagesRootFolder: File?) = buildSt
 
     when (type) {
         Type.NOTE -> {
-            val body = body.applySpans(spans).toHtml()
-            append(body)
+            val body = body.applySpans(spans)
+            // Html.toHtml writes link addresses as they are: escape them for the href attribute.
+            body.getSpans(0, body.length, URLSpan::class.java).forEach { span ->
+                val start = body.getSpanStart(span)
+                val end = body.getSpanEnd(span)
+                body.removeSpan(span)
+                body.setSpan(
+                    URLSpan(span.url.escapeHtmlAttribute()),
+                    start,
+                    end,
+                    SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
+            append(body.toHtml())
         }
 
         Type.LIST -> {
@@ -264,13 +278,16 @@ fun BaseNote.toHtml(showDateCreated: Boolean, imagesRootFolder: File?) = buildSt
                 val width = options?.width
                 val height = options?.height
                 append(
-                    "<img src=\"data:image/jpeg;base64,$base64String\" alt=\"${image.originalName}\"${options?.let { " width=\"$width\" height=\"$height\"" } ?: ""} />"
+                    "<img src=\"data:image/jpeg;base64,$base64String\" alt=\"${image.originalName.escapeHtmlAttribute()}\"${options?.let { " width=\"$width\" height=\"$height\"" } ?: ""} />"
                 )
             }
         }
     }
     append("</body></html>")
 }
+
+/** For a value in a double-quoted HTML attribute. */
+private fun String.escapeHtmlAttribute() = replace("&", "&amp;").replace("\"", "&quot;")
 
 fun List<BaseNote>.toNoteIdReminders() = map { NoteIdReminder(it.id, it.reminders) }
 
