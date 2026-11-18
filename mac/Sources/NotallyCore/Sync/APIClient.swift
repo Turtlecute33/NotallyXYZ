@@ -104,19 +104,31 @@ public final class APIClient: Sendable {
         guard let http = response as? HTTPURLResponse else { throw APIError.badResponse }
         guard (200..<300).contains(http.statusCode) else {
             if http.statusCode == 401 { throw APIError.unauthorized }
-            let code = (try? JSONDecoder().decode([String: String].self, from: data))?["error"] ?? ""
+            let code = data.count > Self.maxErrorBody ? "" : (try? JSONDecoder().decode([String: String].self, from: data))?["error"] ?? ""
             throw APIError.http(http.statusCode, code)
         }
     }
 
+    /// Largest JSON response (a valid page of the server is at most 8 MiB) and error body that this client reads.
+    static let maxResponse = 64 << 20
+    static let maxErrorBody = 4 << 10
+
+    private func fetch(_ req: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await session.data(for: req, delegate: SizeLimit(max: Self.maxResponse))
+        } catch URLError.cancelled where !Task.isCancelled {
+            throw APIError.badResponse  // stopped by SizeLimit
+        }
+    }
+
     private func send<T: Decodable>(_ req: URLRequest, as: T.Type) async throws -> T {
-        let (data, response) = try await session.data(for: req)
+        let (data, response) = try await fetch(req)
         try check(response, data)
         do { return try JSONDecoder().decode(T.self, from: data) } catch { throw APIError.badResponse }
     }
 
     private func send(_ req: URLRequest) async throws {
-        let (data, response) = try await session.data(for: req)
+        let (data, response) = try await fetch(req)
         try check(response, data)
     }
 
@@ -179,7 +191,7 @@ public final class APIClient: Sendable {
         req.timeoutInterval = 1800
         let (temp, response): (URL, URLResponse)
         do {
-            (temp, response) = try await session.download(for: req, delegate: SizeLimit())
+            (temp, response) = try await session.download(for: req, delegate: SizeLimit(max: Self.maxBlobDownload))
         } catch URLError.cancelled where !Task.isCancelled {
             throw APIError.badResponse  // stopped by SizeLimit
         }
@@ -203,13 +215,15 @@ public final class APIClient: Sendable {
     }
 }
 
-/// Cancels a download whose announced or received size is over `APIClient.maxBlobDownload`.
+/// Cancels a request whose announced or received response size is over `max` bytes.
 private final class SizeLimit: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private let limit: Int64
     private var observation: NSKeyValueObservation?  // set once, before any byte arrives
 
+    init(max: Int) { limit = Int64(max) }
+
     func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
-        observation = task.observe(\.countOfBytesReceived) { task, _ in
-            let limit = Int64(APIClient.maxBlobDownload)
+        observation = task.observe(\.countOfBytesReceived) { [limit] task, _ in
             if task.countOfBytesReceived > limit || task.countOfBytesExpectedToReceive > limit { task.cancel() }
         }
     }

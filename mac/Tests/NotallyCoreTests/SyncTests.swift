@@ -140,3 +140,43 @@ struct SyncTests {
         #expect(a.engine.lastSync != nil && a.engine.lastError == nil)
     }
 }
+
+/// A broken or hostile server that sends very large responses.
+@Suite(.enabled(if: FileManager.default.isExecutableFile(atPath: "/usr/bin/python3")))
+struct ResponseLimitTests {
+    @Test func responseOverLimitIsRefused() async throws {
+        let stub = Process()
+        stub.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        stub.arguments = ["-I", "-c", """
+            import http.server
+            pad = b'"pad":"' + b'x' * (65 << 20) + b'"}'
+            class H(http.server.BaseHTTPRequestHandler):
+                def do_GET(self):
+                    blobs = self.path.startswith("/v1/blobs")
+                    body = (b'{"blobs":[],' if blobs else b'{"changes":[],"seq":1,"more":false,') + pad
+                    self.send_response(200)
+                    if not blobs:
+                        self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    try:
+                        self.wfile.write(body)
+                    except OSError:
+                        pass
+                def log_message(self, *args):
+                    pass
+            server = http.server.HTTPServer(("127.0.0.1", 0), H)
+            print(server.server_port, flush=True)
+            server.serve_forever()
+            """]
+        let out = Pipe()
+        stub.standardOutput = out
+        try stub.run()
+        defer { stub.terminate(); stub.waitUntilExit() }
+        let port = String(decoding: out.fileHandleForReading.availableData, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let api = APIClient(baseURL: try #require(URL(string: "http://127.0.0.1:\(port)")), keys: .generate())
+        // With and without Content-Length.
+        await #expect(throws: APIError.badResponse) { _ = try await api.changes(since: 0) }
+        await #expect(throws: APIError.badResponse) { _ = try await api.listBlobs() }
+    }
+}
