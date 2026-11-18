@@ -186,11 +186,7 @@ abstract class NotesFragment : Fragment(), ItemListener {
     override fun onLongClick(position: Int) {
         if (position != -1) {
             if (model.actionMode.selectedNotes.isNotEmpty()) {
-                if (lastSelectedNotePosition > position) {
-                        position..lastSelectedNotePosition
-                    } else {
-                        lastSelectedNotePosition..position
-                    }
+                longClickRange(lastSelectedNotePosition, position, notesAdapter!!.itemCount)
                     .forEach { pos ->
                         notesAdapter!!.getItem(pos)?.let { item ->
                             if (item is BaseNote) {
@@ -383,3 +379,15 @@ abstract class NotesFragment : Fragment(), ItemListener {
         private const val EXTRA_SCROLL_OFFSET = "notallyx.intent.extra.SCROLL_OFFSET"
     }
 }
+
+/**
+ * The positions to select from the last selected note to the long-pressed one. The anchor is lost
+ * when the view is recreated and can be out of date after the list changed: then select only the
+ * pressed note.
+ */
+internal fun longClickRange(anchor: Int, position: Int, itemCount: Int): IntRange =
+    when {
+        anchor !in 0 until itemCount -> position..position
+        anchor > position -> position..anchor
+        else -> anchor..position
+    }
