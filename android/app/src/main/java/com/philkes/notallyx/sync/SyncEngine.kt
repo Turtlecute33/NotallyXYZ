@@ -570,7 +570,7 @@ class SyncEngine(
         if (files.isEmpty()) return
         val missing = files.keys.chunked(1000).flatMap { api.missingBlobs(it) }
         missing.forEach { id ->
-            val file = files.getValue(id)
+            val file = files[id] ?: return@forEach // the server answered an id that was not asked
             val length = file.length()
             try {
                 api.putBlob(id, SyncCrypto.sealedSize(length)) { out ->
