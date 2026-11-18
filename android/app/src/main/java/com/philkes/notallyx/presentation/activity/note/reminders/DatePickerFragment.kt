@@ -21,18 +21,13 @@ class DatePickerFragment(
 
         val datePicker =
             MaterialDatePicker.Builder.datePicker()
-                .setSelection(c.timeInMillis)
+                .setSelection(toDatePickerSelection(c))
                 .setInputMode(INPUT_MODE_CALENDAR)
                 .build()
 
         datePicker.addOnPositiveButtonClickListener { selection ->
-            val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-            calendar.timeInMillis = selection
-            onDateSetListener(
-                calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH),
-                calendar.get(Calendar.DAY_OF_MONTH),
-            )
+            val (year, month, day) = fromDatePickerSelection(selection)
+            onDateSetListener(year, month, day)
         }
 
         datePicker.addOnCancelListener { dismiss() }
@@ -42,4 +37,25 @@ class DatePickerFragment(
         datePicker.show(parentFragmentManager, "DatePicker")
         dismiss()
     }
+}
+
+/**
+ * MaterialDatePicker shows the UTC day of its selection, so give it UTC midnight of the local day.
+ */
+internal fun toDatePickerSelection(date: Calendar): Long {
+    val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+    utc.clear()
+    utc.set(date.get(Calendar.YEAR), date.get(Calendar.MONTH), date.get(Calendar.DAY_OF_MONTH))
+    return utc.timeInMillis
+}
+
+/** The picker returns UTC midnight of the chosen day: read the day in UTC. */
+internal fun fromDatePickerSelection(selection: Long): Triple<Int, Int, Int> {
+    val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+    calendar.timeInMillis = selection
+    return Triple(
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH),
+    )
 }
