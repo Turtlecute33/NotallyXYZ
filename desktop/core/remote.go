@@ -232,7 +232,8 @@ func (s *NoteStore) applyPending(id string) {
 		if p.Sealed != nil {
 			var err error
 			if plain, err = s.Keys.Open("note", id, p.Sealed); err != nil {
-				return nil
+				// Damaged here: the cursor is already past this version, so pull it again.
+				return tx.SetCursor(min(tx.Cursor(), p.Seq-1))
 			}
 		}
 		var err error

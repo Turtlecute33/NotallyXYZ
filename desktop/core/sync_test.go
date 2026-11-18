@@ -235,6 +235,36 @@ func TestOpenEditorDefersRemoteChange(t *testing.T) {
 	}
 }
 
+// A held-back version that does not open any more is pulled again from the server, not dropped.
+func TestDamagedHeldBackVersionIsPulledAgain(t *testing.T) {
+	server, keys := account(t)
+	a, b := newDevice(t, server, keys), newDevice(t, server, keys)
+	note := NewNote(TypeNote)
+	note.Title = "Draft"
+	_ = a.store.Save(note)
+	a.sync(t)
+	b.sync(t)
+
+	b.store.EditorOpened(note.ID)
+	edited := note
+	edited.Body = "remote edit"
+	_ = a.store.Save(edited)
+	a.sync(t)
+	b.sync(t)
+	_ = b.store.local.Update(func(tx *Tx) error {
+		p := tx.TakePending(note.ID)
+		if p == nil {
+			t.Fatal("no held-back version")
+		}
+		return tx.PutPending(note.ID, Pending{Seq: p.Seq, Sealed: bytes.Repeat([]byte{1}, len(p.Sealed))})
+	})
+	b.store.EditorClosed(note.ID)
+	b.sync(t)
+	if n, _ := b.store.Note(note.ID); n.Body != "remote edit" {
+		t.Fatalf("remote edit lost: %+v", n)
+	}
+}
+
 func TestFirstPullLinksSameNote(t *testing.T) {
 	server, keys := account(t)
 	a, b := newDevice(t, server, keys), newDevice(t, server, keys)
