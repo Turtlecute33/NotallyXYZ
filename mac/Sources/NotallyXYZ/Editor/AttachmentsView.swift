@@ -108,7 +108,7 @@ struct AudioRow: View {
         }
         .padding(8)
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(.secondary.opacity(0.4)))
-        .onDisappear { player?.stop() }
+        .onDisappear { playing = false; player?.stop() }  // also stops a play that waits for decryption
     }
 
     private func toggle() {
