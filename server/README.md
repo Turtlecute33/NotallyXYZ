@@ -26,7 +26,7 @@ Prebuilt image (built by GitHub Actions for amd64 and arm64 on every `v*` tag; `
 is the newest tag without a pre-release suffix such as `-rc1`):
 
 ```zsh
-echo 'NOTALLYXYZ_IMAGE=ghcr.io/turtlecute33/notallyxyz-server:1.0' >> .env
+echo 'NOTALLYXYZ_IMAGE=ghcr.io/turtlecute33/notallyxyz-server:1' >> .env
 docker compose pull server
 docker compose up -d --no-build
 ```
@@ -67,6 +67,9 @@ Check: `curl https://<your host>/v1/health` prints `ok`.
 | `TRUST_PROXY`     | false    | Use `X-Forwarded-For` (last value) for the rate limit     |
 | `LISTEN_ADDR`     | `:8080`  |                                                           |
 | `DATA_DIR`        | `/data`  |                                                           |
+
+With the defaults, anyone who has the invite token can create accounts and store data
+without a limit, so set `MAX_ACCOUNTS` and `MAX_ACCOUNT_MB` on a server that you share.
 
 ## Backup
 
