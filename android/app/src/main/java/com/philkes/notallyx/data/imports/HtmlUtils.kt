@@ -53,7 +53,9 @@ private fun processElement(
     brTagsAsNewLine: Boolean,
     paragraphsAsNewLine: Boolean,
 ) {
-
+    val nested = { e: Element ->
+        processElement(e, bodyText, spans, brTagsAsNewLine, paragraphsAsNewLine)
+    }
     for (child in element.childNodes()) {
         when (child) {
             is TextNode -> {
@@ -67,15 +69,15 @@ private fun processElement(
             is Element -> {
                 when (child.tagName()) {
                     "b" -> {
-                        handleTextSpan(child, bodyText, spans, bold = true)
+                        handleTextSpan(child, bodyText, spans, nested, bold = true)
                     }
 
                     "i" -> {
-                        handleTextSpan(child, bodyText, spans, italic = true)
+                        handleTextSpan(child, bodyText, spans, nested, italic = true)
                     }
 
                     "s" -> {
-                        handleTextSpan(child, bodyText, spans, strikethrough = true)
+                        handleTextSpan(child, bodyText, spans, nested, strikethrough = true)
                     }
 
                     "span" -> {
@@ -83,6 +85,7 @@ private fun processElement(
                             child,
                             bodyText,
                             spans,
+                            nested,
                             monospace = child.isMonospaceFont(),
                             bold = child.isBold(),
                             italic = child.isItalic(),
@@ -94,6 +97,7 @@ private fun processElement(
                             child,
                             bodyText,
                             spans,
+                            nested,
                             link = true,
                             linkData = child.attr("href"),
                         )
@@ -138,6 +142,7 @@ private fun handleTextSpan(
     element: Element,
     bodyText: StringBuilder,
     spans: MutableList<SpanRepresentation>,
+    processChildren: (Element) -> Unit,
     bold: Boolean = false,
     italic: Boolean = false,
     link: Boolean = false,
@@ -145,13 +150,27 @@ private fun handleTextSpan(
     strikethrough: Boolean = false,
     monospace: Boolean = false,
 ) {
-    val text = element.ownText()
+    val spanStart = bodyText.length
+    if (element.children().isEmpty()) {
+        val text = element.ownText()
+        if (link) {
+            bodyText.append(text)
+        } else {
+            bodyText.appendWithUrlCheck(text, spans)
+        }
+    } else {
+        // Nested elements, e.g. <b>Hello <i>World</i></b>: keep their text and formatting.
+        val firstNestedSpan = spans.size
+        processChildren(element)
+        if (link) {
+            spans.subList(firstNestedSpan, spans.size).removeAll { it.link }
+        }
+    }
     if (bold || italic || link || strikethrough || monospace) {
-        val spanStart = bodyText.length
         spans.add(
             SpanRepresentation(
                 start = spanStart,
-                end = spanStart + text.length,
+                end = bodyText.length,
                 bold = bold,
                 link = link,
                 linkData = linkData,
@@ -160,12 +179,6 @@ private fun handleTextSpan(
                 strikethrough = strikethrough,
             )
         )
-    }
-
-    if (link) {
-        bodyText.append(text)
-    } else {
-        bodyText.appendWithUrlCheck(text, spans)
     }
 }
 

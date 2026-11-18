@@ -180,6 +180,29 @@ class HtmlUtilsTest {
                     it.linkData.equals("https://github.com/Crustack/NotallyX")
             }
     }
+
+    @Test
+    fun `parseBodyAndSpansFromHtml keeps text of nested elements`() {
+        val contentHtml =
+            """<en-note><div><b>Hello <i>World</i></b></div>""" +
+                """<div><a href="https://example.org"><span>Link</span></a></div>""" +
+                """<div><span style="color:red">Some <b>bold</b> text</span></div></en-note>"""
+
+        val (body, spans) =
+            parseBodyAndSpansFromHtml(contentHtml, "en-note", brTagsAsNewLine = false)
+
+        assertThat(body).isEqualTo("Hello World\nLink\nSome bold text")
+        assertThat(spans)
+            .hasSize(4)
+            .anyMatch { body.substringOfSpan(it) == "Hello World" && it.bold && !it.italic }
+            .anyMatch { body.substringOfSpan(it) == "World" && it.italic }
+            .anyMatch {
+                body.substringOfSpan(it) == "Link" &&
+                    it.link &&
+                    it.linkData == "https://example.org"
+            }
+            .anyMatch { body.substringOfSpan(it) == "bold" && it.bold }
+    }
 }
 
 fun String.substringOfSpan(span: SpanRepresentation): String {
