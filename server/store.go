@@ -434,7 +434,13 @@ func (s *Store) OpenBlob(acct, id string) (*os.File, error) {
 	return os.Open(s.blobPath(acct, id))
 }
 
-func (s *Store) DeleteBlob(acct, id string) error {
+func (s *Store) DeleteBlob(acct, id string) error { return s.deleteBlob(acct, id, false) }
+
+// DeleteLostBlob deletes the entry of a blob whose file is missing. It keeps the entry if the
+// file exists again: a DELETE and a PUT of the same id can run after the failed open.
+func (s *Store) DeleteLostBlob(acct, id string) error { return s.deleteBlob(acct, id, true) }
+
+func (s *Store) deleteBlob(acct, id string, onlyLost bool) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(accountBucketName(acct))
 		if b == nil {
@@ -444,6 +450,12 @@ func (s *Store) DeleteBlob(acct, id string) error {
 		v := blobs.Get([]byte(id))
 		if len(v) != 16 {
 			return errNotFound
+		}
+		if onlyLost {
+			// PutBlob renames the file in its transaction, so this check cannot race with it.
+			if _, err := os.Stat(s.blobPath(acct, id)); !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
 		}
 		used := int64(u64(meta.Get(keyBytes))) - int64(u64(v[:8]))
 		if used < 0 {

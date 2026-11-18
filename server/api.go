@@ -512,8 +512,9 @@ func (a *api) getBlob(w http.ResponseWriter, r *http.Request) {
 		// Delete the entry of the lost file, so that "missing" reports the blob and the
 		// clients upload it again.
 		log.Print("get blob: stored blob has no file")
-		if err = a.store.DeleteBlob(account(r), id); err == nil {
-			err = errNotFound
+		if err = a.store.DeleteLostBlob(account(r), id); err == nil {
+			// Not found, or the file of a new PUT of the same id.
+			f, err = a.store.OpenBlob(account(r), id)
 		}
 	}
 	if err != nil {

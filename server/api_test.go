@@ -458,3 +458,31 @@ func TestUploadTempSweep(t *testing.T) {
 		t.Fatalf("temp file not removed: %v", err)
 	}
 }
+
+// GET repairs a lost blob file, but a DELETE and a new PUT of the same id can run between its
+// failed open and the repair. Then the repair must keep the new blob.
+func TestLostBlobRepairKeepsNewUpload(t *testing.T) {
+	dir := t.TempDir()
+	s, err := openStore(filepath.Join(dir, "db"), filepath.Join(dir, "blobs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	s.CreateAccount(make([]byte, 32), 0)
+	acct, _ := s.Lookup(make([]byte, 32))
+	if err := s.PutBlob(acct, idA, 6, strings.NewReader("sealed"), 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteLostBlob(acct, idA); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(s.blobPath(acct, idA)); err != nil || !s.BlobExists(acct, idA) {
+		t.Fatalf("repair deleted a stored blob: %v", err)
+	}
+	if err := os.Remove(s.blobPath(acct, idA)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteLostBlob(acct, idA); err != nil || s.BlobExists(acct, idA) {
+		t.Fatalf("entry of a lost file kept: %v", err)
+	}
+}
