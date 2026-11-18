@@ -104,7 +104,7 @@ func union[T any](base *Note, local, remote Note, get func(Note) []T, key func(T
 
 // SameText: same type, title, content (list items with their checked state) and attachment
 // names, for linking an unsynced note on the first pull. Other notes are not linked, because the
-// link keeps the local version of the other fields.
+// link keeps the local content and the local reminders.
 func SameText(a, b Note) bool {
 	file := func(f FileAttachment) string { return f.LocalName }
 	if a.Type != b.Type || a.Title != b.Title || !sameNames(a.Images, b.Images, file) ||

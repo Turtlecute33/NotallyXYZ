@@ -395,6 +395,30 @@ class SyncEngineTest {
     }
 
     @Test
+    fun firstSyncKeepsTheLocalNoteAndTheLabelsOfBoth() {
+        val a = device()
+        a.insert(note("Same", "body text").copy(labels = listOf("Home"), color = "#FAAFA9"))
+        a.sync()
+        val c = device()
+        val bold = SpanRepresentation(0, 4, bold = true)
+        c.insert(
+            note("Same", "body text", spans = listOf(bold))
+                .copy(labels = listOf("Work"), color = "#AFCCDC", pinned = true)
+        )
+        c.sync()
+        assertEquals(0, SyncStore(c.db).outboxSize())
+        a.sync()
+        for (device in listOf(a, c)) {
+            val same = device.notes().single()
+            assertEquals(listOf("Work", "Home"), same.labels)
+            assertEquals("#AFCCDC", same.color)
+            assertTrue(same.pinned)
+            assertEquals(listOf(bold), same.spans)
+            assertEquals(0, SyncStore(device.db).outboxSize())
+        }
+    }
+
+    @Test
     fun undecryptableRecordsAreSkipped() {
         val api = SyncApi(url, keys.bearer)
         api.push(listOf(SyncApi.OutChange("note", SyncCrypto.newRecordId(), 0, ByteArray(400))))

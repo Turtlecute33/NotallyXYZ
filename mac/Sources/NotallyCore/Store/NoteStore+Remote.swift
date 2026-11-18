@@ -112,14 +112,16 @@ extension NoteStore {
 
         // First pull: link an unsynced local note with the same text instead of duplicating it.
         var mine: Note? = dirty && row?.deleted == false ? notes[id] : nil
-        var base: Note? = row?.base.flatMap { try? Seal.open($0, key: keys.encKey, ad: Seal.ad("note", id)) }
+        let base: Note? = row?.base.flatMap { try? Seal.open($0, key: keys.encKey, ad: Seal.ad("note", id)) }
             .flatMap { Payload.decodeNote(id: id, $0) }
+        var twinned = false
         if row == nil, let twin = unsynced.first(where: { notes[$0].map { NoteMerge.isTwin($0, remote) } ?? false }) {
             unsynced.remove(twin)
             try local.deleteRow(kind: "note", id: twin)
             ops.append(.removeNote(twin))
-            mine = notes[twin].map { var n = $0; n.id = id; return n }
-            base = remote
+            // An unsynced note has no unknown fields of its own: keep the remote ones (PROTOCOL.md §5).
+            mine = notes[twin].map { var n = $0; n.id = id; n.extra = remote.extra; return n }
+            twinned = true
         }
 
         // A remote edit beats a pending local deletion: nothing gets lost.
@@ -127,7 +129,10 @@ extension NoteStore {
             try takeRemote()
             return 0
         }
-        let result = NoteMerge.merge(base: base, local: mine, remote: remote)
+        var result = NoteMerge.merge(base: base, local: mine, remote: remote)
+        // A twin is the same note (PROTOCOL.md §7): without a base, its content and other fields stay
+        // local and labels and attachments of both are kept. The content is no conflict.
+        if twinned { result.conflictCopy = nil }
         if result.note == remote {
             try takeRemote()
         } else {

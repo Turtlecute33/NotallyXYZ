@@ -168,6 +168,7 @@ func (s *NoteStore) apply(tx *Tx, kind, id string, seq int64, sealed, plain []by
 		}
 	}
 	// First pull: link an unsynced local note with the same text instead of duplicating it.
+	twinned := false
 	if row == nil {
 		for twin := range unsynced {
 			n, ok := s.notes[twin]
@@ -179,9 +180,9 @@ func (s *NoteStore) apply(tx *Tx, kind, id string, seq int64, sealed, plain []by
 				return false, err
 			}
 			*ops = append(*ops, memOp{remove: "note:" + twin})
-			n.ID = id
-			r := remote
-			mine, base = &n, &r
+			// An unsynced note has no unknown fields of its own: keep the remote ones (PROTOCOL.md §5).
+			n.ID, n.Extra = id, remote.Extra
+			mine, twinned = &n, true
 			break
 		}
 	}
@@ -191,6 +192,11 @@ func (s *NoteStore) apply(tx *Tx, kind, id string, seq int64, sealed, plain []by
 		return false, takeRemote()
 	}
 	result := Merge(base, *mine, remote)
+	// A twin is the same note (PROTOCOL.md §7): without a base, its content and other fields stay
+	// local and labels and attachments of both are kept. The content is no conflict.
+	if twinned {
+		result.ConflictCopy = nil
+	}
 	pending := false
 	if result.Note.Equal(remote) {
 		if err := takeRemote(); err != nil {

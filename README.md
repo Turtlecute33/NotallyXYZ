@@ -186,7 +186,8 @@ dependencies.
 - **Merge**: a three-way merge against the last synced version. The title, the text and the list
   items are one unit. Labels and attachments merge as a union, and nothing is discarded. At the
   first sync, a device links a local note to a note on the server only if the type, title,
-  content (with the checked state of list items) and attachment names are the same.
+  content (with the checked state of list items) and attachment names are the same. The linked
+  note keeps the local text and settings, and gets the labels and attachments of both notes.
 - **Attachments**: a device uploads an attachment before the first note that uses it. Before it
   sends a note, it asks the server which attachments of the note are missing and uploads them
   again. After a full sync, a device can remove attachments that no note uses and that are older

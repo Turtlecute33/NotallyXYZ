@@ -244,6 +244,35 @@ extension SyncTests {
         }
     }
 
+    @Test func firstPullKeepsLocalNoteAndLabelsOfBoth() async throws {
+        try await withAccount { keys in
+            let a = try client(keys), d = try client(keys)
+            defer { [a.dir, d.dir].forEach { try? FileManager.default.removeItem(at: $0) } }
+            var note = a.store.create(.note, color: "#FAAFA9", labels: ["Home"])
+            note.title = "Same"
+            note.body = "body text"
+            a.store.save(note)
+            try await sync(a)
+
+            var twin = d.store.create(.note, color: "#AFCCDC", labels: ["Work"])
+            twin.title = "Same"
+            twin.body = "body text"
+            twin.spans = [Span(start: 0, end: 4, bold: true)]
+            twin.pinned = true
+            d.store.save(twin)
+            try await sync(d)
+            #expect(try !d.store.local.hasDirty())
+            try await sync(a)
+            for c in [a, d] {
+                #expect(c.store.notes.count == 1)
+                let same = try #require(c.store.notes[note.id])
+                #expect(same.labels == ["Work", "Home"])
+                #expect(same.color == "#AFCCDC" && same.pinned && same.spans == twin.spans)
+                #expect(try !c.store.local.hasDirty())
+            }
+        }
+    }
+
     @Test func saveDoesNotBringBackLabelDeletedElsewhere() async throws {
         try await withAccount { keys in
             let a = try client(keys), b = try client(keys)

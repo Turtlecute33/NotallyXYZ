@@ -10,7 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -281,8 +283,37 @@ func TestFirstPullLinksSameNote(t *testing.T) {
 	}
 }
 
-// An Android voice memo and a photo note, both without title and text, are not linked: the
-// link would keep only the local fields, and the audio, labels and reminders would be lost.
+// The linked note keeps the local content and fields, and the labels of both devices.
+func TestFirstPullKeepsLocalNoteAndLabelsOfBoth(t *testing.T) {
+	server, keys := account(t)
+	a, b := newDevice(t, server, keys), newDevice(t, server, keys)
+	n := NewNote(TypeNote)
+	n.Title, n.Body, n.Labels, n.Color = "Same", "body text", []string{"Home"}, "#FAAFA9"
+	_ = a.store.Save(n)
+	a.sync(t)
+	twin := NewNote(TypeNote)
+	twin.Title, twin.Body, twin.Labels, twin.Color = "Same", "body text", []string{"Work"}, "#AFCCDC"
+	twin.Spans, twin.Pinned = []Span{{Start: 0, End: 4, Bold: true}}, true
+	_ = b.store.Save(twin)
+	b.sync(t)
+	if c := b.store.UnsyncedCount(); c != 0 {
+		t.Fatalf("unsynced after push: %d", c)
+	}
+	a.sync(t)
+	for _, d := range []*device{a, b} {
+		got, ok := d.store.Note(n.ID)
+		if !ok || len(d.store.Notes()) != 1 || !slices.Equal(got.Labels, []string{"Work", "Home"}) ||
+			got.Color != "#AFCCDC" || !got.Pinned || !reflect.DeepEqual(got.Spans, twin.Spans) {
+			t.Fatalf("linked note: %+v (%d notes)", got, len(d.store.Notes()))
+		}
+		if c := d.store.UnsyncedCount(); c != 0 {
+			t.Fatalf("unsynced: %d", c)
+		}
+	}
+}
+
+// An Android voice memo and a photo note, both without title and text, are not linked: they are
+// different notes, and a link would keep the reminders of one of them only.
 func TestFirstPullDoesNotLinkDifferentAttachments(t *testing.T) {
 	server, keys := account(t)
 	a, b := newDevice(t, server, keys), newDevice(t, server, keys)

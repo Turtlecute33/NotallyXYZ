@@ -261,7 +261,11 @@ whose body does not arrive in 2 minutes (30 minutes for a blob or `POST /v1/chan
      note to the id instead (no duplicates on first sync). It is the same note only if
      these are equal: `type`, `title`, the content (note: `body`; list: the `body` and
      `checked` of each item, in order), and the sets of attachment names (`images` and
-     `files` by `localName`, `audios` by `name`);
+     `files` by `localName`, `audios` by `name`). The linked note keeps the local content
+     fields (`type`, `title`, `body`, `spans`, `items`) without a conflict copy;
+     `labels`, `images`, `files`, `audios` → union of both; `modifiedTimestamp` → newest;
+     other fields and device-local state → local. If the result is not the remote version,
+     the client pushes it with `base` = `seq` of this change;
    - known id, no local change → overwrite the local copy;
    - known id, local change pending → 3-way merge against the field hashes of the last
      synced version. Content fields `type`, `title`, `body`, `spans`, `items` are one

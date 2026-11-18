@@ -323,21 +323,34 @@ class SyncEngine(
 
         if (record == null || local == null) {
             val remote = fitting(NotePayload.decode(json, null, ::localIdOf))
+            val remoteJson = canonical(remote, unknown)
             val adopt = if (record == null) findSameNote(remote, linked) else null
             val targetId =
                 if (adopt != null) {
-                    val note = remote.copy(id = adopt.id, isPinnedToStatus = adopt.isPinnedToStatus)
+                    // The same note: content and the other fields stay local, labels and
+                    // attachments of both are kept, the newest modifiedTimestamp (PROTOCOL.md §7).
+                    // A base with only the remote content gives exactly this, without a conflict.
+                    val content = NotePayload.fieldHashes(remoteJson).getString("content")
+                    val base = JSONObject().put("content", content)
+                    val merged = NotePayload.merge(base, canonical(adopt), remoteJson).merged
+                    val note = fitting(NotePayload.decode(merged, adopt, ::localIdOf))
                     dao.insert(note)
                     effects.updated(adopt, note)
+                    // Pushed with the remote seq as base if it differs from the remote version.
+                    if (hash(canonical(note, unknown)) == hash(remoteJson)) {
+                        store.clearOutbox(KIND_NOTE, adopt.id.toString())
+                    } else {
+                        store.enqueue(KIND_NOTE, adopt.id.toString())
+                    }
                     adopt.id
                 } else {
                     // New note, or a note deleted here but changed elsewhere (it comes back).
                     localId?.let { store.clearOutbox(KIND_NOTE, it.toString()) }
                     dao.insert(remote.copy(id = 0)).also { effects.inserted(remote.copy(id = it)) }
                 }
-            store.clearOutbox(KIND_NOTE, targetId.toString())
+            if (adopt == null) store.clearOutbox(KIND_NOTE, targetId.toString())
             linked.add(targetId)
-            putNoteRecord(id, targetId, item.change.seq, canonical(remote, unknown), unknown)
+            putNoteRecord(id, targetId, item.change.seq, remoteJson, unknown)
             return
         }
 
@@ -410,8 +423,8 @@ class SyncEngine(
 
     /**
      * An unsynced local note with the same content and attachments, so that a first sync makes no
-     * duplicates. The remote version replaces it, so nothing of it may get lost. A note that is
-     * open in the editor is not used: the next save of the editor would overwrite the remote one.
+     * duplicates. Its content stays, so the remote content must be the same. A note that is open in
+     * the editor is not used: the next save of the editor would overwrite the merged one.
      */
     private fun findSameNote(remote: BaseNote, linked: Set<Long>): BaseNote? {
         val byTitle =
