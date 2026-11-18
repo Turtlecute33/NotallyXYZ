@@ -12,6 +12,7 @@ import com.philkes.notallyx.presentation.viewmodel.preference.BiometricLock
 import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.PeriodicBackup
 import com.philkes.notallyx.utils.SUBFOLDER_BACKUPS
+import com.philkes.notallyx.utils.backup.ON_SAVE_BACKUP_FILE
 import com.philkes.notallyx.utils.backup.autoBackupOnSave
 import com.philkes.notallyx.utils.backup.autoBackupOnSaveFileExists
 import com.philkes.notallyx.utils.backup.createBackup
@@ -19,7 +20,10 @@ import com.philkes.notallyx.utils.backup.deleteModifiedNoteBackup
 import com.philkes.notallyx.utils.backup.modifiedNoteBackupExists
 import com.philkes.notallyx.utils.getDocumentFolder
 import com.philkes.notallyx.utils.getExternalBackupsDirectory
+import java.io.File
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import net.lingala.zip4j.ZipFile
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.After
 import org.junit.Before
@@ -128,6 +132,19 @@ class NotallyXPreferencesBackupsTest {
             application.deleteModifiedNoteBackup(preferences.backupsFolder.value)
             assertThat(application.modifiedNoteBackupExists(preferences.backupsFolder.value))
                 .isFalse()
+
+            // A corrupt backup is replaced with a full one (the mutex is not reentrant). The test
+            // database is in memory: give the partial backup a database file to copy.
+            NotallyDatabase.getCurrentDatabaseFile(application).apply {
+                parentFile?.mkdirs()
+                writeText("database")
+            }
+            val backup = File(backupsFolderFile, "$ON_SAVE_BACKUP_FILE.zip")
+            backup.writeText("not a zip")
+            withTimeout(30_000) {
+                application.autoBackupOnSave(preferences.backupsFolder.value, "", note)
+            }
+            assertThat(ZipFile(backup).isValidZipFile).isTrue()
         }
     }
 }

@@ -246,7 +246,11 @@ suspend fun ContextWrapper.autoBackupOnSave(
                             "Re-creating full backup since existing auto backup ZIP is corrupt: ${e.message}",
                     )
                     backupFile.delete()
-                    autoBackupOnSave(backupPath, password, savedNote)
+                    // Not a call to autoBackupOnSave: the mutex is not reentrant, it would wait
+                    // forever.
+                    val newBackupFile =
+                        folder.createFileSafe(MIME_TYPE_ZIP, ON_SAVE_BACKUP_FILE, ".zip")
+                    exportAsZip(newBackupFile.uri, password = password)
                 }
                 try {
                     exportToZip(backupFile.uri, files, password)
