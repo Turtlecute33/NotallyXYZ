@@ -111,19 +111,23 @@ func (e *Engine) Sync() {
 		e.runMu.Lock()
 		done, err = e.runOnce(e.ctx)
 		e.runMu.Unlock()
-		if errors.Is(err, context.Canceled) {
-			break
+		canceled := errors.Is(err, context.Canceled)
+		if !canceled {
+			e.setStatus(func(s *SyncStatus) {
+				if err != nil {
+					s.Error = errorText(err)
+				} else {
+					s.Error, s.LastSync = "", Now()
+				}
+			})
 		}
-		e.setStatus(func(s *SyncStatus) {
-			if err != nil {
-				s.Error = errorText(err)
-			} else {
-				s.Error, s.LastSync = "", Now()
-			}
-		})
 		e.mu.Lock()
-		again := e.again
+		again := e.again && !canceled
 		e.again = false
+		if !again {
+			// In the same locked section as the check: a Sync call after it starts a new run.
+			e.running = false
+		}
 		e.mu.Unlock()
 		if !again {
 			break
@@ -131,7 +135,6 @@ func (e *Engine) Sync() {
 	}
 	// After a failure, or with changes left after conflicts, try again: 5 s, doubling to 5 min.
 	e.mu.Lock()
-	e.running = false
 	if err == nil && done {
 		e.retry = 0
 	} else {
