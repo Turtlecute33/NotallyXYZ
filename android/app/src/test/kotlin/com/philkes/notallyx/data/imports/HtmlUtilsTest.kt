@@ -203,6 +203,24 @@ class HtmlUtilsTest {
             }
             .anyMatch { body.substringOfSpan(it) == "bold" && it.bold }
     }
+
+    @Test
+    fun `parseBodyAndSpansFromHtml reads any font-weight value`() {
+        val contentHtml =
+            listOf("bold", "bolder", " 700 !important", "normal", "x", "").joinToString(
+                "",
+                "<en-note>",
+                "</en-note>",
+            ) { weight ->
+                """<div><span style="font-weight :$weight">Text</span></div>"""
+            }
+
+        val (body, spans) =
+            parseBodyAndSpansFromHtml(contentHtml, "en-note", brTagsAsNewLine = false)
+
+        assertThat(body.lines()).hasSize(6)
+        assertThat(spans).hasSize(3).allMatch { it.bold && it.start < 15 }
+    }
 }
 
 fun String.substringOfSpan(span: SpanRepresentation): String {

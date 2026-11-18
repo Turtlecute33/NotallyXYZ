@@ -212,12 +212,13 @@ private fun Element.isMonospaceFont(): Boolean {
         fontFamily.contains("Source Code Pro", ignoreCase = true)
 }
 
+private val FONT_WEIGHT = Regex("font-weight\\s*:\\s*([^;!]*)", RegexOption.IGNORE_CASE)
+
 private fun Element.isBold(): Boolean {
-    val style = attr("style")
-    return if (style.contains("font-weight")) {
-        val fontWeight: String = style.split("font-weight:")[1].split(";")[0].trim()
-        return fontWeight.toInt() > 400 // Google Keep normal text has fontWeight 400
-    } else false
+    val fontWeight = FONT_WEIGHT.find(attr("style"))?.groupValues?.get(1)?.trim()?.lowercase()
+    return fontWeight == "bold" ||
+        fontWeight == "bolder" ||
+        (fontWeight?.toIntOrNull() ?: 0) > 400 // Google Keep normal text has fontWeight 400
 }
 
 private fun Element.isItalic(): Boolean {
