@@ -6,7 +6,7 @@ to your own server. Everything else stays as in NotallyX.
 - Sync is off by default. Without it, the app makes no network connections.
 - Notes, labels and attachments are encrypted on the device (AES-256-GCM). The server stores
   only ciphertext and never gets the key. No account name, no e-mail, no password: one random
-  sync key (shown once) connects your devices.
+  sync key connects your devices.
 - Server: [server](../server) (Docker). macOS app: [mac](../mac).
   Protocol: [`server/PROTOCOL.md`](../server/PROTOCOL.md).
 - Package id `com.notallyxyz`: it installs next to the original NotallyX. To move your notes,

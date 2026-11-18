@@ -55,9 +55,9 @@ connections.
 
 ## Security
 
-The first device makes a sync key of 256 random bits. It shows the key one time, as 14 groups of
-4 characters. Keep the key in a password manager. If you lose the key and all your devices, the
-data on the server cannot be decrypted.
+The first device makes a sync key of 256 random bits. It shows the key as 14 groups of 4
+characters; Settings → Sync can show it again on a connected device. Keep the key in a password
+manager. If you lose the key and all your devices, the data on the server cannot be decrypted.
 
 - **Encryption on the device**: each note, label and attachment is encrypted with AES-256-GCM
   before it leaves the device. Each message gets a new random salt and its own subkey

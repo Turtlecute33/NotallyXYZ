@@ -38,8 +38,8 @@ Check a download: `sha256sum -c SHA256SUMS --ignore-missing`, and that GitHub Ac
 `gh attestation verify <file> -R Turtlecute33/NotallyXYZ`.
 
 On first start, enter your server address, then either paste the sync key from another device
-or create an account with the server's invite token (`SIGNUP_TOKEN`). A new key is shown once:
-store it in a password manager.
+or create an account with the server's invite token (`SIGNUP_TOKEN`). Store the new key in a password
+manager. Settings can show it again on a connected computer.
 
 ## Security and privacy
 
