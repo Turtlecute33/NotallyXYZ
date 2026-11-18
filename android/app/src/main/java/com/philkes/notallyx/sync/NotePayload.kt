@@ -136,8 +136,8 @@ object NotePayload {
     }
 
     /**
-     * The converters read a JSON null as the text "null" (and a null repetition as "daily"), so
-     * drop null values first: a missing key and a null mean the same (PROTOCOL.md, section 7).
+     * The converters read a JSON null as the text "null", so drop null values first: a missing key
+     * and a null mean the same (PROTOCOL.md, section 7).
      */
     private fun withoutNulls(value: Any): Any =
         when (value) {
