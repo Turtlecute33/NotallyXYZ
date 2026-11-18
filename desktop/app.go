@@ -256,8 +256,8 @@ func (a *App) SetSettings(s Settings) (Settings, error) {
 
 // Setup
 
-// CreateAccount creates an account with a new sync key and connects. It returns the key,
-// which the UI shows once.
+// CreateAccount creates an account with a new sync key. It returns the key, which the UI
+// shows once. The UI then connects with Connect: if that fails, the key is still shown.
 func (a *App) CreateAccount(server, invite string) (string, error) {
 	u, err := core.ValidateServer(server)
 	if err != nil {
@@ -271,7 +271,7 @@ func (a *App) CreateAccount(server, invite string) (string, error) {
 		}
 		return "", err
 	}
-	return keys.Display(), a.finishSetup(u.String(), keys)
+	return keys.Display(), nil
 }
 
 // Connect connects to an existing account with its sync key.

@@ -38,8 +38,18 @@ export function showSetup(root, app, done) {
       if (mode === 'connect') {
         await api().Connect(server.value, key.value);
       } else {
-        const display = await api().CreateAccount(server.value, invite.value);
+        const url = server.value;
+        const display = await api().CreateAccount(url, invite.value);
+        // The account exists now: show its key even if this computer cannot store it.
+        const failed = await api().Connect(url, display).then(() => null, (e) => e);
         await showNewKey(display);
+        if (failed) {
+          mode = 'connect';
+          draw();
+          server.value = url;
+          key.value = display;
+          throw failed;
+        }
       }
       await done();
       if (app.state.keyInFile) {
