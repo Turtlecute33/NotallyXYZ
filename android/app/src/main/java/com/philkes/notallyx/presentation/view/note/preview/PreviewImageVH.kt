@@ -19,7 +19,11 @@ class PreviewImageVH(
 ) : RecyclerView.ViewHolder(binding.root) {
 
     init {
-        binding.root.setOnClickListener { onClick(absoluteAdapterPosition) }
+        binding.root.setOnClickListener {
+            if (absoluteAdapterPosition != RecyclerView.NO_POSITION) {
+                onClick(absoluteAdapterPosition)
+            }
+        }
     }
 
     fun bind(file: File?) {

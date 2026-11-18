@@ -15,8 +15,15 @@ class PreviewFileVH(
 
     init {
         binding.FileName.apply {
-            setOnClickListener { onClick(absoluteAdapterPosition) }
-            setOnLongClickListener { onLongClick(absoluteAdapterPosition) }
+            setOnClickListener {
+                if (absoluteAdapterPosition != RecyclerView.NO_POSITION) {
+                    onClick(absoluteAdapterPosition)
+                }
+            }
+            setOnLongClickListener {
+                absoluteAdapterPosition != RecyclerView.NO_POSITION &&
+                    onLongClick(absoluteAdapterPosition)
+            }
         }
     }
 
