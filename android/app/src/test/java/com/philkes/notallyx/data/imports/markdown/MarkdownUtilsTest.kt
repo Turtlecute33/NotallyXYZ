@@ -110,4 +110,21 @@ class MarkdownUtilsTest {
         val altEnd = altStart + "Alt text".length
         assertTrue(spans.none { it.start <= altStart && it.end >= altEnd })
     }
+
+    @Test
+    fun parse_markdown_keeps_code_and_html_blocks() {
+        val input =
+            "Intro\n\n```kotlin\nval a = 1\nval b = 2\n```\n\n    indented()\n\n" +
+                "<div>raw html</div>\n\nText with <b>inline</b> html"
+
+        val (body, spans) = parseBodyAndSpansFromMarkdown(input)
+
+        assertEquals(
+            "Intro\nval a = 1\nval b = 2\nindented()\n<div>raw html</div>\n" +
+                "Text with <b>inline</b> html",
+            body,
+        )
+        val code = spans.map { body.substring(it.start, it.end) to it.monospace }
+        assertEquals(listOf("val a = 1\nval b = 2" to true, "indented()" to true), code)
+    }
 }

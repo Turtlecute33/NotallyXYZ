@@ -122,6 +122,32 @@ fun parseBodyAndSpansFromMarkdown(input: String): Pair<String, List<SpanRepresen
                 sb.append(renderer.render(image))
                 if (sb.isNotEmpty() && sb.last() != '\n') sb.append('\n')
             }
+
+            // Code and HTML keep their text in the literal, not in child nodes.
+            override fun visit(fencedCodeBlock: FencedCodeBlock) {
+                appendCodeBlock(fencedCodeBlock.literal)
+            }
+
+            override fun visit(indentedCodeBlock: IndentedCodeBlock) {
+                appendCodeBlock(indentedCodeBlock.literal)
+            }
+
+            override fun visit(htmlBlock: HtmlBlock) {
+                sb.append(htmlBlock.literal)
+                if (sb.isNotEmpty() && sb.last() != '\n') sb.append('\n')
+            }
+
+            override fun visit(htmlInline: HtmlInline) {
+                sb.append(htmlInline.literal)
+            }
+
+            private fun appendCodeBlock(literal: String) {
+                val start = sb.length
+                sb.append(literal.trimEnd('\n'))
+                if (sb.length > start)
+                    spans.add(SpanRepresentation(start, sb.length, monospace = true))
+                sb.append('\n')
+            }
         }
     )
 
