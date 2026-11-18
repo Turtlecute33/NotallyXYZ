@@ -492,6 +492,31 @@ class SyncEngineTest {
     }
 
     @Test
+    fun aDeletedLabelCanBeMadeAgain() {
+        val a = device()
+        runBlocking { a.labels.insert(Label("Work", 1)) }
+        a.sync()
+        runBlocking { a.labels.delete("Work") }
+        a.sync()
+        // A new device learns of the deletion only.
+        val b = device()
+        b.sync()
+        runBlocking { b.labels.insert(Label("Work", 2)) }
+        b.sync()
+        a.sync()
+        assertEquals(2, SyncStore(a.db).getLabel("Work")?.order)
+        // The device that deleted the label makes it again.
+        runBlocking { a.labels.delete("Work") }
+        a.sync()
+        b.sync()
+        runBlocking { a.labels.insert(Label("Work", 5)) }
+        a.sync()
+        b.sync()
+        assertEquals(5, SyncStore(b.db).getLabel("Work")?.order)
+        for (device in listOf(a, b)) assertEquals(0, SyncStore(device.db).outboxSize())
+    }
+
+    @Test
     fun unknownTopLevelFieldsAreWrittenBack() {
         val api = SyncApi(url, keys.bearer)
         val id = SyncCrypto.newRecordId()

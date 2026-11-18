@@ -439,13 +439,14 @@ class SyncEngine(
         if (record != null && item.change.seq <= record.seq) return
         val json = item.json
         if (json == null) {
-            val value = record?.localKey ?: return
-            if (store.isDirty(KIND_LABEL, value)) {
-                store.putRecord(record.copy(seq = item.change.seq))
-            } else {
-                labelDao.delete(value)
-                store.deleteRecord(KIND_LABEL, id)
-            }
+            val value = record?.localKey
+            if (value != null && !store.isDirty(KIND_LABEL, value)) labelDao.delete(value)
+            // Keep the seq of the deletion: the id comes from the name, so a label that is made
+            // again later must be pushed with this seq as base.
+            store.putRecord(
+                record?.copy(seq = item.change.seq, hash = null)
+                    ?: SyncStore.Record(KIND_LABEL, id, null, item.change.seq, null, null)
+            )
             return
         }
         val value = if (json.isNull("value")) return else json.optString("value")
@@ -657,7 +658,9 @@ class SyncEngine(
                         conflict = true
                         return@forEach
                     }
-                    if (item.change.deleted) {
+                    if (item.change.deleted && item.record.kind == KIND_LABEL) {
+                        store.putRecord(item.record.copy(seq = result.seq, hash = null))
+                    } else if (item.change.deleted) {
                         store.deleteRecord(item.record.kind, item.record.remoteId)
                     } else {
                         store.putRecord(item.record.copy(seq = result.seq, hash = item.hash))
