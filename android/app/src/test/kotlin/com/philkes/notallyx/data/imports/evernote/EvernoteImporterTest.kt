@@ -11,6 +11,7 @@ import com.philkes.notallyx.data.imports.evernote.TaskStatus
 import com.philkes.notallyx.data.imports.evernote.mapToBaseNote
 import com.philkes.notallyx.data.model.FileAttachment
 import com.philkes.notallyx.data.model.ListItem
+import com.philkes.notallyx.data.model.SpanRepresentation
 import com.philkes.notallyx.data.model.Type
 import java.io.InputStream
 import org.assertj.core.api.Assertions.assertThat
@@ -143,6 +144,58 @@ class EvernoteImporterTest {
     }
 
     @Test
+    fun `mapToBaseNote tasks without text stay a list`() {
+        val actual =
+            createEvernoteNote(
+                    content =
+                        "<en-note><div><br/></div>$TASK_PLACEHOLDER<div><br/></div></en-note>",
+                    tasks = listOf(EvernoteTask("Task1", TaskStatus.OPEN, "A")),
+                )
+                .mapToBaseNote()
+
+        assertThat(actual.type).isEqualTo(Type.LIST)
+        assertThat(actual.body).isEmpty()
+        assertThat(actual.items)
+            .containsExactly(ListItem("Task1", false, false, 0, mutableListOf()))
+    }
+
+    @Test
+    fun `mapToBaseNote exported list without text stays a list`() {
+        val inputStream: InputStream =
+            javaClass.classLoader!!.getResourceAsStream("imports/evernote/Notebook.enex")!!
+        val actual =
+            importer
+                .parseExport(inputStream)!!
+                .notes
+                .single { it.title == "Pinned List" }
+                .mapToBaseNote()
+
+        assertThat(actual.type).isEqualTo(Type.LIST)
+        assertThat(actual.body).isBlank()
+        assertThat(actual.items).hasSize(7)
+    }
+
+    @Test
+    fun `mapToBaseNote tasks with text become a note with task lines`() {
+        val actual =
+            createEvernoteNote(
+                    content =
+                        "<en-note><div>Buy for <b>Sunday</b></div>$TASK_PLACEHOLDER</en-note>",
+                    tasks =
+                        listOf(
+                            EvernoteTask("Bread", TaskStatus.COMPLETED, "B"),
+                            EvernoteTask("Milk", TaskStatus.OPEN, "A"),
+                        ),
+                )
+                .mapToBaseNote()
+
+        assertThat(actual.type).isEqualTo(Type.NOTE)
+        assertThat(actual.body).isEqualTo("Buy for Sunday\n☐ Milk\n☑ Bread")
+        assertThat(actual.spans).containsExactly(SpanRepresentation(8, 14, bold = true))
+        assertThat(actual.items).isEmpty()
+    }
+
+    @Test
     fun `mapToBaseNote note with images`() {
         val actual =
             createEvernoteNote(
@@ -230,6 +283,13 @@ class EvernoteImporterTest {
             .has(Condition({ it.audios[0].name == "0.webm" }, ""))
     }
 }
+
+/** The block that Evernote puts into the content where the tasks are. */
+private const val TASK_PLACEHOLDER =
+    "<div style=\"--en-task-group:true; --en-id:d8d883f7;color:#868686\">" +
+        "<div style=\"padding:8px 38px;font-weight:600\">Content not supported</div>" +
+        "<div style=\"padding:2px 6px;margin: 1em\">This block is a placeholder for Tasks.</div>" +
+        "</div>"
 
 private fun String.containsAll(vararg s: String): Boolean {
     s.forEach { if (!contains(it)) return false }

@@ -30,6 +30,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.jsoup.Jsoup
 import org.simpleframework.xml.Serializer
 import org.simpleframework.xml.convert.AnnotationStrategy
 import org.simpleframework.xml.core.Persister
@@ -131,13 +132,19 @@ private const val EVERNOTE_NOTE_XML_TAG = "en-note"
  * the export, so that each attachment names the file that [EvernoteImporter] writes for it.
  */
 fun EvernoteNote.mapToBaseNote(firstResourceIndex: Int = 0): BaseNote {
-    val (body, spans) =
+    val (text, spans) =
         parseBodyAndSpansFromHtml(
-            content,
+            content.withoutTaskPlaceholder(),
             EVERNOTE_NOTE_XML_TAG,
             useInnermostRootTag = true,
             brTagsAsNewLine = false,
         )
+    val items = tasks.mapToListItem()
+    // A list shows only its items, so a note with tasks and text becomes a note with task lines.
+    val isList = items.isNotEmpty() && text.isBlank()
+    val body =
+        if (isList) text
+        else text + items.joinToString("") { "\n${if (it.checked) "☑" else "☐"} ${it.body}" }
     val staged = resources.mapIndexed { i, it -> it to it.stagedName(firstResourceIndex + i) }
     val images = staged.filter { it.first.mime.startsWith("image") }.toFileAttachments()
     val files =
@@ -149,7 +156,7 @@ fun EvernoteNote.mapToBaseNote(firstResourceIndex: Int = 0): BaseNote {
 
     return BaseNote(
         0L,
-        type = if (tasks.isEmpty()) Type.NOTE else Type.LIST,
+        type = if (isList) Type.LIST else Type.NOTE,
         folder = Folder.NOTES, // There is no archive in Evernote, also deleted notes are not
         // exported
         color = BaseNote.COLOR_DEFAULT, // TODO: possible in Evernote?
@@ -160,7 +167,7 @@ fun EvernoteNote.mapToBaseNote(firstResourceIndex: Int = 0): BaseNote {
         labels = tag.map { it.name },
         body = body,
         spans = spans,
-        items = tasks.mapToListItem(),
+        items = if (isList) items else listOf(),
         images = images,
         files = files,
         audios = audios,
@@ -168,6 +175,18 @@ fun EvernoteNote.mapToBaseNote(firstResourceIndex: Int = 0): BaseNote {
         NoteViewMode.EDIT,
         false,
     )
+}
+
+/**
+ * Removes the block that Evernote puts where the tasks are. It only says that tasks are not
+ * supported.
+ */
+private fun String.withoutTaskPlaceholder(): String {
+    if (!contains("--en-task-group")) return this
+    val document = Jsoup.parse(this)
+    document.outputSettings().prettyPrint(false)
+    document.getElementsByAttributeValueContaining("style", "--en-task-group").remove()
+    return document.outerHtml()
 }
 
 /**
