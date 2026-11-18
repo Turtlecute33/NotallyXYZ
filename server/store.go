@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -447,6 +448,10 @@ func (s *Store) PutBlob(acct, id string, size int64, r io.Reader, maxAccountByte
 
 // syncDir writes the entries of dir (a new file name) to the disk.
 func syncDir(dir string) error {
+	if runtime.GOOS == "windows" {
+		// Windows cannot sync a directory handle (access denied); NTFS logs the rename itself.
+		return nil
+	}
 	d, err := os.Open(dir)
 	if err != nil {
 		return err
