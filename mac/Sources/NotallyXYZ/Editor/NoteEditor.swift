@@ -40,14 +40,30 @@ struct NoteEditor: View {
             }
         }
         .onAppear {
-            model.store?.editorOpened(id)
-            note = model.note(id)
-            lastSaved = note
+            if let kept = model.unsaved.removeValue(forKey: id) {
+                // Opened again by onDisappear. The store still counts this editor as open.
+                note = kept
+                lastSaved = model.note(id)
+                flush()  // try again; shows the error if it fails again
+            } else {
+                model.store?.editorOpened(id)
+                note = model.note(id)
+                lastSaved = note
+            }
             mergeRemote()
         }
         .onDisappear {
             flush()
-            model.closeEditor(id)
+            // The store refused the text (too long, write error). Do not lose it: open the editor again.
+            if let note, !note.isEmpty, model.store != nil,
+               ListOps.toSave(note, since: lastSaved, autoSort: model.autoSortChecked) != nil {
+                model.unsaved[id] = note
+                DispatchQueue.main.async { [model, openWindow, id, inWindow] in
+                    if inWindow { openWindow(id: "note", value: id) } else if !model.path.contains(id) { model.path.append(id) }
+                }
+            } else {
+                model.closeEditor(id)
+            }
         }
         // Quit does not close the windows, so onDisappear does not run. Save the pending change here.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in flush() }

@@ -100,6 +100,9 @@ final class AppModel {
     var searchFocusRequest = 0
     /// New notes that are not saved yet (saved on the first content).
     var drafts: [String: Note] = [:]
+    /// Editor text that the store refused when the editor closed (too long, write error).
+    /// The editor opens again with it (NoteEditor), so that the text is not lost.
+    var unsaved: [String: Note] = [:]
     /// Why the notes on this Mac did not open at launch. A new setup deletes them.
     private(set) var startupError: String?
 
@@ -221,6 +224,7 @@ final class AppModel {
         reminderTask?.cancel()
         store = nil
         drafts = [:]
+        unsaved = [:]
         path = []
         Keychain.delete()
         wipeLocalData()
@@ -254,11 +258,10 @@ final class AppModel {
 
     func save(_ note: Note) {
         guard let store else { return }
-        if drafts[note.id] != nil {
-            guard !note.isEmpty else { drafts[note.id] = note; return }
-            drafts[note.id] = nil
-        }
+        if drafts[note.id] != nil, note.isEmpty { drafts[note.id] = note; return }
         store.save(note)
+        // A draft stays until the store has the note: the save can be refused (too long, write error).
+        if store.notes[note.id] != nil { drafts[note.id] = nil }
     }
 
     /// Like NotallyX: a note left empty is removed when the editor closes.
