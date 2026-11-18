@@ -107,6 +107,9 @@ class BaseNoteVH(
 
     fun bind(baseNote: BaseNote, imageRoot: File?, checked: Boolean, sortBy: NotesSortBy) {
         updateCheck(checked, baseNote.color)
+        // A search snippet shows all lines, so reset the limits of a recycled card
+        binding.Title.maxLines = preferences.maxTitleLines
+        binding.Note.maxLines = preferences.maxLines
 
         when (baseNote.type) {
             Type.NOTE -> bindNote(baseNote, searchKeyword)
