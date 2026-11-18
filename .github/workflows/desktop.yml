@@ -155,7 +155,13 @@ jobs:
           # One SHA256SUMS for all files: add the desktop files to the list of the Android and macOS files.
           # The new lines come first, because sort -u keeps the first line of each file name.
           cd out
-          gh release download "$TAG" -p SHA256SUMS -O "$RUNNER_TEMP/existing" 2>/dev/null || : > "$RUNNER_TEMP/existing"
+          # Stop if the existing list cannot be read, else the new list loses the Android and macOS lines.
+          assets=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          if grep -qxF SHA256SUMS <<< "$assets"; then
+            gh release download "$TAG" -p SHA256SUMS -O "$RUNNER_TEMP/existing"
+          else
+            : > "$RUNNER_TEMP/existing"
+          fi
           sha256sum * > "$RUNNER_TEMP/desktop"
           cat "$RUNNER_TEMP/desktop" "$RUNNER_TEMP/existing" | sort -k2 -u > SHA256SUMS
           cat SHA256SUMS
