@@ -5,10 +5,12 @@ import android.content.Intent.ACTION_CREATE_DOCUMENT
 import android.content.Intent.CATEGORY_OPENABLE
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
 import android.view.View.GONE
 import android.view.View.VISIBLE
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.os.BundleCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.philkes.notallyx.R
@@ -51,9 +53,18 @@ class EditTextPlainActivity : EditActivity(Type.NOTE) {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Store the original URI if this is a txt file being opened. Never write to this app's
-        // own files on behalf of another app.
+        // own files on behalf of another app. A recreated activity keeps the file of the last save.
         val data = intent.data
-        if (intent.action == Intent.ACTION_VIEW && data != null && !isFileOrOwnProviderUri(data)) {
+        if (savedInstanceState?.containsKey(EXTRA_ORIGINAL_FILE_URI) == true) {
+            originalFileUri.value =
+                BundleCompat.getParcelable(
+                    savedInstanceState,
+                    EXTRA_ORIGINAL_FILE_URI,
+                    Uri::class.java,
+                )
+        } else if (
+            intent.action == Intent.ACTION_VIEW && data != null && !isFileOrOwnProviderUri(data)
+        ) {
             originalFileUri.value = data
         }
         setupActivityResultLaunchers()
@@ -108,6 +119,11 @@ class EditTextPlainActivity : EditActivity(Type.NOTE) {
             putInt(EXTRA_SELECTION_START, binding.EnterBody.selectionStart)
             putInt(EXTRA_SELECTION_END, binding.EnterBody.selectionEnd)
             putInt(EXTRA_SAVED_TEXT_HASH, savedTextHash)
+            putParcelable(EXTRA_ORIGINAL_FILE_URI, originalFileUri.value)
+            // Nothing saves this text automatically. Keep it, if it is not too large for this
+            // state, for when Android stops the app in the background.
+            val text = notallyModel.body.toString()
+            if (text.length <= MAX_SAVED_TEXT_LENGTH) putString(EXTRA_TEXT, text)
         }
     }
 
@@ -184,6 +200,12 @@ class EditTextPlainActivity : EditActivity(Type.NOTE) {
             if (savedInstanceState?.containsKey(EXTRA_SAVED_TEXT_HASH) == true) {
                 savedInstanceState.getInt(EXTRA_SAVED_TEXT_HASH)
             } else notallyModel.body.toString().hashCode()
+        // After Android stopped the app, the text was read again from the file: use the edited one.
+        savedInstanceState?.getString(EXTRA_TEXT)?.let { text ->
+            if (text != notallyModel.body.toString()) {
+                notallyModel.body = Editable.Factory.getInstance().newEditable(text)
+            }
+        }
         updateEditText()
         savedInstanceState?.let {
             val selectionStart = it.getInt(EXTRA_SELECTION_START, -1)
@@ -283,5 +305,9 @@ class EditTextPlainActivity : EditActivity(Type.NOTE) {
         private const val EXTRA_SELECTION_START = "notallyx.intent.extra.EXTRA_SELECTION_START"
         private const val EXTRA_SELECTION_END = "notallyx.intent.extra.EXTRA_SELECTION_END"
         private const val EXTRA_SAVED_TEXT_HASH = "notallyx.intent.extra.EXTRA_SAVED_TEXT_HASH"
+        private const val EXTRA_ORIGINAL_FILE_URI = "notallyx.intent.extra.EXTRA_ORIGINAL_FILE_URI"
+        private const val EXTRA_TEXT = "notallyx.intent.extra.EXTRA_TEXT"
+        // About 100 KB: the saved state of an activity must stay small.
+        private const val MAX_SAVED_TEXT_LENGTH = 50_000
     }
 }
