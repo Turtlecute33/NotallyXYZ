@@ -152,7 +152,10 @@ class QuillpadImporter : ExternalImporter {
         tags?.forEach { labels.add(it.name) }
 
         val reminders =
-            this.reminders.map { Reminder(id = it.id, dateTime = Date(it.date), repetition = null) }
+            this.reminders.map {
+                // Quillpad stores the time in seconds, as the note dates.
+                Reminder(id = it.id, dateTime = Date(it.date.toMillis()), repetition = null)
+            }
 
         return BaseNote(
             id = 0L,

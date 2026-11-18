@@ -275,7 +275,7 @@ class QuillpadImporterTest {
         val actual = json.parseToBaseNote()
 
         assertThat(actual.title).isEqualTo("Reminder Note")
-        assertThat(actual.reminders).isEqualTo(listOf(Reminder(1, Date(1776012540), null)))
+        assertThat(actual.reminders).isEqualTo(listOf(Reminder(1, Date(1776012540000), null)))
     }
 
     companion object {
