@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -62,6 +63,9 @@ func envMiB(key string, def int64) (int64, error) {
 	n, err := strconv.ParseInt(env(key, strconv.FormatInt(def, 10)), 10, 64)
 	if err != nil || n < 0 {
 		return 0, fmt.Errorf("%s must be a number >= 0", key)
+	}
+	if n > math.MaxInt64>>20 {
+		return 0, fmt.Errorf("%s is too large", key)
 	}
 	return n << 20, nil
 }
