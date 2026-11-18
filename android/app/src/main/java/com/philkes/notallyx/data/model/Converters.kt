@@ -295,8 +295,9 @@ object Converters {
         return jsonObject
     }
 
+    /** Null (no repetition) if the repetition is not valid, for example an unknown unit. */
     @TypeConverter
-    fun jsonToRepetition(json: String): Repetition {
+    fun jsonToRepetition(json: String): Repetition? {
         return try {
             val jsonObject = JSONObject(json)
             val value = jsonObject.getInt("value").coerceAtLeast(1)
@@ -307,7 +308,7 @@ object Converters {
             ConverterErrorReporter.reportError(
                 ConverterException("Failed to convert JSON to Reminder Repetition", e)
             )
-            Repetition(1, RepetitionTimeUnit.DAYS)
+            null
         }
     }
 

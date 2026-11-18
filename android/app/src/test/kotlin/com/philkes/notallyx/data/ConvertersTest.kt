@@ -2,9 +2,17 @@ package com.philkes.notallyx.data
 
 import com.philkes.notallyx.data.model.Converters
 import com.philkes.notallyx.data.model.FileAttachment
+import com.philkes.notallyx.data.model.Repetition
+import com.philkes.notallyx.data.model.RepetitionTimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+/** Robolectric: the app runs with Android's org.json, which differs from the plain JVM one. */
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [35])
 class ConvertersTest {
 
     @Test
@@ -66,6 +74,26 @@ class ConvertersTest {
         assertEquals(
             FileAttachment("content://some/other/random/path/123435", "123435", "image/jpeg"),
             files[1],
+        )
+    }
+
+    @Test
+    fun `jsonToReminders unknown or broken repetition means no repetition`() {
+        val json =
+            """
+            [
+                {"id": 1, "dateTime": 1000, "repetition": {"value": 2, "unit": "FORTNIGHTS"}},
+                {"id": 2, "dateTime": 1000, "repetition": {"unit": "DAYS"}},
+                {"id": 3, "dateTime": 1000, "repetition": {"value": 2, "unit": "WEEKS"}}
+            ]
+            """
+                .trimIndent()
+
+        val reminders = Converters.jsonToReminders(json)
+
+        assertEquals(
+            listOf(null, null, Repetition(2, RepetitionTimeUnit.WEEKS)),
+            reminders.map { it.repetition },
         )
     }
 }
