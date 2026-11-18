@@ -83,12 +83,15 @@ fun getOptionalColumns(db: SQLiteDatabase, tableName: String): Array<String> {
 
     // 2. Map your targets to either the real column or a default value
     return existingColumns
-        .mapNotNull { colName ->
+        .flatMap { colName ->
             when {
-                // Special handling for your body substr logic
+                // Special handling for your body substr logic; a longer body is read in parts.
                 colName == "body" && existingColumns.contains("body") ->
-                    "SUBSTR(body, 1, $MAX_BODY_CHAR_LENGTH) AS body"
-                else -> colName
+                    listOf(
+                        "SUBSTR(body, 1, $MAX_BODY_CHAR_LENGTH) AS body",
+                        "LENGTH(body) AS bodyLength",
+                    )
+                else -> listOf(colName)
             }
         }
         .toTypedArray()
@@ -333,6 +336,17 @@ private fun Cursor.toLabel(): Label {
     return Label(value, order)
 }
 
+/** Reads the body in parts that fit in a cursor window. [length] is in characters, as SUBSTR. */
+private fun SQLiteDatabase.readLongBody(id: Long, length: Int) = buildString {
+    for (start in 1..length step MAX_BODY_CHAR_LENGTH) {
+        rawQuery(
+                "SELECT SUBSTR(body, ?, ?) FROM BaseNote WHERE id = ?",
+                arrayOf(start.toString(), MAX_BODY_CHAR_LENGTH.toString(), id.toString()),
+            )
+            .use { cursor -> if (cursor.moveToFirst()) append(cursor.getString(0)) }
+    }
+}
+
 private fun Cursor.toBaseNote(sourceDb: SQLiteDatabase): BaseNote {
     val typeTmp = getString(getColumnIndexOrThrow("type"))
     val folderTmp = getString(getColumnIndexOrThrow("folder"))
@@ -350,24 +364,29 @@ private fun Cursor.toBaseNote(sourceDb: SQLiteDatabase): BaseNote {
         }
     val labelsTmp = getString(getColumnIndexOrThrow("labels"))
     val id = getLong(getColumnIndexOrThrow("id"))
+    val bodyLengthIndex = getColumnIndex("bodyLength")
     val body =
-        try {
-            getString(getColumnIndexOrThrow("body"))
-        } catch (_: SQLiteBlobTooBigException) {
-            // Fall back to truncated read from source DB to avoid cursor window overflow
-            val cursor =
-                sourceDb.rawQuery(
-                    "SELECT substr(body, 1, ?) AS body FROM BaseNote WHERE id = ?",
-                    arrayOf(
-                        com.philkes.notallyx.data.dao.BaseNoteDao.Companion.MAX_BODY_CHAR_LENGTH
-                            .toString(),
-                        id.toString(),
-                    ),
-                )
-            val value = if (cursor.moveToFirst()) cursor.getString(0) else ""
-            cursor.close()
-            value
-        }
+        if (bodyLengthIndex != -1 && getInt(bodyLengthIndex) > MAX_BODY_CHAR_LENGTH) {
+            // The import splits a long body into several notes: read all of it.
+            sourceDb.readLongBody(id, getInt(bodyLengthIndex))
+        } else
+            try {
+                getString(getColumnIndexOrThrow("body"))
+            } catch (_: SQLiteBlobTooBigException) {
+                // Fall back to truncated read from source DB to avoid cursor window overflow
+                val cursor =
+                    sourceDb.rawQuery(
+                        "SELECT substr(body, 1, ?) AS body FROM BaseNote WHERE id = ?",
+                        arrayOf(
+                            com.philkes.notallyx.data.dao.BaseNoteDao.Companion.MAX_BODY_CHAR_LENGTH
+                                .toString(),
+                            id.toString(),
+                        ),
+                    )
+                val value = if (cursor.moveToFirst()) cursor.getString(0) else ""
+                cursor.close()
+                value
+            }
     val spansTmp = getString(getColumnIndexOrThrow("spans"))
     val itemsTmp = getString(getColumnIndexOrThrow("items"))
 
@@ -392,7 +411,8 @@ private fun Cursor.toBaseNote(sourceDb: SQLiteDatabase): BaseNote {
     val folder = Folder.valueOfOrDefault(folderTmp)
 
     val labels = Converters.jsonToLabels(labelsTmp)
-    val spans = Converters.jsonToSpans(spansTmp).filter { it.isInsideBounds() }
+    val spans =
+        Converters.jsonToSpans(spansTmp).filter { it.isInsideBounds() || it.end <= body.length }
     val items = Converters.jsonToItems(itemsTmp)
 
     // Attachment names become file paths: drop names that could point outside the folders.

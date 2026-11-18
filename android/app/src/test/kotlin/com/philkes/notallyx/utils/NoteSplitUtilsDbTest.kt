@@ -1,5 +1,6 @@
 package com.philkes.notallyx.utils
 
+import android.app.Application
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -16,6 +17,8 @@ import com.philkes.notallyx.data.model.Reminder
 import com.philkes.notallyx.data.model.SpanRepresentation
 import com.philkes.notallyx.data.model.Type
 import com.philkes.notallyx.data.model.createNoteUrl
+import com.philkes.notallyx.utils.backup.readBaseNotes
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -111,5 +114,29 @@ class NoteSplitUtilsDbTest {
 
         // Returned firstId should correspond to the first part's id (the one with link)
         assertEquals(firstPart.id, firstId)
+    }
+
+    @Test
+    fun backupImportReadsTheWholeLongBody() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val file = File(context.cacheDir, "long-body-backup.db")
+        val body = "x".repeat(MAX_BODY_CHAR_LENGTH) + "the end"
+        val spans = listOf(SpanRepresentation(MAX_BODY_CHAR_LENGTH, body.length, bold = true))
+        val backup =
+            Room.databaseBuilder(context, NotallyDatabase::class.java, file.path)
+                .allowMainThreadQueries()
+                .build()
+        try {
+            runBlocking { backup.getBaseNoteDao().insert(base(body, spans)) }
+            backup.close()
+
+            val note = context.readBaseNotes(file).baseNotes.single()
+
+            assertEquals(body, note.body)
+            assertEquals(spans, note.spans)
+        } finally {
+            backup.close()
+            context.deleteDatabase(file.path)
+        }
     }
 }
