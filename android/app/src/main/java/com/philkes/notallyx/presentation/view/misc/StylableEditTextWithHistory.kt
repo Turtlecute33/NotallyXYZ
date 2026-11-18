@@ -180,14 +180,7 @@ class StylableEditTextWithHistory(context: Context, attrs: AttributeSet) :
         position: Int = selectionStart,
         pushChange: Boolean = true,
     ) {
-        val actualPosition =
-            if (position < 0 || !hasFocus()) {
-                text?.lastIndex?.let {
-                    if (it > -1) {
-                        it
-                    } else 0
-                } ?: 0
-            } else position
+        val actualPosition = if (position < 0 || !hasFocus()) text?.length ?: 0 else position
 
         val callback: (text: Editable) -> Unit = { text ->
             text.insert(actualPosition, spanText)
