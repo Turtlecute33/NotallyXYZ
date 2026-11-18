@@ -115,7 +115,7 @@ class NotesImporter(private val app: Application, private val database: NotallyD
                     } catch (e: Exception) {
                         Log.e(
                             "Import",
-                            "Failed to import note ${note.title} (id: ${note.id}), skipping it as corrupted",
+                            "Failed to import note (id: ${note.id}), skipping it as corrupted",
                             e,
                         )
                         corruptedCount++

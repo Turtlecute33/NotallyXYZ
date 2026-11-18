@@ -76,12 +76,9 @@ class GoogleKeepImporter : ExternalImporter {
                             val relativePath = file.parentFile!!.toRelativeString(dataFolder)
                             file.readText().parseToBaseNote(relativePath)
                         } catch (e: Exception) {
-                            app.log(
-                                TAG,
-                                msg =
-                                    "Could not parse BaseNote from JSON in file '${file.absolutePath}'",
-                                throwable = e,
-                            )
+                            // No file name (Keep names it after the note title) and no message
+                            // (it can quote the JSON): no note content in the log file.
+                            app.log(TAG, msg = "Could not parse a note: ${e.javaClass.simpleName}")
                             null
                         }
                     progress?.value =

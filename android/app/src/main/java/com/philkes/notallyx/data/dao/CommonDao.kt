@@ -128,7 +128,7 @@ abstract class CommonDao(private val database: NotallyDatabase) {
                 } catch (e: Exception) {
                     Log.e(
                         "Import",
-                        "Failed to import note ${original.title} (id: ${original.id}), skipping it as corrupted",
+                        "Failed to import note (id: ${original.id}), skipping it as corrupted",
                         e,
                     )
                     corrupted++

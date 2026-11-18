@@ -58,11 +58,11 @@ class PlainTextImporter : ExternalImporter {
                             try {
                                 parseBodyAndSpansFromMarkdown(content)
                             } catch (e: Exception) {
+                                // No note content in the log file.
                                 app.log(
                                     TAG,
                                     msg =
-                                        "Parsing from Markdown content failed, will import as raw text. Markdown Content:\n$content",
-                                    throwable = e,
+                                        "Parsing from Markdown failed, will import as raw text: ${e.javaClass.simpleName}",
                                 )
                                 // Fallback to plain text if parser fails
                                 Pair(content, emptyList())
