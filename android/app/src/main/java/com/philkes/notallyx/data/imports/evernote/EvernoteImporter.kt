@@ -57,14 +57,15 @@ class EvernoteImporter : ExternalImporter {
         progress?.value = ImportProgress(total = total)
         var counter = 1
         try {
+            var firstResourceIndex = 0
             val notes =
                 evernoteExport.notes.map {
-                    val note = it.mapToBaseNote()
+                    val note = it.mapToBaseNote(firstResourceIndex)
+                    firstResourceIndex += it.resources.size
                     progress?.value = ImportProgress(current = counter++, total = total)
                     note
                 }
-            val resources =
-                evernoteExport.notes.flatMap { it.resources }.distinctBy { it.attributes?.fileName }
+            val resources = evernoteExport.notes.flatMap { it.resources }
             saveResourcesToFiles(app, resources, destination, progress)
             return Pair(notes, destination)
         } catch (e: Exception) {
@@ -87,10 +88,10 @@ class EvernoteImporter : ExternalImporter {
     ) {
         progress?.value = ImportProgress(total = resources.size, stage = ImportStage.EXTRACT_FILES)
         resources.forEachIndexed { idx, it ->
-            val name = it.attributes!!.fileName
+            val name = it.stagedName(idx)
             val file = File(dir, name)
             try {
-                // A file name from the export must not write outside the import folder.
+                // Never write outside the import folder.
                 if (!dir.containsFile(name)) throw IllegalArgumentException("Unsafe file name")
                 val data = Base64.decode(it.data!!.content.trimStart(), Base64.DEFAULT)
                 file.write(data)
@@ -125,7 +126,11 @@ class EvernoteImporter : ExternalImporter {
 private const val EVERNOTE_DATE_FORMAT = "yyyyMMdd'T'HHmmss'Z'"
 private const val EVERNOTE_NOTE_XML_TAG = "en-note"
 
-fun EvernoteNote.mapToBaseNote(): BaseNote {
+/**
+ * [firstResourceIndex] is the position of the first resource of this note among all resources of
+ * the export, so that each attachment names the file that [EvernoteImporter] writes for it.
+ */
+fun EvernoteNote.mapToBaseNote(firstResourceIndex: Int = 0): BaseNote {
     val (body, spans) =
         parseBodyAndSpansFromHtml(
             content,
@@ -133,12 +138,14 @@ fun EvernoteNote.mapToBaseNote(): BaseNote {
             useInnermostRootTag = true,
             brTagsAsNewLine = false,
         )
-    val images = resources.filterByMimeTypePrefix("image").toFileAttachments()
-    val files = resources.filterByExcludedMimeTypePrefixes("image", "audio").toFileAttachments()
+    val staged = resources.mapIndexed { i, it -> it to it.stagedName(firstResourceIndex + i) }
+    val images = staged.filter { it.first.mime.startsWith("image") }.toFileAttachments()
+    val files =
+        staged.filter { !it.first.mime.startsWithAnyOf("image", "audio") }.toFileAttachments()
     val audios =
-        resources.filterByMimeTypePrefix("audio").map {
-            Audio(it.attributes!!.fileName, -1, System.currentTimeMillis())
-        }
+        staged
+            .filter { it.first.mime.startsWith("audio") }
+            .map { (_, name) -> Audio(name, -1, System.currentTimeMillis()) }
 
     return BaseNote(
         0L,
@@ -163,20 +170,22 @@ fun EvernoteNote.mapToBaseNote(): BaseNote {
     )
 }
 
-fun Collection<EvernoteResource>.filterByMimeTypePrefix(
-    mimeTypePrefix: String
-): List<EvernoteResource> {
-    return filter { it.mime.startsWith(mimeTypePrefix) }
+/**
+ * The name of the file that holds the resource at [index] during the import. Many resources have
+ * the same file name (for example "image.png"), so each one gets its own name. The app shows the
+ * file name from the export.
+ */
+private fun EvernoteResource.stagedName(index: Int): String {
+    val extension = attributes?.fileName.orEmpty().substringAfterLast('.', "")
+    return if (extension.matches(SAFE_EXTENSION)) "$index.$extension" else "$index"
 }
 
-fun Collection<EvernoteResource>.filterByExcludedMimeTypePrefixes(
-    vararg mimeTypePrefix: String
-): List<EvernoteResource> {
-    return filter { !it.mime.startsWithAnyOf(*mimeTypePrefix) }
-}
+private val SAFE_EXTENSION = Regex("[A-Za-z0-9]{1,10}")
 
-fun Collection<EvernoteResource>.toFileAttachments(): List<FileAttachment> {
-    return map { FileAttachment(it.attributes!!.fileName, it.attributes.fileName, it.mime) }
+private fun List<Pair<EvernoteResource, String>>.toFileAttachments(): List<FileAttachment> {
+    return map { (resource, name) ->
+        FileAttachment(name, resource.attributes?.fileName.orEmpty(), resource.mime)
+    }
 }
 
 fun Collection<EvernoteTask>.mapToListItem(): List<ListItem> {

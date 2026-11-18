@@ -168,7 +168,7 @@ class EvernoteImporterTest {
             .extracting("title", "images", "files")
             .containsExactly(
                 "Image Note",
-                listOf(FileAttachment("image.jpg", "image.jpg", "image/jpeg")),
+                listOf(FileAttachment("0.jpg", "image.jpg", "image/jpeg")),
                 listOf<FileAttachment>(),
             )
     }
@@ -199,7 +199,7 @@ class EvernoteImporterTest {
             .extracting("title", "files")
             .containsExactly(
                 "File Note",
-                listOf(FileAttachment("document.pdf", "document.pdf", "application/pdf")),
+                listOf(FileAttachment("0.pdf", "document.pdf", "application/pdf")),
             )
     }
 
@@ -227,7 +227,7 @@ class EvernoteImporterTest {
 
         assertThat(actual)
             .has(Condition({ it.title == "Audio Note" }, "Title"))
-            .has(Condition({ it.audios[0].name == "audio.webm" }, ""))
+            .has(Condition({ it.audios[0].name == "0.webm" }, ""))
     }
 }
 

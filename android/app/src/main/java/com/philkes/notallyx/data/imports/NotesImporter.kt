@@ -148,7 +148,8 @@ class NotesImporter(private val app: Application, private val database: NotallyD
                 else app.importFile(uri, file.mimeType)
             fileAttachment?.let {
                 file.localName = fileAttachment.localName
-                file.originalName = fileAttachment.originalName
+                // Keep the name that the import gives: the file in the folder can have another one.
+                file.originalName = file.originalName.ifBlank { fileAttachment.originalName }
                 file.mimeType = fileAttachment.mimeType
             }
             error?.let { Log.e(TAG, "Failed to import: $error") }

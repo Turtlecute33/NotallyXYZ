@@ -12,8 +12,12 @@ import com.philkes.notallyx.data.imports.google.GoogleKeepImporterTest.Companion
 import com.philkes.notallyx.data.model.FileAttachment
 import com.philkes.notallyx.utils.decodeToBitmap
 import com.philkes.notallyx.utils.getCurrentMediaRoot
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
+import java.util.Base64
+import javax.imageio.ImageIO
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Condition
@@ -104,7 +108,12 @@ class NotesImporterTest {
         assertThat(File(tempFolder, escape).canonicalFile).doesNotExist()
         val note = database.getBaseNoteDao().getAll().single()
         assertThat(note.body).isEqualTo("Text")
-        assertThat(note.files).isEmpty()
+        // The name from the export is only shown; the file has its own name in the Files folder.
+        val file = note.files.single()
+        assertThat(file.originalName).isEqualTo(escape)
+        val filesFolder = File(application.getCurrentMediaRoot(), "Files")
+        assertThat(filesFolder.containsFile(file.localName)).isTrue()
+        assertThat(File(filesFolder, file.localName)).hasContent("hello")
     }
 
     @Test
@@ -154,7 +163,37 @@ class NotesImporterTest {
             .containsExactlyInAnyOrder("a.png", "b.png", "c.png", "a.png", "b.png")
     }
 
-    private fun enexNote(title: String, text: String, fileName: String) =
+    @Test
+    fun `import keeps different Evernote images that share a file name`() {
+        fun png(width: Int): String {
+            val out = ByteArrayOutputStream()
+            ImageIO.write(BufferedImage(width, 1, BufferedImage.TYPE_INT_RGB), "png", out)
+            return Base64.getEncoder().encodeToString(out.toByteArray())
+        }
+        val enex =
+            enexFile(
+                enexNote("First", "One", "image.png", "image/png", png(1)),
+                enexNote("Second", "Two", "image.png", "image/png", png(2)),
+            )
+        runBlocking {
+            NotesImporter(application, database).import(enex.toUri(), ImportSource.EVERNOTE)
+        }
+        val images =
+            database.getBaseNoteDao().getAll().sortedBy { it.title }.map { it.images.single() }
+        assertThat(images.map { it.originalName }).containsExactly("image.png", "image.png")
+        val files = images.map { File(application.getCurrentMediaRoot(), "Images/${it.localName}") }
+        assertThat(files).allMatch { it.exists() }
+        assertThat(files[0]).isNotEqualTo(files[1])
+        assertThat(files[0].readBytes()).isNotEqualTo(files[1].readBytes())
+    }
+
+    private fun enexNote(
+        title: String,
+        text: String,
+        fileName: String,
+        mime: String = "text/plain",
+        data: String = "aGVsbG8=",
+    ) =
         """
         <note>
           <title>$title</title>
@@ -162,8 +201,8 @@ class NotesImporterTest {
           <created>20241024T072339Z</created>
           <updated>20241024T072339Z</updated>
           <resource>
-            <data encoding="base64">aGVsbG8=</data>
-            <mime>text/plain</mime>
+            <data encoding="base64">$data</data>
+            <mime>$mime</mime>
             <resource-attributes><file-name>$fileName</file-name></resource-attributes>
           </resource>
         </note>
