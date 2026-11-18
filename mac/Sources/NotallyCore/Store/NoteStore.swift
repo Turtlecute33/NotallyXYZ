@@ -80,9 +80,20 @@ public final class NoteStore {
             return
         }
         guard write(kind: "note", id: note.id, try sealNote(note)) else { return }
+        let old = notes[note.id]
         notes[note.id] = note
-        for name in note.labels where labels[keys.labelID(name)] == nil { createLabel(name) }
+        for name in note.labels where labels[keys.labelID(name)] == nil {
+            // A deleted label is not created again for a note that already had it (a deletion on another
+            // device). The note keeps the name, as on Android. A label that this save adds is created.
+            if old?.labels.contains(name) == true && isDeletedLabel(name) { continue }
+            createLabel(name)
+        }
         changed()
+    }
+
+    private func isDeletedLabel(_ value: String) -> Bool {
+        let id = keys.labelID(value.trimmingCharacters(in: .whitespacesAndNewlines))
+        return (try? local.record(kind: "label", id: id))?.deleted == true
     }
 
     /// Stores a local change. Memory changes only after this returns true; else the error is shown.

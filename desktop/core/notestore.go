@@ -210,6 +210,13 @@ func (s *NoteStore) saveLocked(n Note) (bool, error) {
 			return err
 		}
 		for _, name := range n.Labels {
+			// A deleted label is not created again for a note that already had it (a deletion on another
+			// device). The note keeps the name, as on Android. A label that this save adds is created.
+			if ok && slices.Contains(old.Labels, name) {
+				if r := tx.Record("label", s.Keys.LabelID(strings.TrimSpace(name))); r != nil && r.Deleted {
+					continue
+				}
+			}
 			if err := s.createLabel(tx, name, &ops); err != nil {
 				return err
 			}

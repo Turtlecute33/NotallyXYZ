@@ -244,6 +244,38 @@ extension SyncTests {
         }
     }
 
+    @Test func saveDoesNotBringBackLabelDeletedElsewhere() async throws {
+        try await withAccount { keys in
+            let a = try client(keys), b = try client(keys)
+            defer { [a.dir, b.dir].forEach { try? FileManager.default.removeItem(at: $0) } }
+            a.store.createLabel("Work")
+            var note = a.store.create(.note, labels: ["Work"])
+            note.title = "Plan"
+            a.store.save(note)
+            try await sync(a)
+            try await sync(b)
+
+            b.store.editorOpened(note.id)
+            a.store.deleteLabel("Work")
+            try await sync(a)
+            try await sync(b)  // the label deletion applies; the note change waits for the editor
+            var edited = try #require(b.store.notes[note.id])
+            edited.body = "typed on B"
+            b.store.save(edited)  // the editor still shows the label
+            b.store.editorClosed(note.id)
+            try await sync(b)
+            try await sync(a)
+            #expect(a.store.labels.isEmpty && b.store.labels.isEmpty)
+            #expect(a.store.notes[note.id]?.body == "typed on B")
+
+            // A label that the user adds to a note is created again.
+            var other = b.store.create(.note, labels: ["Work"])
+            other.title = "New"
+            b.store.save(other)
+            #expect(b.store.sortedLabels.map(\.value) == ["Work"])
+        }
+    }
+
     @Test func blobTooLargeForServerIsKept() async throws {
         try await withAccount(server: ["MAX_BLOB_MB": "1"]) { keys in
             let a = try client(keys)

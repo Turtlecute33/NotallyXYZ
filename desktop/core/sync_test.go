@@ -327,6 +327,43 @@ func TestDeletionBeforeFirstPushIsNotSent(t *testing.T) {
 	})
 }
 
+func TestSaveDoesNotBringBackLabelDeletedElsewhere(t *testing.T) {
+	server, keys := account(t)
+	a, b := newDevice(t, server, keys), newDevice(t, server, keys)
+	note := NewNote(TypeNote)
+	note.Title, note.Labels = "Plan", []string{"Work"}
+	_ = a.store.Save(note)
+	a.sync(t)
+	b.sync(t)
+
+	b.store.EditorOpened(note.ID)
+	_ = a.store.DeleteLabel("Work")
+	a.sync(t)
+	b.sync(t) // the label deletion applies; the note change waits for the editor
+	edited, _ := b.store.Note(note.ID)
+	edited.Body = "typed on B"
+	if err := b.store.Save(edited); err != nil { // the editor still shows the label
+		t.Fatal(err)
+	}
+	b.store.EditorClosed(note.ID)
+	b.sync(t)
+	a.sync(t)
+	if len(a.store.Labels()) != 0 || len(b.store.Labels()) != 0 {
+		t.Fatalf("deleted label came back: %+v %+v", a.store.Labels(), b.store.Labels())
+	}
+	if n, _ := a.store.Note(note.ID); n.Body != "typed on B" {
+		t.Fatalf("edit lost: %+v", n)
+	}
+
+	// A label that the user adds to a note is created again.
+	other := NewNote(TypeNote)
+	other.Title, other.Labels = "New", []string{"Work"}
+	_ = b.store.Save(other)
+	if l := b.store.Labels(); len(l) != 1 || l[0].Value != "Work" {
+		t.Fatalf("added label not created: %+v", l)
+	}
+}
+
 // The server refuses a whole push for one record over 8 MiB: Save refuses such a note, and push
 // leaves one that is already stored and sends the others.
 func TestTooLargeNote(t *testing.T) {
