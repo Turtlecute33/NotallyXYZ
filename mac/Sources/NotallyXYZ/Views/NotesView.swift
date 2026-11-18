@@ -173,7 +173,9 @@ struct NotesView: View {
             case .title:
                 let order = a.title.localizedCaseInsensitiveCompare(b.title)
                 result = order == .orderedSame ? a.id < b.id : order == .orderedAscending
-            case .color: result = a.color == b.color ? a.timestamp < b.timestamp : a.color < b.color
+            case .color:
+                result = a.color != b.color ? a.color < b.color
+                    : a.timestamp != b.timestamp ? a.timestamp < b.timestamp : a.id < b.id
             }
             return asc ? result : !result
         }
