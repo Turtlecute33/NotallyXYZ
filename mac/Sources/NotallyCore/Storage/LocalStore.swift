@@ -213,10 +213,12 @@ final class LocalStore {
         try db.run("UPDATE blobs SET uploaded=1 WHERE id=?", [.text(id)])
     }
 
-    /// Removes local blob files that no note references and that are already on the server.
-    func pruneBlobs(keeping referenced: Set<String>) throws {
+    /// Removes local blob files that no note references and that are already on the server, or that
+    /// are older than one hour and were never uploaded (like desktop). A new import is not removed.
+    func pruneBlobs(keeping referenced: Set<String>, now: Date = Date()) throws {
         var removable: [String] = []
-        try db.query("SELECT id FROM blobs WHERE uploaded=1") { row in
+        let hourAgo = Int64(now.timeIntervalSince1970) - 3600
+        try db.query("SELECT id FROM blobs WHERE uploaded=1 OR created<?", [.int(hourAgo)]) { row in
             if let id = row.text(0), !referenced.contains(id) { removable.append(id) }
         }
         for id in removable {

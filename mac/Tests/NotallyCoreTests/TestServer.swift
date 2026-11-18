@@ -10,7 +10,7 @@ final class TestServer {
     let dataDir: URL
     private let process = Process()
 
-    init() throws {
+    init(environment: [String: String] = [:]) throws {
         dataDir = FileManager.default.temporaryDirectory.appendingPathComponent("nxyz-server-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
         process.executableURL = URL(fileURLWithPath: Self.binary)
@@ -18,7 +18,7 @@ final class TestServer {
             "DATA_DIR": dataDir.path,
             "LISTEN_ADDR": "127.0.0.1:8788",
             "SIGNUP_TOKEN": Self.invite,
-        ]
+        ].merging(environment) { $1 }
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         try process.run()

@@ -5,8 +5,8 @@ import Testing
 
 /// Rules agreed with the Android client (echo suppression, open editors, first-pull linking).
 extension SyncTests {
-    func withAccount(_ body: (SyncKeys) async throws -> Void) async throws {
-        let server = try TestServer()
+    func withAccount(server environment: [String: String] = [:], _ body: (SyncKeys) async throws -> Void) async throws {
+        let server = try TestServer(environment: environment)
         defer { server.stop() }
         try await server.waitUntilReady()
         let keys = SyncKeys.generate()
@@ -241,6 +241,39 @@ extension SyncTests {
             try await sync(a)
             #expect(a.store.notes.count == 1)
             #expect(a.store.notes[note.id]?.labels == ["Home"])
+        }
+    }
+
+    @Test func blobTooLargeForServerIsKept() async throws {
+        try await withAccount(server: ["MAX_BLOB_MB": "1"]) { keys in
+            let a = try client(keys)
+            defer { try? FileManager.default.removeItem(at: a.dir) }
+            let file = a.dir.appendingPathComponent("big.bin")
+            try Data(count: 2 << 20).write(to: file)
+            // Imported, but no note uses it yet: the next file of the same import is still being sealed.
+            let big = try await a.store.importAttachment(from: file, mimeType: "application/octet-stream")
+            let id = keys.blobID(big.localName)
+            var other = a.store.create(.note)
+            other.title = "Typed meanwhile"
+            a.store.save(other)
+            try await sync(a)
+            #expect(a.store.hasAttachment(big.localName))
+            #expect(try a.store.local.pendingBlobs() == [id])
+
+            var note = a.store.create(.note)
+            note.files = [big]
+            a.store.save(note)
+            try await sync(a)
+            #expect(a.store.hasAttachment(big.localName))  // stays on this Mac only, and pending
+            #expect(try a.store.local.pendingBlobs() == [id])
+            #expect(try await a.engine.api.missingBlobs([id]) == [id])
+
+            // When no note uses it any more, it is removed after one hour.
+            a.store.deleteForever(note.id)
+            try a.store.local.pruneBlobs(keeping: a.store.referencedBlobIDs)
+            #expect(a.store.hasAttachment(big.localName))
+            try a.store.local.pruneBlobs(keeping: a.store.referencedBlobIDs, now: Date() + 7200)
+            #expect(!a.store.hasAttachment(big.localName))
         }
     }
 }

@@ -148,9 +148,10 @@ public final class SyncEngine {
                 do {
                     try await api.putBlob(id: id, file: store.local.blobURL(id))
                 } catch APIError.http(413, _) {
-                    // Larger than the server allows: stays on this device only. While a note uses it,
-                    // it stays pending and the next push tries again. When no note uses it, prune removes it.
-                    if store.referencedBlobIDs.contains(id) { continue }
+                    // Larger than the server allows: stays on this device only, and pending, so that the
+                    // next push tries again. It may be a new import that no note uses yet. When no note
+                    // uses it for an hour, prune removes it.
+                    continue
                 }
             }
             try store.local.markUploaded(id)
