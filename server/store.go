@@ -163,9 +163,17 @@ func (s *Store) CreateAccount(tokenHash []byte, maxAccounts int) (bool, error) {
 }
 
 // DeleteAccount removes the account, its records and its blobs.
+// It does nothing if the token no longer maps to acct: a request that waited must not delete
+// a new account of the same token.
 func (s *Store) DeleteAccount(tokenHash []byte, acct string) error {
+	stale := false
 	err := s.db.Update(func(tx *bolt.Tx) error {
-		if err := tx.Bucket(bucketAccounts).Delete(tokenHash); err != nil {
+		accounts := tx.Bucket(bucketAccounts)
+		if hex.EncodeToString(accounts.Get(tokenHash)) != acct {
+			stale = true
+			return nil
+		}
+		if err := accounts.Delete(tokenHash); err != nil {
 			return err
 		}
 		err := tx.DeleteBucket(accountBucketName(acct))
@@ -174,7 +182,7 @@ func (s *Store) DeleteAccount(tokenHash []byte, acct string) error {
 		}
 		return err
 	})
-	if err != nil {
+	if err != nil || stale {
 		return err
 	}
 	s.notify(acct)

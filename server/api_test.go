@@ -459,6 +459,34 @@ func TestUploadTempSweep(t *testing.T) {
 	}
 }
 
+// A DELETE /v1/account that authenticated before an earlier DELETE ended must not delete
+// the new account that the same token created in between.
+func TestStaleAccountDelete(t *testing.T) {
+	dir := t.TempDir()
+	s, err := openStore(filepath.Join(dir, "db"), filepath.Join(dir, "blobs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	hash := make([]byte, 32)
+	s.CreateAccount(hash, 0)
+	old, _ := s.Lookup(hash)
+	if err := s.DeleteAccount(hash, old); err != nil {
+		t.Fatal(err)
+	}
+	s.CreateAccount(hash, 0)
+	acct, _ := s.Lookup(hash)
+	if err := s.DeleteAccount(hash, old); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := s.Lookup(hash); !ok || got != acct {
+		t.Fatalf("the new account was deleted: %q %v", got, ok)
+	}
+	if _, err := s.Info(acct); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // GET repairs a lost blob file, but a DELETE and a new PUT of the same id can run between its
 // failed open and the repair. Then the repair must keep the new blob.
 func TestLostBlobRepairKeepsNewUpload(t *testing.T) {
