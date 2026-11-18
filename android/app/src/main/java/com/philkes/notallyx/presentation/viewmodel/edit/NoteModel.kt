@@ -435,8 +435,9 @@ open class NoteModel(
 
             when (span) {
                 is StyleSpan -> {
-                    representation.bold = span.style == Typeface.BOLD
-                    representation.italic = span.style == Typeface.ITALIC
+                    // BOLD_ITALIC has both bits.
+                    representation.bold = (span.style and Typeface.BOLD) != 0
+                    representation.italic = (span.style and Typeface.ITALIC) != 0
                 }
 
                 is URLSpan -> {
